@@ -8,12 +8,13 @@ import type { Hex, LenderId } from '@once/domain';
 const hex32 = z.string().regex(/^0x[0-9a-f]{64}$/);
 
 const EnvSchema = z.object({
-  PORT: z.coerce.number().int().positive().default(3001),
+  PORT: z.coerce.number().int().positive().default(3011),
   LTV_BPS: z.coerce.bigint().default(8000n),
   ISSUER_SECRET_KEY: hex32.default(`0x${'5e'.repeat(32)}`),
   ISSUER_ID: hex32.default(`0x${'11'.repeat(32)}`),
   SUPPLIER_SECRET_KEY: hex32.default(`0x${'7c'.repeat(32)}`),
-  WEB_ORIGIN: z.string().default('http://localhost:3000'),
+  /** 콤마로 여러 개를 줄 수 있다. 로컬 데모에서 포트가 자주 바뀐다. */
+  WEB_ORIGIN: z.string().default('http://localhost:3000,http://localhost:3040'),
 });
 
 export type OnceEnv = z.infer<typeof EnvSchema>;

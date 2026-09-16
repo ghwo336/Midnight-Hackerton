@@ -64,8 +64,8 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         lender,
         amount: loan.amount.toString(),
         commitment: loan.commitment,
-        block: this.sim.currentBlock,
-        txHash: `0x${loan.nullifier.slice(2, 18)}${'0'.repeat(48)}` as Hex,
+        block: loan.block,
+        txHash: loan.txHash ?? (`0x${'0'.repeat(64)}` as Hex),
       });
     }
     return out;

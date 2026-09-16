@@ -9,7 +9,7 @@ async function bootstrap(): Promise<void> {
   const env = loadEnv();
   const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
 
-  app.enableCors({ origin: env.WEB_ORIGIN });
+  app.enableCors({ origin: env.WEB_ORIGIN.split(',').map((value) => value.trim()) });
   app.setGlobalPrefix('api');
   app.useGlobalFilters(new DomainExceptionFilter());
   app.useGlobalInterceptors(new MaskingLoggingInterceptor());

@@ -44,6 +44,8 @@ export class OnceContractSimulator {
   private txCounter = 0;
   /** 제출 직렬화. 실제 체인이 블록 안에서 트랜잭션을 순서대로 적용하는 것을 모델링한다. */
   private queue: Promise<unknown> = Promise.resolve();
+  /** nullifier → 확정 영수증. 패널과 원장이 같은 tx를 보여야 한다. */
+  private readonly receipts = new Map<Hex, { txHash: Hex; block: number }>();
 
   private constructor(
     contract: Contract<OncePrivateState>,
@@ -169,11 +171,13 @@ export class OnceContractSimulator {
       ),
     );
     const record = view.loans.lookup(hexToBytes(nullifier));
+    const receipt = { txHash: this.nextTxHash(), block: this.blockHeight };
+    this.receipts.set(nullifier, receipt);
     return {
       nullifier,
       commitment: bytesToHex(record.commitment),
-      txHash: this.nextTxHash(),
-      block: this.blockHeight,
+      txHash: receipt.txHash,
+      block: receipt.block,
     };
   }
 
@@ -187,11 +191,15 @@ export class OnceContractSimulator {
     const view = this.ledgerView;
     const loans: OnChainLoan[] = [];
     for (const [nullifier, record] of view.loans) {
+      const key = bytesToHex(nullifier);
+      const receipt = this.receipts.get(key);
       loans.push({
-        nullifier: bytesToHex(nullifier),
+        nullifier: key,
         lender: bytesToHex(record.lender),
         amount: record.amount,
         commitment: bytesToHex(record.commitment),
+        txHash: receipt?.txHash ?? null,
+        block: receipt?.block ?? this.blockHeight,
       });
     }
     const vault = new Map<Hex, bigint>();

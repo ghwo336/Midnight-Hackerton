@@ -30,6 +30,9 @@ export interface OnChainLoan {
   readonly lender: Hex;
   readonly amount: bigint;
   readonly commitment: Hex;
+  /** 확정 트랜잭션. 로컬 실행에서는 시뮬레이터가 발급한다. */
+  readonly txHash: Hex | null;
+  readonly block: number;
 }
 
 export interface LedgerSnapshot {
