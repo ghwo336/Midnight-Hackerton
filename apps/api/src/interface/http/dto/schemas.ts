@@ -1,0 +1,25 @@
+import { z } from 'zod';
+
+/**
+ * 컨트롤러 입력은 전량 검증한다 (SPEC §8.5).
+ * 금액은 문자열로 받아 bigint로 변환한다. number를 거치지 않는다.
+ */
+export const hex32Schema = z.string().regex(/^0x[0-9a-f]{64}$/);
+
+export const RequestFinancingSchema = z.object({
+  invoiceId: hex32Schema,
+  lenderId: z.enum(['lender-a', 'lender-b']),
+  amount: z.string().regex(/^\d+$/).transform(BigInt),
+});
+
+export type RequestFinancingDto = z.infer<typeof RequestFinancingSchema>;
+
+export const IssueInvoiceSchema = z.object({
+  faceAmount: z.string().regex(/^\d+$/).transform(BigInt),
+  counterparty: z.string().min(1).max(120),
+  dueDate: z.string().min(1).max(40),
+  approvalNumber: z.string().min(1).max(60),
+  memo: z.string().max(200).default(''),
+});
+
+export type IssueInvoiceDto = z.infer<typeof IssueInvoiceSchema>;
