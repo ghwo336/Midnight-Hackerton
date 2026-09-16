@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@midnight-ntwrk/ledger-v8': 8.1.2
+
 importers:
 
   .:
@@ -70,7 +73,7 @@ importers:
         specifier: 0.16.0
         version: 0.16.0
       '@midnight-ntwrk/ledger-v8':
-        specifier: ^8.0.0
+        specifier: 8.1.2
         version: 8.1.2
       '@midnight-ntwrk/midnight-js':
         specifier: ^4.0.4
@@ -618,9 +621,6 @@ packages:
 
   '@midnight-ntwrk/compact-runtime@0.16.0':
     resolution: {integrity: sha512-UR8+MI5zol+gkne17ZZru8xmZNf11xMgQJkiLT9KWsF+QD8Wuz1WONaqQLL0RAZ2aN2XlRsBFd0ViKDVh8prFw==}
-
-  '@midnight-ntwrk/ledger-v8@8.1.0':
-    resolution: {integrity: sha512-rwOVP5kBwACpYmmY6+oLeaiM3e5gHscRMjbZUOntOC5QdtqLdpeep6eQW1OngI+sxjjdVoGg2eE16sLf+DAHmQ==}
 
   '@midnight-ntwrk/ledger-v8@8.1.2':
     resolution: {integrity: sha512-H8r5J892bltVtplh1bq947SH/+/jWx07/PaIGSQG8Bd21bObN+sR5eMVTb/RRIRlf2g7MJB4jzgbikMnVZnHqA==}
@@ -2926,8 +2926,6 @@ snapshots:
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
 
-  '@midnight-ntwrk/ledger-v8@8.1.0': {}
-
   '@midnight-ntwrk/ledger-v8@8.1.2': {}
 
   '@midnight-ntwrk/midnight-js-contracts@4.1.1':
@@ -2997,7 +2995,7 @@ snapshots:
     dependencies:
       '@midnight-ntwrk/compact-js': 2.5.1
       '@midnight-ntwrk/compact-runtime': 0.16.0
-      '@midnight-ntwrk/ledger-v8': 8.1.0
+      '@midnight-ntwrk/ledger-v8': 8.1.2
       '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
       '@midnight-ntwrk/platform-js': 2.2.4
 

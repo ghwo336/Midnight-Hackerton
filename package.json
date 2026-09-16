@@ -7,7 +7,7 @@
     "build:contract": "pnpm --filter @once/contract build",
     "test": "vitest run",
     "test:attacks": "vitest run test/attacks",
-    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/crypto/tsconfig.json && tsc --noEmit -p packages/chain/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && pnpm --filter @once/web exec tsc --noEmit",
+    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/crypto/tsconfig.json && tsc --noEmit -p packages/chain/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/deploy/tsconfig.json && pnpm --filter @once/web exec tsc --noEmit",
     "lint": "eslint .",
     "dev": "pnpm --parallel --filter @once/api --filter @once/web dev",
     "dev:api": "pnpm --filter @once/api dev",
@@ -25,6 +25,9 @@
       "esbuild",
       "classic-level",
       "msgpackr-extract"
-    ]
+    ],
+    "overrides": {
+      "@midnight-ntwrk/ledger-v8": "8.1.2"
+    }
   }
 }

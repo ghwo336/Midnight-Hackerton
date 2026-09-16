@@ -7,7 +7,7 @@ import { deriveIssuerPublicKey, deriveOwnerPublicKey, computeInvoiceLeaf } from 
 import { emptyPrivateState, issuerPrivateState } from '@once/chain';
 import type { Hex } from '@once/domain';
 import { ONCE_PRIVATE_STATE_ID, requireSeed, useNetwork } from './config.js';
-import { buildWallet, nightBalance, unshieldedAddress, waitForSync } from './wallet.js';
+import { buildWallet, nightBalance, persistSync, unshieldedAddress, waitForSync } from './wallet.js';
 import { configureProviders } from './providers.js';
 import { onceCompiledContract } from './contract.js';
 import { hexToBytes } from '@once/domain';
@@ -53,6 +53,7 @@ async function main(): Promise<void> {
   console.log('지갑 동기화 중...');
   const ctx = await buildWallet(seed, config);
   const state = await waitForSync(ctx.wallet);
+  await persistSync(ctx, config);
   const balance = nightBalance(state as never);
   console.log(`잔액      ${balance.toString()} tNight\n`);
   if (balance === 0n) {
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
     `${JSON.stringify(record, null, 2)}\n`,
   );
   console.log('\ndeployment.json에 기록했다.');
-  await ctx.wallet.close?.();
+  await ctx.wallet.stop();
   process.exit(0);
 }
 

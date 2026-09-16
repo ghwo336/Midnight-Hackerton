@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "address": "tsx --env-file-if-exists=../../.env src/address.ts",
-    "deploy": "NODE_OPTIONS=--max-old-space-size=12288 tsx --env-file-if-exists=../../.env src/deploy.ts",
-    "scenario": "NODE_OPTIONS=--max-old-space-size=12288 tsx --env-file-if-exists=../../.env src/scenario.ts"
+    "deploy": "nice -n 15 env NODE_OPTIONS=--max-old-space-size=4096 tsx --env-file-if-exists=../../.env src/deploy.ts",
+    "scenario": "nice -n 15 env NODE_OPTIONS=--max-old-space-size=4096 tsx --env-file-if-exists=../../.env src/scenario.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0",
