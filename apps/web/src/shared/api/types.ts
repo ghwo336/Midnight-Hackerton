@@ -13,6 +13,15 @@ export interface LoanRow {
   readonly commitment: string;
   readonly block: number;
   readonly txHash: string;
+  readonly settledAt: string | null;
+}
+
+export interface ChainStatus {
+  readonly network: string;
+  readonly blockHeight: number;
+  readonly contractAddress: string;
+  readonly connected: boolean;
+  readonly ltvBps: string;
 }
 
 export interface SupplierInvoice {
@@ -20,6 +29,8 @@ export interface SupplierInvoice {
   readonly faceAmount: string;
   readonly maxLoanAmount: string;
   readonly used: boolean;
+  readonly usedBy: LenderId | null;
+  readonly usedBlock: number | null;
 }
 
 export interface LenderState {

@@ -25,6 +25,22 @@ export const PUBLIC_LOAN_FIELDS = [
   'commitment',
   'block',
   'txHash',
+  // 확정 시각. 블록 번호가 이미 공개이므로 같은 수준의 정보다.
+  'settledAt',
+] as const;
+
+/**
+ * 납품업체 본인 화면에 허용되는 필드.
+ * usedBy·usedBlock은 공개 원장에서 읽어온 값이라 새로 드러나는 것이 없다.
+ * 구매기업명·지급일·승인번호는 여기 없고, 앞으로도 추가하지 않는다.
+ */
+export const SUPPLIER_INVOICE_FIELDS = [
+  'invoiceId',
+  'faceAmount',
+  'maxLoanAmount',
+  'used',
+  'usedBy',
+  'usedBlock',
 ] as const;
 
 /** 공개 경로에 절대 나가면 안 되는 키 (SPEC §8.6). */

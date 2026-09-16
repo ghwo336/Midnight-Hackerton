@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deriveIssuerPublicKey } from '@once/crypto';
 import { OnceContractSimulator } from '@once/chain';
-import { PUBLIC_LOAN_FIELDS, type Hex } from '@once/domain';
+import { PUBLIC_LOAN_FIELDS, SUPPLIER_INVOICE_FIELDS, type Hex } from '@once/domain';
 
 import { LocalCircuitChainGateway } from '../../apps/api/src/infrastructure/chain/local-circuit.gateway.js';
 import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.source.js';
@@ -146,9 +146,7 @@ describe('A9 — 카나리아 전수 검색', () => {
       },
     });
     const views = await stack.listInvoices.execute(SUPPLIER);
-    expect(Object.keys(views[0] ?? {}).sort()).toEqual(
-      ['faceAmount', 'invoiceId', 'maxLoanAmount', 'used'],
-    );
+    expect(Object.keys(views[0] ?? {}).sort()).toEqual([...SUPPLIER_INVOICE_FIELDS].sort());
   });
 
   it('마스킹 인터셉터가 비밀 키를 가린다', () => {

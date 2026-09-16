@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { deriveIssuerPublicKey, computeInvoiceLeaf, deriveOwnerPublicKey } from '@once/crypto';
 import { OnceContractSimulator } from '@once/chain';
-import { NullifierAlreadyUsedError, LenderNotRegisteredError, type Hex } from '@once/domain';
+import {
+  NullifierAlreadyUsedError, LenderNotRegisteredError, PUBLIC_LOAN_FIELDS, type Hex,
+} from '@once/domain';
 import type { ChainReader, ChainWriter } from '../../apps/api/src/application/ports/chain.gateway.js';
 import { LocalCircuitChainGateway } from '../../apps/api/src/infrastructure/chain/local-circuit.gateway.js';
 import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.source.js';
@@ -78,9 +80,7 @@ export function chainGatewayContract(name: string, create: () => Promise<Gateway
         },
       });
       const loans = await gateway.listLoans();
-      expect(Object.keys(loans[0] ?? {}).sort()).toEqual(
-        ['amount', 'block', 'commitment', 'lender', 'nullifier', 'txHash'],
-      );
+      expect(Object.keys(loans[0] ?? {}).sort()).toEqual([...PUBLIC_LOAN_FIELDS].sort());
     });
   });
 }

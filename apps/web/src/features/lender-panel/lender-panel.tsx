@@ -1,48 +1,61 @@
 'use client';
 
-import type { LenderId, LenderState } from '@/shared/api/types';
+import type { LenderId, LenderState, LoanRow } from '@/shared/api/types';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
-import { Stamp, type StampState } from './stamp';
+import {
+  progressBar, resolveStamp, type LenderRuntime,
+} from '@/features/demo-console/lender-runtime';
+import { Stamp } from './stamp';
+import { ExecutionLog } from './execution-log';
 
-export interface LenderOutcome {
-  readonly state: StampState;
-  /** 거부 시 반드시 0이다. 자금이 나가지 않았다는 게 제품의 주장이다. */
-  readonly amount: string;
-  readonly txHash: string | null;
-  readonly reason: string | null;
-}
-
-const STATUS_TEXT: Record<StampState, string> = {
+const STATUS_TEXT: Record<string, string> = {
   idle: '대기 중',
-  pending: '증명 생성 중',
+  pending: '심사 진행 중',
   settled: '지급 완료',
   rejected: '중복 담보 · 지급 거부',
 };
 
-const STATUS_CLASS: Record<StampState, string> = {
+const STATUS_CLASS: Record<string, string> = {
   idle: 'status--wait',
   pending: 'status--wait',
   settled: 'status--settled',
   rejected: 'status--rejected',
 };
 
+function ms(value: number | undefined): string {
+  return value === undefined ? EMPTY : `${(value / 1000).toFixed(2)}s`;
+}
+
 /**
- * 금융사 패널 (DESIGN §4, §5.3).
+ * 금융사 패널.
  *
- * 이 패널은 채권 내용을 받지 않는다. props에 채권 필드가 없다 —
- * "금융사 B 패널 어디에도 채권 내용이 없다"가 발표의 주장이므로
- * 전달 자체를 하지 않는다 (DESIGN §8).
+ * props에 채권 필드가 없다. "금융사 B 패널 어디에도 채권 내용이 없다"가
+ * 발표의 주장이므로 전달 자체를 하지 않는다 (DESIGN §8).
  */
 export function LenderPanel({
-  lender,
   role,
-  outcome,
+  label,
+  lender,
+  loan,
+  runtime,
+  elapsedMs,
 }: {
-  lender: LenderState | null;
   role: LenderId;
-  outcome: LenderOutcome;
+  label: string;
+  lender: LenderState | null;
+  loan: LoanRow | null;
+  runtime: LenderRuntime;
+  elapsedMs: number | null;
 }) {
-  const label = lender?.label ?? (role === 'lender-a' ? '금융사 A' : '금융사 B');
+  const stamp = resolveStamp(runtime, loan);
+
+  // 확정 금액은 원장이 진실이다. 거부면 0을 남긴다 — 자금이 나가지 않았다는 게 주장이다.
+  const amount = stamp === 'settled' ? (loan?.amount ?? '0') : '0';
+  const txHash = stamp === 'settled' ? (loan?.txHash ?? null) : null;
+  const block = stamp === 'settled' ? (loan?.block ?? runtime.block) : null;
+
+  const inFlight = stamp === 'pending';
+  const proving = runtime.stageMs['proving'] ?? runtime.stageMs['witness'];
 
   return (
     <section className="panel">
@@ -50,23 +63,18 @@ export function LenderPanel({
         <span>{label}</span>
         <span className="panel__role">대출 심사</span>
       </header>
+
       <div className="panel__body">
-        <Stamp state={outcome.state} />
+        <Stamp state={stamp} />
 
         <div className="readout">
           <div className="readout__row">
             <span className="readout__key">상태</span>
-            <span className={`status ${STATUS_CLASS[outcome.state]}`}>
-              {STATUS_TEXT[outcome.state]}
-            </span>
+            <span className={`status ${STATUS_CLASS[stamp]}`}>{STATUS_TEXT[stamp]}</span>
           </div>
           <div className="readout__row">
             <span className="readout__key">지급 금액</span>
-            <span className="num">{formatAmount(outcome.amount)}</span>
-          </div>
-          <div className="readout__row">
-            <span className="readout__key">tx</span>
-            <span className="num">{outcome.txHash ? shortHash(outcome.txHash) : EMPTY}</span>
+            <span className="num">{formatAmount(amount)}</span>
           </div>
           <div className="readout__row">
             <span className="readout__key">예치 잔액</span>
@@ -74,10 +82,46 @@ export function LenderPanel({
           </div>
         </div>
 
-        {outcome.state === 'rejected' ? (
+        <div className="stages">
+          <div className="stages__head">진행 단계</div>
+          <div className="readout__row">
+            <span className="readout__key">증명 생성</span>
+            <span className="num">
+              {inFlight ? (
+                <>
+                  <span className="bar">{progressBar(runtime.phase)}</span>{' '}
+                  {elapsedMs === null ? EMPTY : `${(elapsedMs / 1000).toFixed(1)}s`}
+                </>
+              ) : (
+                ms(proving)
+              )}
+            </span>
+          </div>
+          <div className="readout__row">
+            <span className="readout__key">트랜잭션 제출</span>
+            <span className="num">
+              {runtime.stageMs['submitting'] !== undefined ? '✓' : EMPTY}
+            </span>
+          </div>
+          <div className="readout__row">
+            <span className="readout__key">확정</span>
+            <span className="num">{block === null ? EMPTY : `블록 ${block}`}</span>
+          </div>
+          <div className="readout__row">
+            <span className="readout__key">tx</span>
+            <span className="num">{txHash ? shortHash(txHash) : EMPTY}</span>
+          </div>
+        </div>
+
+        {stamp === 'rejected' ? (
           <p className="reject-note">이 채권은 다른 금융사에서 사용 승인되었습니다</p>
         ) : null}
+
+        <div className="stages__head">실행 로그</div>
+        <ExecutionLog lines={runtime.log} />
       </div>
     </section>
   );
 }
+
+export { type LenderId };

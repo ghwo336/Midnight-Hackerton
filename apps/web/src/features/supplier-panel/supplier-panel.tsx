@@ -2,6 +2,7 @@
 
 import type { SupplierInvoice } from '@/shared/api/types';
 import { InvoiceRow } from '@/entities/invoice/invoice-row';
+import { formatAmount } from '@/shared/ui/format';
 
 /**
  * 납품업체 패널 (DESIGN §4).
@@ -23,6 +24,18 @@ export function SupplierPanel({
 }) {
   const selected = invoices.find((invoice) => invoice.invoiceId === selectedId) ?? null;
 
+  // 금액 산술을 프론트에서 하지 않는다 (SPEC §9.2). 문자열을 bigint로 합산만 한다.
+  const sum = (items: readonly SupplierInvoice[], key: 'faceAmount' | 'maxLoanAmount') =>
+    items.reduce((acc, item) => acc + BigInt(item[key]), 0n).toString();
+
+  const totalFace = sum(invoices, 'faceAmount');
+  const totalLimit = sum(invoices, 'maxLoanAmount');
+  const usedCount = invoices.filter((invoice) => invoice.used).length;
+  const remainingLimit = sum(
+    invoices.filter((invoice) => !invoice.used),
+    'maxLoanAmount',
+  );
+
   return (
     <section className="panel">
       <header className="panel__head">
@@ -43,6 +56,28 @@ export function SupplierPanel({
             />
           ))
         )}
+
+        <div className="summary">
+          <div className="stages__head">보유 현황</div>
+          <div className="summary__row">
+            <span className="summary__key">액면 합계</span>
+            <span className="num">{formatAmount(totalFace)}</span>
+          </div>
+          <div className="summary__row">
+            <span className="summary__key">담보 한도 합계</span>
+            <span className="num">{formatAmount(totalLimit)}</span>
+          </div>
+          <div className="summary__row">
+            <span className="summary__key">사용됨</span>
+            <span className="num">
+              {usedCount} / {invoices.length}
+            </span>
+          </div>
+          <div className="summary__row">
+            <span className="summary__key">잔여 한도</span>
+            <span className="num">{formatAmount(remainingLimit)}</span>
+          </div>
+        </div>
 
         <div className="btn-row">
           <button

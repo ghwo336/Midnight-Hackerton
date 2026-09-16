@@ -1,5 +1,5 @@
 import type {
-  AttackOutcome, FinancingSettled, LenderId, LenderState, LoanRow, SupplierInvoice,
+  AttackOutcome, ChainStatus, FinancingSettled, LenderId, LenderState, LoanRow, SupplierInvoice,
 } from './types.js';
 
 /**
@@ -30,6 +30,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  chain: () => request<ChainStatus>('/public/chain'),
   loans: () => request<{ loans: LoanRow[] }>('/public/loans').then((r) => r.loans),
   invoices: () => request<{ invoices: SupplierInvoice[] }>('/supplier/invoices').then((r) => r.invoices),
   lender: (id: LenderId) => request<LenderState>(`/lender/${id}`),

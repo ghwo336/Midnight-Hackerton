@@ -53,10 +53,21 @@ button { font: inherit; color: inherit; }
 
 .app {
   min-height: 100vh;
-  height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* 컨테이너 고정. 금융사 B가 잘리지 않게 3열을 균등 분할한다. */
+.shell {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
   border-top: 2px solid var(--line-hard);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .topbar {
@@ -70,12 +81,16 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--line);
 }
 .topbar__name { font-size: 15px; font-weight: 600; }
-.topbar__env  { font-size: 12.5px; color: var(--ink-3); }
+
+/* 상단 상태줄. 장식이 아니라 정보다. */
+.topbar__status { display: flex; gap: 18px; align-items: baseline; }
+.topbar__item { font-size: 12.5px; color: var(--ink-3); }
+.topbar__item b { font-weight: 500; color: var(--ink); margin-left: 5px; }
 
 /* 3열 고정. 반응형 분기를 만들지 않는다 (DESIGN §4). */
 .columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr 1fr;
   border-bottom: 1px solid var(--line);
   flex: 1 1 auto;
   min-height: 0;
@@ -249,11 +264,6 @@ button { font: inherit; color: inherit; }
  * 값이 붙어 있어야 표로 읽힌다.
  */
 .ledger { border-collapse: collapse; }
-.ledger col.c-nullifier { width: 200px; }
-.ledger col.c-lender    { width: 90px; }
-.ledger col.c-amount    { width: 160px; }
-.ledger col.c-block     { width: 100px; }
-.ledger col.c-tx        { width: 200px; }
 .ledger th {
   font-size: 12px;
   font-weight: 400;
@@ -303,3 +313,81 @@ button { font: inherit; color: inherit; }
 .attack-result__verdict--blocked { color: var(--seal); }
 .attack-result__verdict--settled { color: var(--settle); }
 .attack-result__meta { color: var(--ink-3); font-size: 12.5px; margin-top: 4px; }
+
+
+/* ── 진행 단계 ───────────────────────────────────────────── */
+
+.stages { margin-top: 14px; }
+.stages__head {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  margin-top: 14px;
+}
+.bar { letter-spacing: -1px; color: var(--ink-2); }
+
+/* ── 실행 로그 ───────────────────────────────────────────── */
+/*
+ * 화면에서 모노스페이스를 쓰는 유일한 영역이다.
+ * 화면 전체를 터미널 테마로 바꾸지 않는다.
+ */
+.log {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  height: 132px;
+  overflow-y: auto;
+  padding: 7px 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.log__line { display: flex; gap: 9px; color: var(--ink-2); }
+.log__line--seal { color: var(--seal); }
+.log__line--empty { color: var(--ink-3); }
+.log__at { color: var(--ink-3); flex: 0 0 auto; }
+
+/* ── 공격 패널 ───────────────────────────────────────────── */
+
+.attacks {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.attack {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+}
+.attack__btn { width: 100%; margin-bottom: 8px; }
+.attack__title { font-size: 12.5px; color: var(--ink-2); }
+.attack__verdict { font-size: 13px; font-weight: 600; color: var(--ink-3); margin-top: 3px; }
+.attack__verdict--pass { color: var(--settle); }
+.attack__verdict--fail { color: var(--seal); }
+.attack__meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+/* ── 원장 테이블은 컨테이너 전체 폭을 쓴다 ─────────────────── */
+.ledger { width: 100%; table-layout: fixed; }
+.ledger col.c-nullifier  { width: 17%; }
+.ledger col.c-lender     { width: 8%; }
+.ledger col.c-amount     { width: 15%; }
+.ledger col.c-commitment { width: 17%; }
+.ledger col.c-block      { width: 9%; }
+.ledger col.c-tx         { width: 17%; }
+.ledger col.c-time       { width: 10%; }
+/* 값끼리 붙으면 표로 안 읽힌다. 열 사이를 벌린다. */
+.ledger th, .ledger td { padding-right: 28px; }
+.ledger th:last-child, .ledger td:last-child { padding-right: 0; }
+
+/* ── 납품업체 요약 ─────────────────────────────────────── */
+.summary { margin-top: 14px; }
+.summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13.5px;
+}
+.summary__key { font-size: 12.5px; color: var(--ink-3); }

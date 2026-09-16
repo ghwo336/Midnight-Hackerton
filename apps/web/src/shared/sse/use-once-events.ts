@@ -2,8 +2,19 @@
 
 import { useEffect } from 'react';
 
+export type FinancingStage =
+  | 'witness' | 'proving' | 'submitting' | 'settled' | 'rejected';
+
 export type OnceEvent =
   | { type: 'invoice.issued'; invoiceId: string }
+  | {
+      type: 'financing.stage';
+      lender: string;
+      stage: FinancingStage;
+      at: string;
+      elapsedMs: number;
+      block?: number;
+    }
   | {
       type: 'financing.settled';
       nullifier: string; lender: string; amount: string; txHash: string; block: number;
