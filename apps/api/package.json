@@ -19,6 +19,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "@types/express": "^5.0.0"
   }
 }

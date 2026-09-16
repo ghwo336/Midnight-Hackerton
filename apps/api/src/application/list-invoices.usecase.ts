@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { computeNullifier, type Hex } from '@once/crypto';
-import { maxLoanAmount, type SupplierInvoiceView } from '@once/domain';
+import { computeNullifier } from '@once/crypto';
+import { maxLoanAmount, type Hex, type SupplierInvoiceView } from '@once/domain';
 import { CHAIN_READER, type ChainReader } from './ports/chain.gateway.js';
 import { PRIVATE_STATE_REPO, type PrivateStateRepository } from './ports/private-state.repository.js';
 
@@ -23,7 +23,7 @@ export class ListInvoicesUseCase {
 
     const views: SupplierInvoiceView[] = [];
     for (const invoice of invoices) {
-      const nullifier = computeNullifier(issuerId as Hex, invoice.invoiceId);
+      const nullifier = computeNullifier(issuerId, invoice.invoiceId);
       views.push({
         invoiceId: invoice.invoiceId,
         faceAmount: invoice.faceAmount.toString(),

@@ -1,6 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../domain" }, { "path": "../crypto" }]
+  "include": ["src/**/*.ts"]
 }

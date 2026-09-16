@@ -7,13 +7,15 @@
     "build:contract": "pnpm --filter @once/contract build",
     "test": "vitest run",
     "test:attacks": "vitest run test/attacks",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc --noEmit -p packages/domain/tsconfig.json && tsc --noEmit -p packages/crypto/tsconfig.json && tsc --noEmit -p packages/chain/tsconfig.json && tsc --noEmit -p apps/api/tsconfig.json && pnpm --filter @once/web exec tsc --noEmit",
     "lint": "eslint ."
   },
   "devDependencies": {
     "typescript": "^5.7.3",
     "vitest": "^3.0.5",
-    "@types/node": "^22.13.1"
+    "@types/node": "^22.13.1",
+    "typescript-eslint": "^8.23.0",
+    "eslint": "^9.19.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
