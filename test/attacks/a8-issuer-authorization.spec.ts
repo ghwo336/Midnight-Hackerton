@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Hex } from '@once/domain';
 import { computeInvoiceLeaf, deriveOwnerPublicKey } from '@once/crypto';
 import { ATTACKER_SECRET, buildScenario, invoiceAt } from '../fixtures/scenario.js';
+import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
  * A8 — 발급자가 아닌 키로 발급자 권한 회로를 호출한다.
@@ -21,16 +22,20 @@ describe('A8 — 발급자 아닌 키로 권한 회로 호출', () => {
       ownerPk: deriveOwnerPublicKey(ATTACKER_SECRET),
     });
 
-    await expect(sim.registerInvoice(forged, ATTACKER_SECRET)).rejects.toThrow();
+    await expectCircuitReject(
+      () => sim.registerInvoice(forged, ATTACKER_SECRET),
+      ASSERT.ISSUER_AUTH,
+    );
     expect(sim.snapshot().invoiceTreeSize).toBe(before);
   });
 
   it('금융사 등록이 거부된다', async () => {
     const sim = await buildScenario();
     const before = sim.snapshot().registeredLenders.length;
-    await expect(
-      sim.registerLender(`0x${'0c'.repeat(32)}` as Hex, ATTACKER_SECRET),
-    ).rejects.toThrow();
+    await expectCircuitReject(
+      () => sim.registerLender(`0x${'0c'.repeat(32)}` as Hex, ATTACKER_SECRET),
+      ASSERT.ISSUER_AUTH,
+    );
     expect(sim.snapshot().registeredLenders).toHaveLength(before);
   });
 
@@ -39,9 +44,10 @@ describe('A8 — 발급자 아닌 키로 권한 회로 호출', () => {
     const invoice = invoiceAt(0);
     expect(invoice).toBeDefined();
     const before = sim.snapshot().lenderVault.get(`0x${'0a'.repeat(32)}` as Hex);
-    await expect(
-      sim.fundLender(`0x${'0a'.repeat(32)}` as Hex, 500_000_000n, ATTACKER_SECRET),
-    ).rejects.toThrow();
+    await expectCircuitReject(
+      () => sim.fundLender(`0x${'0a'.repeat(32)}` as Hex, 500_000_000n, ATTACKER_SECRET),
+      ASSERT.ISSUER_AUTH,
+    );
     expect(sim.snapshot().lenderVault.get(`0x${'0a'.repeat(32)}` as Hex)).toBe(before);
   });
 });

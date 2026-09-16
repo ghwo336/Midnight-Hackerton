@@ -3,6 +3,7 @@ import { computeCommitment, computeNullifier, deriveOwnerPublicKey, generateSalt
 import {
   ISSUER_ID, LENDER_A_KEY, LENDER_B_KEY, SUPPLIER_ADDRESS, buildScenario, invoiceAt,
 } from '../fixtures/scenario.js';
+import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
  * A2 — 새 salt로 다시 봉인해 다른 담보처럼 신청한다.
@@ -34,12 +35,13 @@ describe('A2 — 새 salt로 재봉인 후 신청', () => {
     // 그런데 중복 확인값은 같다
     expect(computeNullifier(ISSUER_ID, invoice.invoiceId)).toBe(first.nullifier);
 
-    await expect(
-      sim.finance(
+    await expectCircuitReject(
+      () => sim.finance(
         { lender: 'lender-b', amount: 80_000_000n, recipient: SUPPLIER_ADDRESS, witness: resealed },
         LENDER_B_KEY,
       ),
-    ).rejects.toThrow();
+      ASSERT.NULLIFIER_USED,
+    );
 
     expect(sim.snapshot().nullifierCount).toBe(1);
     expect(sim.snapshot().lenderVault.get(LENDER_B_KEY)).toBe(1_000_000_000n);

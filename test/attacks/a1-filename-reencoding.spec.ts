@@ -3,6 +3,7 @@ import { computeNullifier } from '@once/crypto';
 import {
   ISSUER_ID, LENDER_A_KEY, LENDER_B_KEY, SUPPLIER_ADDRESS, buildScenario, invoiceAt,
 } from '../fixtures/scenario.js';
+import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
  * A1 — 같은 채권 증빙의 파일명·인코딩을 바꿔 재신청한다.
@@ -27,15 +28,16 @@ describe('A1 — 파일명·인코딩 변경 후 재신청', () => {
     const vaultBefore = sim.snapshot().lenderVault.get(LENDER_B_KEY);
 
     // 파일명·인코딩을 바꿔도 invoiceId는 발급 기관이 부여한 값 그대로다
-    await expect(
-      sim.finance(
+    await expectCircuitReject(
+      () => sim.finance(
         {
           lender: 'lender-b', amount: 80_000_000n, recipient: SUPPLIER_ADDRESS,
           witness: { ...invoice },
         },
         LENDER_B_KEY,
       ),
-    ).rejects.toThrow();
+      ASSERT.NULLIFIER_USED,
+    );
 
     const snap = sim.snapshot();
     expect(snap.nullifierCount).toBe(1);

@@ -19,7 +19,9 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "classic-level",
+      "msgpackr-extract"
     ]
   }
 }

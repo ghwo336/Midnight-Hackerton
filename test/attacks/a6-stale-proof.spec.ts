@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LENDER_A_KEY, LENDER_B_KEY, LENDER_FUNDING, SUPPLIER_ADDRESS, buildScenario, invoiceAt,
 } from '../fixtures/scenario.js';
+import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
  * A6 — 미사용 시점에 만든 증명을 사용 후에 제출한다.
@@ -38,7 +39,10 @@ describe('A6 — 지연 제출 (stale proof)', () => {
     );
 
     // T2 — B가 T0에 준비한 신청을 이제서야 제출한다.
-    await expect(sim.finance(staleRequest, LENDER_B_KEY)).rejects.toThrow();
+    await expectCircuitReject(
+      () => sim.finance(staleRequest, LENDER_B_KEY),
+      ASSERT.NULLIFIER_USED,
+    );
 
     const snap = sim.snapshot();
     expect(snap.nullifierCount).toBe(1);

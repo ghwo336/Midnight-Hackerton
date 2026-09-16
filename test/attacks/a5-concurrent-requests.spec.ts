@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LENDER_A_KEY, LENDER_B_KEY, LENDER_FUNDING, SUPPLIER_ADDRESS, buildScenario, invoiceAt,
 } from '../fixtures/scenario.js';
+import { ASSERT } from '../fixtures/assert-reject.js';
 
 /**
  * A5 — 같은 채권으로 두 금융사에 동시 신청한다.
@@ -37,6 +38,11 @@ describe('A5 — 두 금융사에 동시 신청', () => {
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
 
+    // 거부 사유가 "중복 nullifier"여야 한다. 자금 부족이나 타입 오류로 거부된
+    // 것이라면 이 테스트는 제품 주장을 검증하지 못한 것이다.
+    const reason = rejected[0]?.status === 'rejected' ? String(rejected[0].reason) : '';
+    expect(reason).toContain(ASSERT.NULLIFIER_USED);
+
     const snap = sim.snapshot();
     expect(snap.nullifierCount).toBe(1);
     expect(snap.loans).toHaveLength(1);
@@ -66,6 +72,9 @@ describe('A5 — 두 금융사에 동시 신청', () => {
     );
 
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    for (const result of results.filter((r) => r.status === 'rejected')) {
+      expect(String(result.reason)).toContain(ASSERT.NULLIFIER_USED);
+    }
     expect(sim.snapshot().nullifierCount).toBe(1);
 
     const snap = sim.snapshot();
