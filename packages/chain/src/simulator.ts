@@ -63,7 +63,7 @@ export class OnceContractSimulator {
   static async create(config: SimulatorConfig): Promise<OnceContractSimulator> {
     const contract = new Contract<OncePrivateState>(witnesses);
     const coinPublicKey = '0'.repeat(64);
-    const result = await contract.initialState(
+    const result = contract.initialState(
       createConstructorContext(emptyPrivateState(), coinPublicKey),
       hexToBytes(config.issuerId),
       hexToBytes(config.issuerPk),
@@ -78,9 +78,8 @@ export class OnceContractSimulator {
     );
   }
 
-  private context(circuitId: string, privateState: OncePrivateState): CircuitContext<OncePrivateState> {
+  private context(privateState: OncePrivateState): CircuitContext<OncePrivateState> {
     return createCircuitContext(
-      circuitId,
       this.address,
       this.coinPublicKey,
       this.state as never,
@@ -89,7 +88,7 @@ export class OnceContractSimulator {
   }
 
   private advance(next: CircuitContext<OncePrivateState>): void {
-    this.state = next.callContext.currentQueryContext.state as unknown as ChargedLedgerState;
+    this.state = next.currentQueryContext.state as unknown as ChargedLedgerState;
     this.blockHeight += 1;
   }
 
@@ -119,24 +118,24 @@ export class OnceContractSimulator {
   // ── 발급 기관 권한 회로 ────────────────────────────────────
 
   async registerLender(lender: Hex, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
-    const result = await this.contract.impureCircuits.registerLender(
-      this.context('registerLender', issuerPrivateState(issuerSecret)),
+    const result = this.contract.impureCircuits.registerLender(
+      this.context(issuerPrivateState(issuerSecret)),
       hexToBytes(lender),
     );
     this.advance(result.context);
   }
 
   async registerInvoice(leaf: Hex, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
-    const result = await this.contract.impureCircuits.registerInvoice(
-      this.context('registerInvoice', issuerPrivateState(issuerSecret)),
+    const result = this.contract.impureCircuits.registerInvoice(
+      this.context(issuerPrivateState(issuerSecret)),
       hexToBytes(leaf),
     );
     this.advance(result.context);
   }
 
   async fundLender(lender: Hex, amount: bigint, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
-    const result = await this.contract.impureCircuits.fundLender(
-      this.context('fundLender', issuerPrivateState(issuerSecret)),
+    const result = this.contract.impureCircuits.fundLender(
+      this.context(issuerPrivateState(issuerSecret)),
       hexToBytes(lender),
       amount,
     );
@@ -155,8 +154,8 @@ export class OnceContractSimulator {
 
   private async executeFinance(request: FinancingRequest, lenderKey: Hex): Promise<SubmitResult> {
     const privateState = withActiveInvoice(emptyPrivateState(), request.witness);
-    const result = await this.contract.impureCircuits.finance(
-      this.context('finance', privateState),
+    const result = this.contract.impureCircuits.finance(
+      this.context(privateState),
       hexToBytes(lenderKey),
       request.amount,
       { bytes: hexToBytes(request.recipient) },

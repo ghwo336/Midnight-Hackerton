@@ -2,7 +2,7 @@ import {
   persistentHash,
   CompactTypeBytes,
   CompactTypeVector,
-  convertBigintToBytes,
+  convertFieldToBytes,
 } from '@midnight-ntwrk/compact-runtime';
 import { bytesToHex, hexToBytes, type Hex } from '@once/domain';
 
@@ -49,7 +49,7 @@ export function padTag(tag: string): Uint8Array {
 /** Compact의 `x as Field as Bytes<32>` */
 export function amountToBytes32(amount: bigint): Uint8Array {
   if (amount < 0n) throw new TypeError('amount must not be negative');
-  return convertBigintToBytes(32, amount, 'packages/crypto amountToBytes32');
+  return convertFieldToBytes(32, amount, 'packages/crypto amountToBytes32');
 }
 
 export function hexToBytes32(value: Hex): Uint8Array {
