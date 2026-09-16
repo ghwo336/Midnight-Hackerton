@@ -42,6 +42,12 @@ export interface SupplierInvoiceView {
   readonly faceAmount: string;
   readonly maxLoanAmount: string;
   readonly used: boolean;
+  /**
+   * 어느 금융사가 언제 썼는지. 공개 원장에서 읽어온 값이다.
+   * 채권 원문이 아니라 원장에 이미 공개된 사실만 담는다 (CONTEXT §5).
+   */
+  readonly usedBy: LenderId | null;
+  readonly usedBlock: number | null;
 }
 
 /** 담보 한도. 정수 연산만 사용한다 (SPEC §0.1-3). */

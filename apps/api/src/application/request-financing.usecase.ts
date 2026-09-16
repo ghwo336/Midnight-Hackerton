@@ -25,6 +25,12 @@ export interface RequestFinancingCommand {
 }
 
 /**
+ * 진행 단계 보고. 유스케이스는 "어디를 지나고 있는지"만 알리고,
+ * 그걸 SSE로 보낼지 로그로 남길지는 모른다 (SRP).
+ */
+export type StageReporter = (stage: 'witness' | 'proving' | 'submitting') => void;
+
+/**
  * SRP — 흐름만 조율한다. 계산도 제출도 직접 하지 않는다 (SPEC §5, §8.2).
  */
 @Injectable()
@@ -36,7 +42,10 @@ export class RequestFinancingUseCase {
     @Inject(ISSUER_STRATEGY) private readonly issuer: IssuerVerificationStrategy,
   ) {}
 
-  async execute(cmd: RequestFinancingCommand): Promise<FinancingResult> {
+  async execute(
+    cmd: RequestFinancingCommand,
+    reportStage: StageReporter = () => undefined,
+  ): Promise<FinancingResult> {
     const invoice = await this.privateState.findInvoice(cmd.supplierId, cmd.invoiceId);
     if (!invoice) throw new InvoiceNotFoundError();
 
@@ -61,6 +70,7 @@ export class RequestFinancingUseCase {
       throw new NullifierAlreadyUsedError();
     }
 
+    reportStage('witness');
     await this.issuer.buildWitness(invoice);
     const ownerSecret = await this.privateState.getOwnerSecret(cmd.supplierId);
 
@@ -68,6 +78,7 @@ export class RequestFinancingUseCase {
       lender: cmd.lenderId,
       amount: cmd.amount,
       recipient: cmd.recipient,
+      onStage: reportStage,
       witness: {
         invoiceId: invoice.invoiceId,
         faceAmount: invoice.faceAmount,

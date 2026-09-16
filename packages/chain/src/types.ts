@@ -33,9 +33,13 @@ export interface OnChainLoan {
   /** 확정 트랜잭션. 로컬 실행에서는 시뮬레이터가 발급한다. */
   readonly txHash: Hex | null;
   readonly block: number;
+  /** 확정 시각 (ISO). 원장 화면의 시각 컬럼에 쓰인다. */
+  readonly settledAt: string | null;
 }
 
 export interface LedgerSnapshot {
+  /** 이 컨트랙트 인스턴스의 주소. 상단 상태줄에 표시된다. */
+  readonly contractAddress: string;
   readonly issuerId: Hex;
   readonly ltvBps: bigint;
   readonly nullifierCount: number;

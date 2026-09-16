@@ -11,6 +11,17 @@ export interface PublicLoanView {
   readonly commitment: Hex;
   readonly block: number;
   readonly txHash: Hex;
+  /** 확정 시각 (ISO). 원장 화면의 시각 컬럼. */
+  readonly settledAt: string | null;
+}
+
+/** 상단 상태줄용. 체인 연결 상태를 화면이 표시만 한다. */
+export interface ChainStatus {
+  readonly network: string;
+  readonly blockHeight: number;
+  readonly contractAddress: string;
+  readonly connected: boolean;
+  readonly ltvBps: string;
 }
 
 export interface ChainReader {
@@ -20,12 +31,17 @@ export interface ChainReader {
   listLoans(): Promise<readonly PublicLoanView[]>;
   getLenderVault(lender: LenderId): Promise<bigint>;
   getBlockHeight(): Promise<number>;
+  getStatus(): Promise<ChainStatus>;
 }
+
+/** 증명 생성·제출 전이 시점. 실제로 그 지점을 지날 때만 호출된다. */
+export type ChainStage = 'proving' | 'submitting';
 
 export interface FinancingTx {
   readonly lender: LenderId;
   readonly amount: bigint;
   readonly recipient: Hex;
+  readonly onStage?: (stage: ChainStage) => void;
   readonly witness: {
     readonly invoiceId: Hex;
     readonly faceAmount: bigint;

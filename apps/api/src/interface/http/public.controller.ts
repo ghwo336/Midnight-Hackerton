@@ -1,4 +1,5 @@
 import { Controller, Get, Inject, Sse } from '@nestjs/common';
+import { CHAIN_READER, type ChainReader } from '../../application/ports/chain.gateway.js';
 import { map, type Observable } from 'rxjs';
 import { ListLoansUseCase } from '../../application/list-loans.usecase.js';
 import { OnceEventsService } from '../events/once-events.service.js';
@@ -15,7 +16,14 @@ export class PublicController {
   constructor(
     @Inject(ListLoansUseCase) private readonly listLoans: ListLoansUseCase,
     @Inject(OnceEventsService) private readonly events: OnceEventsService,
+    @Inject(CHAIN_READER) private readonly reader: ChainReader,
   ) {}
+
+  /** 상단 상태줄용. 체인 이름을 과장하지 않는다. */
+  @Get('chain')
+  async chain() {
+    return this.reader.getStatus();
+  }
 
   @Get('loans')
   async loans() {

@@ -21,14 +21,21 @@ export class ListInvoicesUseCase {
     const issuerId = await this.reader.getIssuerId();
     const ltvBps = await this.reader.getLtvBps();
 
+    // 사용 여부와 "누가 언제"를 원장 한 번 읽어 파생한다.
+    const loans = await this.reader.listLoans();
+    const byNullifier = new Map(loans.map((loan) => [loan.nullifier, loan]));
+
     const views: SupplierInvoiceView[] = [];
     for (const invoice of invoices) {
       const nullifier = computeNullifier(issuerId, invoice.invoiceId);
+      const loan = byNullifier.get(nullifier) ?? null;
       views.push({
         invoiceId: invoice.invoiceId,
         faceAmount: invoice.faceAmount.toString(),
         maxLoanAmount: maxLoanAmount(invoice.faceAmount, ltvBps).toString(),
-        used: await this.reader.isNullifierUsed(nullifier),
+        used: loan !== null || (await this.reader.isNullifierUsed(nullifier)),
+        usedBy: loan?.lender ?? null,
+        usedBlock: loan?.block ?? null,
       });
     }
     return views;

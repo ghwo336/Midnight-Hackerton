@@ -12,7 +12,7 @@ import {
   type LenderId,
 } from '@once/domain';
 import type {
-  ChainReader, ChainWriter, FinancingTx, PublicLoanView, TxResult,
+  ChainReader, ChainStatus, ChainWriter, FinancingTx, PublicLoanView, TxResult,
 } from '../../application/ports/chain.gateway.js';
 import { LENDER_KEYS, lenderIdFromKey } from '../../config/demo.config.js';
 
@@ -48,6 +48,21 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
     return this.sim.currentBlock;
   }
 
+  /**
+   * 체인 이름을 'preprod'로 적지 않는다. 지금은 로컬 회로 실행이고,
+   * 화면이 사실과 다른 것을 주장하면 안 된다 (README §5).
+   */
+  async getStatus(): Promise<ChainStatus> {
+    const snap = this.sim.snapshot();
+    return {
+      network: 'local-circuit',
+      blockHeight: this.sim.currentBlock,
+      contractAddress: snap.contractAddress,
+      connected: true,
+      ltvBps: snap.ltvBps.toString(),
+    };
+  }
+
   async getLenderVault(lender: LenderId): Promise<bigint> {
     return this.sim.snapshot().lenderVault.get(LENDER_KEYS[lender]) ?? 0n;
   }
@@ -66,6 +81,7 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         commitment: loan.commitment,
         block: loan.block,
         txHash: loan.txHash ?? (`0x${'0'.repeat(64)}` as Hex),
+        settledAt: loan.settledAt,
       });
     }
     return out;
@@ -77,7 +93,9 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
 
   async submitFinancing(tx: FinancingTx): Promise<TxResult> {
     try {
-      return await this.sim.finance(
+      // 로컬 실행에서는 회로 실행이 곧 증명 생성이다.
+      tx.onStage?.('proving');
+      const result = await this.sim.finance(
         {
           lender: tx.lender,
           amount: tx.amount,
@@ -86,6 +104,10 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         },
         LENDER_KEYS[tx.lender],
       );
+      // 여기서 트랜잭션이 존재한다. 제출과 확정이 로컬에서는 한 동작이라
+      // 두 시각이 거의 같게 찍힌다 — 그게 사실이므로 그대로 보여준다.
+      tx.onStage?.('submitting');
+      return result;
     } catch (error: unknown) {
       throw translateCircuitFailure(error);
     }

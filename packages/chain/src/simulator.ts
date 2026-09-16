@@ -45,7 +45,7 @@ export class OnceContractSimulator {
   /** 제출 직렬화. 실제 체인이 블록 안에서 트랜잭션을 순서대로 적용하는 것을 모델링한다. */
   private queue: Promise<unknown> = Promise.resolve();
   /** nullifier → 확정 영수증. 패널과 원장이 같은 tx를 보여야 한다. */
-  private readonly receipts = new Map<Hex, { txHash: Hex; block: number }>();
+  private readonly receipts = new Map<Hex, { txHash: Hex; block: number; settledAt: string }>();
 
   private constructor(
     contract: Contract<OncePrivateState>,
@@ -170,7 +170,11 @@ export class OnceContractSimulator {
       ),
     );
     const record = view.loans.lookup(hexToBytes(nullifier));
-    const receipt = { txHash: this.nextTxHash(), block: this.blockHeight };
+    const receipt = {
+      txHash: this.nextTxHash(),
+      block: this.blockHeight,
+      settledAt: new Date().toISOString(),
+    };
     this.receipts.set(nullifier, receipt);
     return {
       nullifier,
@@ -199,6 +203,7 @@ export class OnceContractSimulator {
         commitment: bytesToHex(record.commitment),
         txHash: receipt?.txHash ?? null,
         block: receipt?.block ?? this.blockHeight,
+        settledAt: receipt?.settledAt ?? null,
       });
     }
     const vault = new Map<Hex, bigint>();
@@ -209,6 +214,7 @@ export class OnceContractSimulator {
     for (const lender of view.registeredLenders) lenders.push(bytesToHex(lender));
 
     return {
+      contractAddress: this.address,
       issuerId: bytesToHex(view.issuerId),
       ltvBps: view.ltvBps,
       nullifierCount: Number(view.usedNullifiers.size()),
@@ -217,6 +223,10 @@ export class OnceContractSimulator {
       registeredLenders: lenders,
       invoiceTreeSize: Number(view.invoiceTree.firstFree()),
     };
+  }
+
+  get contractAddress(): string {
+    return this.address;
   }
 
   get currentBlock(): number {
