@@ -29,7 +29,7 @@ compact update
 # 2. 의존성 설치
 pnpm install
 
-# 3. 회로 컴파일 (증명키 생성 포함, 수 분 소요)
+# 3. 회로 컴파일 (증명키·검증키 생성 포함. 실측 약 15초, 산출물 21MB)
 pnpm build:contract
 #    빠른 반복용 (증명키 생략):
 #    pnpm --filter @once/contract build:fast
