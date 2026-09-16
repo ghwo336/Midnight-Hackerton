@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+.data/
+coverage/
+*.log
+.env
+.env.local
+contracts/managed/
+contracts/out/
+.DS_Store
