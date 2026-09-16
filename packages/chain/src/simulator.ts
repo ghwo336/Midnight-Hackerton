@@ -42,6 +42,8 @@ export class OnceContractSimulator {
   private state: ChargedLedgerState;
   private blockHeight = 1_000;
   private txCounter = 0;
+  /** 제출 직렬화. 실제 체인이 블록 안에서 트랜잭션을 순서대로 적용하는 것을 모델링한다. */
+  private queue: Promise<unknown> = Promise.resolve();
 
   private constructor(
     contract: Contract<OncePrivateState>,
@@ -94,31 +96,45 @@ export class OnceContractSimulator {
     return `0x${this.txCounter.toString(16).padStart(64, '0')}` as Hex;
   }
 
+  /**
+   * 동시에 들어온 호출을 순서대로 실행한다.
+   * 두 트랜잭션이 같은 nullifier를 들고 거의 동시에 도착해도, 먼저 적용된
+   * 쪽만 성공하고 나머지는 실행 시점 검사에서 거부된다 (A5).
+   */
+  private enqueue<T>(run: () => Promise<T>): Promise<T> {
+    const next = this.queue.then(run, run);
+    this.queue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+
   get ledgerView(): Ledger {
     return ledger(this.state);
   }
 
   // ── 발급 기관 권한 회로 ────────────────────────────────────
 
-  async registerLender(lender: Hex): Promise<void> {
+  async registerLender(lender: Hex, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
     const result = await this.contract.impureCircuits.registerLender(
-      this.context('registerLender', issuerPrivateState(this.config.issuerSecret)),
+      this.context('registerLender', issuerPrivateState(issuerSecret)),
       hexToBytes(lender),
     );
     this.advance(result.context);
   }
 
-  async registerInvoice(leaf: Hex): Promise<void> {
+  async registerInvoice(leaf: Hex, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
     const result = await this.contract.impureCircuits.registerInvoice(
-      this.context('registerInvoice', issuerPrivateState(this.config.issuerSecret)),
+      this.context('registerInvoice', issuerPrivateState(issuerSecret)),
       hexToBytes(leaf),
     );
     this.advance(result.context);
   }
 
-  async fundLender(lender: Hex, amount: bigint): Promise<void> {
+  async fundLender(lender: Hex, amount: bigint, issuerSecret: Hex = this.config.issuerSecret): Promise<void> {
     const result = await this.contract.impureCircuits.fundLender(
-      this.context('fundLender', issuerPrivateState(this.config.issuerSecret)),
+      this.context('fundLender', issuerPrivateState(issuerSecret)),
       hexToBytes(lender),
       amount,
     );
@@ -132,6 +148,10 @@ export class OnceContractSimulator {
    * 증명을 언제 만들었는지와 무관하게, 중복 검사는 이 시점에 일어난다.
    */
   async finance(request: FinancingRequest, lenderKey: Hex): Promise<SubmitResult> {
+    return this.enqueue(() => this.executeFinance(request, lenderKey));
+  }
+
+  private async executeFinance(request: FinancingRequest, lenderKey: Hex): Promise<SubmitResult> {
     const privateState = withActiveInvoice(emptyPrivateState(), request.witness);
     const result = await this.contract.impureCircuits.finance(
       this.context('finance', privateState),
