@@ -1,5 +1,4 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
-import { OnceContractSimulator } from '@once/chain';
 import { deriveOwnerPublicKey } from '@once/crypto';
 import type { InvoiceDetail } from '@once/domain';
 import { IssueInvoiceUseCase } from '../../application/issue-invoice.usecase.js';
@@ -7,7 +6,7 @@ import {
   PRIVATE_STATE_REPO, type PrivateStateRepository,
 } from '../../application/ports/private-state.repository.js';
 import { InMemoryPrivateStateRepository } from '../persistence/in-memory-private-state.repository.js';
-import { LENDER_FUNDING, LENDER_KEYS, SUPPLIER_ID, loadEnv } from '../../config/demo.config.js';
+import { SUPPLIER_ID, loadEnv } from '../../config/demo.config.js';
 
 /**
  * 데모 최소 구성을 부팅 시 준비한다:
@@ -46,22 +45,24 @@ const SEED_INVOICES: readonly { faceAmount: bigint; detail: InvoiceDetail }[] = 
 @Injectable()
 export class DemoSeedService implements OnModuleInit {
   constructor(
-    @Inject(OnceContractSimulator) private readonly sim: OnceContractSimulator,
     @Inject(IssueInvoiceUseCase) private readonly issueInvoice: IssueInvoiceUseCase,
     @Inject(PRIVATE_STATE_REPO) private readonly privateState: PrivateStateRepository,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.reseed();
+  }
+
+  /** 채권 원문 저장소와 온체인 리프를 초기 상태로 되돌린다. */
+  async reseed(): Promise<void> {
     const env = loadEnv();
 
+    // 포트 인터페이스에 데모 전용 메서드를 넣지 않는다. 구체 타입으로 좁힌다.
     if (this.privateState instanceof InMemoryPrivateStateRepository) {
+      this.privateState.clear();
       this.privateState.setOwnerSecret(SUPPLIER_ID, env.SUPPLIER_SECRET_KEY as `0x${string}`);
     }
 
-    for (const lender of Object.values(LENDER_KEYS)) {
-      await this.sim.registerLender(lender);
-      await this.sim.fundLender(lender, LENDER_FUNDING);
-    }
 
     for (const seed of SEED_INVOICES) {
       await this.issueInvoice.execute({

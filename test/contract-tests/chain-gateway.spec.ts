@@ -4,6 +4,7 @@ import { OnceContractSimulator } from '@once/chain';
 import { NullifierAlreadyUsedError, LenderNotRegisteredError, type Hex } from '@once/domain';
 import type { ChainReader, ChainWriter } from '../../apps/api/src/application/ports/chain.gateway.js';
 import { LocalCircuitChainGateway } from '../../apps/api/src/infrastructure/chain/local-circuit.gateway.js';
+import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.source.js';
 import { LENDER_FUNDING, LENDER_KEYS } from '../../apps/api/src/config/demo.config.js';
 
 /**
@@ -102,7 +103,7 @@ chainGatewayContract('LocalCircuitChainGateway', async () => {
       ownerPk: deriveOwnerPublicKey(OWNER_SECRET),
     }),
   );
-  return new LocalCircuitChainGateway(sim);
+  return new LocalCircuitChainGateway(fixedSource(sim));
 });
 
 // 미등록 금융사 계약은 게이트웨이 단독으로 확인한다
@@ -123,7 +124,7 @@ describe('ChainGateway 계약: 미등록 금융사', () => {
         ownerPk: deriveOwnerPublicKey(OWNER_SECRET),
       }),
     );
-    const gateway = new LocalCircuitChainGateway(sim);
+    const gateway = new LocalCircuitChainGateway(fixedSource(sim));
 
     await expect(
       gateway.submitFinancing({

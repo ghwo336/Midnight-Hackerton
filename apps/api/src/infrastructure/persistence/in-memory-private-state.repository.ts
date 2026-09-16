@@ -64,6 +64,14 @@ export class InMemoryPrivateStateRepository implements PrivateStateRepository {
     return invoice.detail;
   }
 
+  /** 데모 리셋용. 포트 인터페이스에는 노출하지 않는다. */
+  clear(): void {
+    this.bySupplier.clear();
+    this.ownerSecrets.clear();
+    this.usedSalts.clear();
+    this.disclosures.clear();
+  }
+
   allowDisclosure(supplierId: string, invoiceId: Hex, lender: LenderId): void {
     const key = `${supplierId}:${invoiceId}`;
     const set = this.disclosures.get(key) ?? new Set<LenderId>();

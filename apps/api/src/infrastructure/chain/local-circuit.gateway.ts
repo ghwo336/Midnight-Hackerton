@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OnceContractSimulator } from '@once/chain';
+import { SIMULATOR_SOURCE, type SimulatorSource } from './simulator.source.js';
 import {
   ChainSubmitFailedError,
   InsufficientLenderFundingError,
@@ -7,7 +8,6 @@ import {
   LenderNotRegisteredError,
   NullifierAlreadyUsedError,
   AmountExceedsLtvError,
-  OwnershipVerifyFailedError,
   type Hex,
   type LenderId,
 } from '@once/domain';
@@ -26,7 +26,11 @@ import { LENDER_KEYS, lenderIdFromKey } from '../../config/demo.config.js';
  */
 @Injectable()
 export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
-  constructor(@Inject(OnceContractSimulator) private readonly sim: OnceContractSimulator) {}
+  constructor(@Inject(SIMULATOR_SOURCE) private readonly source: SimulatorSource) {}
+
+  private get sim(): OnceContractSimulator {
+    return this.source.current;
+  }
 
   async getIssuerId(): Promise<Hex> {
     return this.sim.snapshot().issuerId;
@@ -102,7 +106,10 @@ export function translateCircuitFailure(error: unknown): Error {
   if (raw.includes('amount exceeds LTV')) return new AmountExceedsLtvError();
   if (raw.includes('insufficient lender funding')) return new InsufficientLenderFundingError();
   if (raw.includes('lender has no funding')) return new InsufficientLenderFundingError();
-  if (raw.includes('invoice leaf mismatch')) return new OwnershipVerifyFailedError();
+  // 리프 불일치는 "금액을 부풀렸다"와 "타인 채권이다"를 구분하지 않는다.
+  // 회로가 아는 것은 "이 채권이 발급 기관 집합에 없다"뿐이다.
+  // 구분해서 알려주면 공격자가 어느 필드를 틀렸는지 알아내는 오라클이 된다.
+  if (raw.includes('invoice leaf mismatch')) return new IssuerAttestationFailedError();
   if (raw.includes('invoice not attested by issuer')) return new IssuerAttestationFailedError();
 
   return new ChainSubmitFailedError();

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { OnceContractSimulator } from '@once/chain';
-import { deriveIssuerPublicKey } from '@once/crypto';
 
 import { CHAIN_READER, CHAIN_WRITER } from './application/ports/chain.gateway.js';
 import { PRIVATE_STATE_REPO } from './application/ports/private-state.repository.js';
@@ -10,8 +9,11 @@ import { IssueInvoiceUseCase } from './application/issue-invoice.usecase.js';
 import { ListInvoicesUseCase } from './application/list-invoices.usecase.js';
 import { ListLoansUseCase } from './application/list-loans.usecase.js';
 import { RequestFinancingUseCase } from './application/request-financing.usecase.js';
+import { RunAttackUseCase } from './application/run-attack.usecase.js';
 
 import { LocalCircuitChainGateway } from './infrastructure/chain/local-circuit.gateway.js';
+import { SimulatorHolder } from './infrastructure/chain/simulator.holder.js';
+import { SIMULATOR_SOURCE } from './infrastructure/chain/simulator.source.js';
 import { MerkleIssuerStrategy } from './infrastructure/chain/merkle-issuer.strategy.js';
 import { DemoSeedService } from './infrastructure/chain/demo-seed.service.js';
 import { InMemoryPrivateStateRepository } from './infrastructure/persistence/in-memory-private-state.repository.js';
@@ -19,9 +21,9 @@ import { InMemoryPrivateStateRepository } from './infrastructure/persistence/in-
 import { PublicController } from './interface/http/public.controller.js';
 import { SupplierController } from './interface/http/supplier.controller.js';
 import { LenderController } from './interface/http/lender.controller.js';
+import { DemoController } from './interface/http/demo.controller.js';
 import { OnceEventsService } from './interface/events/once-events.service.js';
 
-import { loadEnv } from './config/demo.config.js';
 
 /**
  * DIP — 유스케이스는 인터페이스에만 의존하고, 구현은 여기서 바인딩한다
@@ -31,20 +33,11 @@ import { loadEnv } from './config/demo.config.js';
  * 유스케이스 코드는 수정하지 않는다 (SPEC §11 G4의 통과 조건).
  */
 @Module({
-  controllers: [PublicController, SupplierController, LenderController],
+  controllers: [PublicController, SupplierController, LenderController, DemoController],
   providers: [
-    {
-      provide: OnceContractSimulator,
-      useFactory: async () => {
-        const env = loadEnv();
-        return OnceContractSimulator.create({
-          issuerId: env.ISSUER_ID as `0x${string}`,
-          issuerSecret: env.ISSUER_SECRET_KEY as `0x${string}`,
-          issuerPk: deriveIssuerPublicKey(env.ISSUER_SECRET_KEY as `0x${string}`),
-          ltvBps: env.LTV_BPS,
-        });
-      },
-    },
+    { provide: OnceContractSimulator, useFactory: () => SimulatorHolder.build() },
+    SimulatorHolder,
+    { provide: SIMULATOR_SOURCE, useExisting: SimulatorHolder },
     LocalCircuitChainGateway,
     InMemoryPrivateStateRepository,
 
@@ -57,6 +50,7 @@ import { loadEnv } from './config/demo.config.js';
     ListInvoicesUseCase,
     ListLoansUseCase,
     RequestFinancingUseCase,
+    RunAttackUseCase,
     OnceEventsService,
     DemoSeedService,
   ],

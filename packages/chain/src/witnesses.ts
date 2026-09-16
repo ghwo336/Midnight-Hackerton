@@ -2,10 +2,29 @@ import { pureCircuits, type Ledger, type Witnesses } from '@once/contract';
 import type { WitnessContext } from '@midnight-ntwrk/compact-runtime';
 import type { OncePrivateState } from './private-state.js';
 
-const EMPTY_PATH = {
-  leaf: new Uint8Array(32),
-  path: [] as { sibling: { field: bigint }; goes_left: boolean }[],
-};
+/** 회로가 요구하는 트리 깊이. once.compact의 MerkleTreePath<10, _>와 맞춘다. */
+const TREE_DEPTH = 10;
+
+/**
+ * 리프가 트리에 없을 때 돌려줄 경로.
+ *
+ * 길이가 맞지 않으면 회로에 들어가기도 전에 타입 오류로 죽는다. 그러면
+ * 거부는 되지만 **회로의 발급자 인증 검사를 실제로 통과한 것이 아니다**.
+ * A3·A4가 검증하려는 것이 바로 그 검사이므로, 형태가 올바르고 내용이
+ * 틀린 경로를 만들어 회로가 정상적으로 거부하게 한다.
+ */
+function unattestedPath(): {
+  leaf: Uint8Array;
+  path: { sibling: { field: bigint }; goes_left: boolean }[];
+} {
+  return {
+    leaf: new Uint8Array(32),
+    path: Array.from({ length: TREE_DEPTH }, () => ({
+      sibling: { field: 0n },
+      goes_left: false,
+    })),
+  };
+}
 
 /**
  * witness 구현. 비공개 상태에서만 값을 읽고, 어떤 값도 반환 경로 밖으로
@@ -43,7 +62,7 @@ export const witnesses: Witnesses<OncePrivateState> = {
     const ownerPk = pureCircuits.ownerPublicKey(active.ownerSecret);
     const leaf = pureCircuits.invoiceLeaf(active.invoiceId, active.faceAmount, ownerPk);
     const found = ledger.invoiceTree.findPathForLeaf(leaf);
-    return [privateState, found ?? EMPTY_PATH];
+    return [privateState, found ?? unattestedPath()];
   },
 
   issuerSecret: ({ privateState }: WitnessContext<Ledger, OncePrivateState>) => [

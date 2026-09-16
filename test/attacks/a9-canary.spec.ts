@@ -4,6 +4,7 @@ import { OnceContractSimulator } from '@once/chain';
 import { PUBLIC_LOAN_FIELDS, type Hex } from '@once/domain';
 
 import { LocalCircuitChainGateway } from '../../apps/api/src/infrastructure/chain/local-circuit.gateway.js';
+import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.source.js';
 import { MerkleIssuerStrategy } from '../../apps/api/src/infrastructure/chain/merkle-issuer.strategy.js';
 import { InMemoryPrivateStateRepository } from '../../apps/api/src/infrastructure/persistence/in-memory-private-state.repository.js';
 import { IssueInvoiceUseCase } from '../../apps/api/src/application/issue-invoice.usecase.js';
@@ -41,7 +42,7 @@ async function buildStack() {
     await sim.fundLender(key, LENDER_FUNDING);
   }
 
-  const gateway = new LocalCircuitChainGateway(sim);
+  const gateway = new LocalCircuitChainGateway(fixedSource(sim));
   const repo = new InMemoryPrivateStateRepository();
   repo.setOwnerSecret(SUPPLIER, OWNER_SECRET);
 
