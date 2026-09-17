@@ -24,7 +24,8 @@
     "@midnight-ntwrk/compact-js": "2.5.1",
     "@midnight-ntwrk/compact-runtime": "0.16.0",
     "@midnight-ntwrk/ledger-v8": "8.1.2",
-    "@once/contract": "workspace:*"
+    "@once/contract": "workspace:*",
+    "@once/witness": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.0.8",

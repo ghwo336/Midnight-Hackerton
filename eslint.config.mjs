@@ -88,8 +88,11 @@ export default tseslint.config(
       'no-restricted-imports': ['error', {
         patterns: [
           /*
-           * @once/contract 는 허용한다. 컴파일러가 생성한 컨트랙트 코드이고
-           * compact-runtime은 브라우저에서도 돈다. 배포하려면 필요하다.
+           * @once/contract 와 @once/witness 는 허용한다.
+           * 전자는 컴파일러 생성 코드이고 compact-runtime 은 브라우저에서 돈다.
+           * 후자는 회로 witness 구현인데, Node 시뮬레이터와 브라우저가 **같은
+           * 코드**를 써야 한다. 사본을 두면 갈라지고, 갈라진 쪽이 회로 검사를
+           * 통과하지 않았는데 통과한 것처럼 보이게 된다.
            * @once/chain 은 여전히 금지 — 시뮬레이터가 Node 전용이다.
            */
           { group: ['@once/chain'],

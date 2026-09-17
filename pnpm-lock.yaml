@@ -166,6 +166,9 @@ importers:
       '@once/contract':
         specifier: workspace:*
         version: link:../../contracts
+      '@once/witness':
+        specifier: workspace:*
+        version: link:../../packages/witness
       '@tanstack/react-query':
         specifier: ^5.66.0
         version: 5.103.1(react@19.3.0)
@@ -209,6 +212,9 @@ importers:
       '@once/domain':
         specifier: workspace:*
         version: link:../domain
+      '@once/witness':
+        specifier: workspace:*
+        version: link:../witness
 
   packages/crypto:
     dependencies:
@@ -220,6 +226,18 @@ importers:
         version: link:../domain
 
   packages/domain: {}
+
+  packages/witness:
+    dependencies:
+      '@midnight-ntwrk/compact-runtime':
+        specifier: 0.16.0
+        version: 0.16.0
+      '@once/contract':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@once/domain':
+        specifier: workspace:*
+        version: link:../domain
 
 packages:
 

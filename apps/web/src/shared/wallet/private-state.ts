@@ -58,7 +58,7 @@ async function withStore<T>(
 export function indexedDbPrivateStateProvider<
   PSI extends string,
   PS,
->(): PrivateStateProvider<PSI, PS> {
+>(recorder?: { privateStateReads: number }): PrivateStateProvider<PSI, PS> {
   const unsupported = (what: string) => async (): Promise<never> => {
     throw new Error(`${what}는 지원하지 않는다. 비공개 상태는 이 기기를 떠나지 않는다.`);
   };
@@ -68,8 +68,17 @@ export function indexedDbPrivateStateProvider<
 
     set: (id, state) =>
       withStore<IDBValidKey>(STORE_STATE, 'readwrite', (s) => s.put(state, id)).then(() => undefined),
+    /*
+     * 읽힌 횟수를 센다. S6-c 의 증거 절반이다.
+     * 나머지 절반은 회로가 issuerPublicKey(issuerSecret()) == issuerPk 를
+     * 통과하는 것인데, 그게 되면 여기서 읽은 값이 올바른 비밀키였다는
+     * 뜻이다. 로그가 아니라 회로가 증명한다.
+     */
     get: (id) =>
-      withStore<PS | undefined>(STORE_STATE, 'readonly', (s) => s.get(id)).then((v) => v ?? null),
+      withStore<PS | undefined>(STORE_STATE, 'readonly', (s) => s.get(id)).then((v) => {
+        if (recorder) recorder.privateStateReads += 1;
+        return v ?? null;
+      }),
     remove: (id) =>
       withStore<undefined>(STORE_STATE, 'readwrite', (s) => s.delete(id)).then(() => undefined),
     clear: () =>

@@ -1,5 +1,17 @@
 import { hexToBytes, type Hex } from '@once/domain';
-import type { FinancingWitnessInput } from './types.js';
+
+/**
+ * 회로에 넘길 비공개 입력.
+ *
+ * witness 구현과 같은 자리에 둔다. 시뮬레이터가 쓰던 자리에 두면 브라우저가
+ * Node 전용 패키지를 끌어와야 한다.
+ */
+export interface FinancingWitnessInput {
+  readonly invoiceId: Hex;
+  readonly faceAmount: bigint;
+  readonly salt: Hex;
+  readonly ownerSecret: Hex;
+}
 
 /**
  * 컨트랙트 비공개 상태. 회로 witness가 여기서만 값을 읽는다.

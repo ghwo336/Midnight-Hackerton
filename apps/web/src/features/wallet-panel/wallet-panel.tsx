@@ -1,61 +1,81 @@
 'use client';
 
-import { useState } from 'react';
-import { formatAmount, shortHash } from '@/shared/ui/format';
-import { deployOnce, type DeployResult } from '@/shared/wallet/deploy';
+import { useCallback, useState } from 'react';
+import { formatAmount, shortHash, EMPTY } from '@/shared/ui/format';
+import {
+  initialSteps, runBootstrap, type StepResult,
+} from '@/shared/wallet/bootstrap';
+import type { Recorder } from '@/shared/wallet/measure';
 import { useWallet } from './use-wallet';
 
 /**
- * 배포 파라미터.
+ * 지갑 패널 겸 배포 콘솔.
  *
- * 발급 기관 비밀키가 브라우저에 있다. 데모에서는 고정값을 쓰지만
- * 실제라면 발급 기관 본인 기기에서만 존재해야 한다.
+ * 여기서 하는 일은 S6-b·c를 닫는 것이다.
+ *
+ *   S6-b  회로 증명 소요 시간을 실측한다. 배포는 finance 회로를 부르지
+ *         않으므로 배포만으로는 측정되지 않는다. 금융사 등록부터가 진짜
+ *         회로 호출이고, 그 단계에만 증명 시간이 찍힌다.
+ *   S6-c  IndexedDB의 issuerSecret이 witness로 회로에 전달되는지 본다.
+ *         회로가 issuerPublicKey(issuerSecret()) == issuerPk를 assert하므로
+ *         금융사 등록이 성공하면 그 값이 IndexedDB에서 온 올바른 비밀키다.
+ *
+ * 증명은 브라우저 CPU가 아니라 proof server에서 일어난다. 클라이언트는
+ * 증명키를 payload에 실어 보낸다. 그래서 여기 찍히는 시간은
+ * "키 전송 + 서버 증명 + 응답"이다. 화면이 그렇게 적는다.
  */
-const DEPLOY_PARAMS = {
-  issuerId: `0x${'11'.repeat(32)}`,
-  issuerPk: '',
-  ltvBps: 8000n,
-  issuerSecret: `0x${'5e'.repeat(32)}`,
+const STATE_MARK: Record<StepResult['state'], string> = {
+  pending: '—',
+  running: '…',
+  done: '✓',
+  failed: '✗',
 };
 
-/**
- * 지갑 연결 패널.
- *
- * DESIGN.md의 시각 언어를 그대로 따른다. 새 색·아이콘·모션 없음.
- *
- * 이 패널이 있는 이유는 제품 주장 때문이다. 지금까지 데모는 백엔드가
- * 대신 서명했고 README에 그 한계를 적어 두었다. 납품업체가 자기 지갑으로
- * 직접 서명하면 "채권 원문과 비밀키가 본인 기기에 있다"가 실제가 된다.
- */
+function ms(value: number | undefined): string {
+  return value === undefined ? EMPTY : `${(value / 1000).toFixed(2)}s`;
+}
+
 export function WalletPanel() {
   const { state, connect, disconnect, hasWallet } = useWallet('preprod');
-  const [deploying, setDeploying] = useState(false);
-  const [result, setResult] = useState<DeployResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<readonly StepResult[]>(initialSteps());
+  const [running, setRunning] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [recorder, setRecorder] = useState<Recorder | null>(null);
 
-  const deploy = async () => {
+  const run = useCallback(async () => {
     if (!state.api) return;
-    setDeploying(true);
-    setError(null);
+    setRunning(true);
+    setSteps(initialSteps());
     try {
-      const { deriveIssuerPublicKey } = await import('@/shared/wallet/issuer-key');
-      setResult(
-        await deployOnce(state.api, {
-          ...DEPLOY_PARAMS,
-          issuerPk: await deriveIssuerPublicKey(DEPLOY_PARAMS.issuerSecret),
-        }),
-      );
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const result = await runBootstrap(state.api, (next, rec) => {
+        setSteps(next);
+        setRecorder(rec);
+      });
+      setAddress(result.contractAddress);
+      setRecorder(result.recorder);
+      setSteps(result.steps);
     } finally {
-      setDeploying(false);
+      setRunning(false);
     }
+  }, [state.api]);
+
+  const failed = steps.find((step) => step.state === 'failed') ?? null;
+  const done = steps.filter((step) => step.state === 'done').length;
+  /** 증명 시간은 회로를 부른 단계에서만 의미가 있다. */
+  const proved = steps.filter((step) => step.provable && step.proveMs !== undefined);
+  const avgProve =
+    proved.length === 0
+      ? null
+      : proved.reduce((acc, step) => acc + (step.proveMs ?? 0), 0) / proved.length;
+
+  const copyReport = () => {
+    if (recorder) void navigator.clipboard.writeText(recorder.toReport());
   };
 
   return (
     <section className="section">
       <header className="section__head">
-        <span>지갑</span>
+        <span>지갑 · Preprod 배포</span>
         <span className="panel__role">
           {state.status === 'connected' ? `연결됨 · ${state.network}` : '연결 안 됨'}
         </span>
@@ -63,63 +83,119 @@ export function WalletPanel() {
 
       <div className="section__body">
         {state.status === 'connected' ? (
-          <div className="readout">
-            <div className="readout__row">
-              <span className="readout__key">지갑</span>
-              <span>{state.wallet?.name}</span>
-            </div>
-            <div className="readout__row">
-              <span className="readout__key">주소</span>
-              <span className="num">{state.address ? shortHash(state.address) : '—'}</span>
-            </div>
-            <div className="readout__row">
-              <span className="readout__key">잔액</span>
-              <span className="num">{formatAmount(state.balance ?? '0')}</span>
-            </div>
-            {result ? (
-              <>
+          <>
+            <div className="readout">
+              <div className="readout__row">
+                <span className="readout__key">지갑</span>
+                <span>{state.wallet?.name}</span>
+              </div>
+              <div className="readout__row">
+                <span className="readout__key">주소</span>
+                <span className="num">{state.address ? shortHash(state.address) : EMPTY}</span>
+              </div>
+              <div className="readout__row">
+                <span className="readout__key">잔액</span>
+                <span className="num">{formatAmount(state.balance ?? '0')}</span>
+              </div>
+              {address ? (
                 <div className="readout__row">
                   <span className="readout__key">컨트랙트</span>
-                  <span className="num">{shortHash(`0x${result.contractAddress}`)}</span>
+                  <span className="num">{shortHash(`0x${address}`)}</span>
                 </div>
-                <div className="readout__row">
-                  <span className="readout__key">배포 tx</span>
-                  <span className="num">{shortHash(`0x${result.txId}`)}</span>
-                </div>
-                <div className="readout__row">
-                  <span className="readout__key">블록</span>
-                  <span className="num">{result.blockHeight}</span>
-                </div>
-                <div className="readout__row">
-                  <span className="readout__key">소요</span>
-                  <span className="num">{(result.elapsedMs / 1000).toFixed(1)}s</span>
-                </div>
-              </>
+              ) : null}
+              <div className="readout__row">
+                <span className="readout__key">진행</span>
+                <span className="num">
+                  {done} / {steps.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="stages__head">
+              배포 단계 · 각 단계마다 지갑 승인이 한 번씩 뜬다
+            </div>
+            <table className="terms">
+              <colgroup>
+                <col className="c-lender" />
+                <col />
+                <col className="c-amount" />
+                <col className="c-amount" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th />
+                  <th>단계</th>
+                  <th className="num">증명</th>
+                  <th className="num">전체</th>
+                </tr>
+              </thead>
+              <tbody>
+                {steps.map((step) => (
+                  <tr key={step.id}>
+                    <td className={step.state === 'failed' ? 'check--fail' : ''}>
+                      {STATE_MARK[step.state]}
+                    </td>
+                    <td>{step.label}</td>
+                    <td className="num">{step.provable ? ms(step.proveMs) : '회로 없음'}</td>
+                    <td className="num">{ms(step.ms)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {failed ? (
+              <p className="hint hint--error">
+                {failed.label}에서 중단: {failed.error}
+              </p>
             ) : null}
 
-            {error ? <p className="hint hint--error">{error}</p> : null}
+            {recorder ? (
+              <div className="readout">
+                <div className="readout__row">
+                  <span className="readout__key">증명 평균 (회로 호출 {proved.length}건)</span>
+                  <span className="num">{avgProve === null ? EMPTY : ms(avgProve)}</span>
+                </div>
+                <div className="readout__row">
+                  <span className="readout__key">IndexedDB 비공개 상태 읽기</span>
+                  <span className="num">{recorder.privateStateReads}회</span>
+                </div>
+                <div className="readout__row">
+                  <span className="readout__key">witness 호출</span>
+                  <span className="num">
+                    {recorder.witnessCalls.length === 0
+                      ? '없음'
+                      : `${recorder.witnessCalls.length}회 · ${[
+                          ...new Set(recorder.witnessCalls.map((c) => c.witness)),
+                        ].join(', ')}`}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            <p className="hint">
+              증명은 브라우저가 아니라 proof server에서 만들어진다. 위 증명 시간은
+              증명키 전송과 서버 왕복을 포함한 값이다.
+            </p>
 
             <div className="btn-row">
-              <button
-                type="button"
-                className="btn"
-                disabled={deploying || result !== null}
-                onClick={() => void deploy()}
-              >
-                {deploying ? '배포 중 (지갑 승인 필요)' : result ? '배포 완료' : '컨트랙트 배포'}
+              <button type="button" className="btn" disabled={running} onClick={() => void run()}>
+                {running ? '진행 중 (지갑 승인 필요)' : done > 0 ? '다시 실행' : '배포 시작'}
               </button>
-              <button type="button" className="btn" onClick={disconnect} disabled={deploying}>
+              <button type="button" className="btn" disabled={!recorder} onClick={copyReport}>
+                실측 복사
+              </button>
+              <button type="button" className="btn" onClick={disconnect} disabled={running}>
                 연결 해제
               </button>
             </div>
-          </div>
+          </>
         ) : (
           <>
             <p className="hint">
               {state.message ??
                 (hasWallet
-                  ? '납품업체 역할을 본인 지갑으로 서명하려면 연결하세요.'
-                  : 'Chrome에 Lace 지갑이 필요합니다.')}
+                  ? 'Preprod 네트워크로 설정한 Lace를 연결한다.'
+                  : 'Chrome에 Lace 지갑이 필요하다.')}
             </p>
             <div className="btn-row">
               <button

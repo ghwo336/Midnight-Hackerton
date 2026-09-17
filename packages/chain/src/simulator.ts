@@ -6,13 +6,13 @@ import {
 } from '@midnight-ntwrk/compact-runtime';
 import { Contract, ledger, pureCircuits, type Ledger } from '@once/contract';
 import { bytesToHex, hexToBytes, type Hex } from '@once/domain';
-import { witnesses } from './witnesses.js';
+import { witnesses } from '@once/witness';
 import {
   emptyPrivateState,
   issuerPrivateState,
   withActiveInvoice,
   type OncePrivateState,
-} from './private-state.js';
+} from '@once/witness';
 import type { FinancingRequest, LedgerSnapshot, OnChainLoan, SubmitResult } from './types.js';
 
 export interface SimulatorConfig {

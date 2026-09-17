@@ -1,14 +1,7 @@
 import type { Hex, LenderId } from '@once/domain';
-
-/**
- * 회로에 넘길 비공개 입력. 이 타입은 apps/api의 공개 경로에 닿지 않는다.
- */
-export interface FinancingWitnessInput {
-  readonly invoiceId: Hex;
-  readonly faceAmount: bigint;
-  readonly salt: Hex;
-  readonly ownerSecret: Hex;
-}
+// 회로에 넘길 비공개 입력. witness 구현과 같은 자리에 산다 (@once/witness).
+export type { FinancingWitnessInput } from '@once/witness';
+import type { FinancingWitnessInput } from '@once/witness';
 
 export interface FinancingRequest {
   readonly lender: LenderId;

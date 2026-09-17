@@ -5,6 +5,7 @@ import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-conf
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexedDbPrivateStateProvider } from './private-state';
+import type { Recorder } from './measure';
 
 /**
  * 지갑이 알려준 설정으로 프로바이더를 구성한다.
@@ -33,12 +34,37 @@ export interface OnceProviders {
   readonly midnightProvider: unknown;
 }
 
-export async function buildProviders(api: ConnectedAPI): Promise<OnceProviders> {
+export async function buildProviders(
+  api: ConnectedAPI,
+  /** 실측용. 없으면 계측하지 않는다. */
+  recorder?: Recorder,
+): Promise<OnceProviders> {
   const config = await api.getConfiguration();
 
-  const zkConfigProvider = new FetchZkConfigProvider<string>(
+  const rawZkConfig = new FetchZkConfigProvider<string>(
     new URL(ZK_BASE_URL, window.location.origin).toString(),
   );
+
+  /*
+   * 증명키 내려받기를 따로 잰다.
+   *
+   * 증명은 브라우저가 아니라 proof server 에서 일어난다. 클라이언트는
+   * prover key 를 payload 에 실어 /prove 로 보낸다. finance 는 그 키가
+   * 9.99MB 다. 그래서 "증명이 느리다"가 서버 탓인지 키 전송 탓인지를
+   * 나누려면 이 구간이 따로 있어야 한다.
+   */
+  const zkConfigProvider = recorder
+    ? (new Proxy(rawZkConfig, {
+        get(target, prop, receiver) {
+          const value = Reflect.get(target, prop, receiver) as unknown;
+          if (prop !== 'get' || typeof value !== 'function') return value;
+          return (...args: unknown[]) =>
+            recorder.time('zkConfig', () =>
+              (value as (...a: unknown[]) => Promise<unknown>).apply(target, args),
+            );
+        },
+      }) as FetchZkConfigProvider<string>)
+    : rawZkConfig;
 
   // proverServerUri는 deprecated로 표시돼 있고 없을 수도 있다.
   // 없으면 지갑에 증명을 위임한다 (getProvingProvider).
@@ -65,7 +91,7 @@ export async function buildProviders(api: ConnectedAPI): Promise<OnceProviders> 
   };
 
   return {
-    privateStateProvider: indexedDbPrivateStateProvider(),
+    privateStateProvider: indexedDbPrivateStateProvider(recorder),
     publicDataProvider: indexerPublicDataProvider(config.indexerUri, config.indexerWsUri),
     zkConfigProvider,
     proofProvider: httpClientProofProvider(

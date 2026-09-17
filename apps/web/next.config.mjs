@@ -14,6 +14,21 @@ const nextConfig = {
     config.experiments = { ...config.experiments, asyncWebAssembly: true, layers: true };
 
     /*
+     * 워크스페이스 패키지(@once/witness, @once/domain)는 컴파일하지 않고
+     * TS 소스를 그대로 쓴다. 그 안의 import는 NodeNext 규칙에 따라 './x.js'
+     * 라고 적혀 있는데 실제 파일은 './x.ts'다. webpack에 그 대응을 알려준다.
+     *
+     * 이 패키지들을 컴파일된 JS로 바꾸지 않는 이유: witness 구현은 Node
+     * 시뮬레이터와 브라우저가 **같은 파일**을 써야 한다. 빌드 산출물을
+     * 중간에 끼우면 어느 쪽이 무엇을 쓰는지가 흐려진다.
+     */
+    config.resolve = config.resolve ?? {};
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
+    };
+
+    /*
      * midnight-js-indexer-public-data-provider가 isomorphic-ws에서
      * named export WebSocket을 가져오는데 브라우저 빌드에는 그게 없다.
      * 브라우저에는 전역 WebSocket이 있으므로 그걸 쓰게 한다.
