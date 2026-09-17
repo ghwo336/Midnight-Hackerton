@@ -185,6 +185,20 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
 
     const pct = ((p.applied / p.highest) * 100).toFixed(2);
 
+    // isSynced는 세 지갑(shielded/dust/unshielded)이 모두 완료돼야 true다.
+    // shielded만 보면 100%에서 멈춘 것처럼 보인다. 나머지 둘도 같이 찍는다.
+    const done = (node: unknown): string => {
+      const prog = (node as { progress?: { isStrictlyComplete?: () => boolean } })?.progress
+        ?? (node as { state?: { progress?: { isStrictlyComplete?: () => boolean } } })?.state?.progress;
+      try {
+        return prog?.isStrictlyComplete?.() ? '완료' : '진행';
+      } catch {
+        return '?';
+      }
+    };
+    const st = state as { shielded?: unknown; dust?: unknown; unshielded?: unknown };
+    const others = ` [shielded ${done(st.shielded)} · dust ${done(st.dust)} · unshielded ${done(st.unshielded)}]`;
+
     // ETA는 **누적 평균**으로 낸다. 직전 구간 속도만 쓰면 블록 밀도에 따라
     // 122분 → 32분 → 263분으로 요동쳐 밤새 지켜볼 지표가 못 된다.
     // 재개분을 이번 실행의 처리량으로 세면 안 된다. 캐시에서 68,804부터
@@ -208,7 +222,7 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
       }
     }
     console.log(
-      `  [${mins}분] ${pct}%  ${p.applied.toLocaleString()} / ${p.highest.toLocaleString()}${eta}`,
+      `  [${mins}분] ${pct}%  ${p.applied.toLocaleString()} / ${p.highest.toLocaleString()}${eta}${others}`,
     );
     last = { applied: p.applied, at: now };
   });
