@@ -18,6 +18,13 @@ export interface PublicLoanView {
 /** 상단 상태줄용. 체인 연결 상태를 화면이 표시만 한다. */
 export interface ChainStatus {
   readonly network: string;
+  /**
+   * 이 체인이 실제 네트워크인가.
+   *
+   * false면 tx 해시와 블록 번호는 시뮬레이터가 만든 값이다. 화면이
+   * 그걸 진짜 트랜잭션처럼 보여주면 거짓말이 된다.
+   */
+  readonly simulated: boolean;
   readonly blockHeight: number;
   readonly contractAddress: string;
   readonly connected: boolean;

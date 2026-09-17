@@ -49,6 +49,7 @@ export function LenderPanel({
   reveal,
   vaultContrast,
   dimmed,
+  simulated = false,
 }: {
   role: LenderId;
   label: string;
@@ -59,6 +60,8 @@ export function LenderPanel({
   reveal: Reveal;
   vaultContrast: VaultContrast | null;
   dimmed: boolean;
+  /** true면 tx·블록이 시뮬레이터 값이다. */
+  simulated?: boolean;
 }) {
   const settledStamp = resolveStamp(runtime, loan);
   // 도장은 노출 순서를 따른다. 아직 드러나기 전이면 진행 중으로 보인다.
@@ -157,13 +160,13 @@ export function LenderPanel({
             </span>
           </div>
           <div className="readout__row">
-            <span className="readout__key">확정</span>
+            <span className="readout__key">{simulated ? '확정 (모의)' : '확정'}</span>
             <span className="num">
               {reveal.stages && block !== null ? `블록 ${block}` : EMPTY}
             </span>
           </div>
           <div className="readout__row">
-            <span className="readout__key">tx</span>
+            <span className="readout__key">{simulated ? 'tx (모의)' : 'tx'}</span>
             <span className="num">{reveal.stages && txHash ? shortHash(txHash) : EMPTY}</span>
           </div>
         </div>

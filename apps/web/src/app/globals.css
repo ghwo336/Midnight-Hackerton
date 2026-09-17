@@ -572,3 +572,6 @@ button { font: inherit; color: inherit; }
   .log { height: 96px; }
   .stampwrap { height: 108px; }
 }
+
+/* 시뮬레이션 값은 진짜 트랜잭션처럼 보이지 않게 낮춘다. 새 색은 쓰지 않는다. */
+.ledger td.sim { color: var(--ink-3); }

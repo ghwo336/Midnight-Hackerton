@@ -24,12 +24,21 @@ export function LedgerTable({
   loans,
   revealed = true,
   explorerBase = null,
+  simulated = false,
 }: {
   loans: readonly LoanRow[];
   /** 순차 노출: 아직 차례가 아니면 최신 행을 감춘다. */
   revealed?: boolean;
   /** 테스트넷이면 네트워크 이름, 로컬이면 null (링크 없이 해시만). */
   explorerBase?: string | null;
+  /**
+   * 시뮬레이션 모드인가.
+   *
+   * true면 tx 해시와 블록 번호는 시뮬레이터가 붙인 순번이다. 실제
+   * 트랜잭션이 아니므로 그렇게 보이게 두지 않는다. 회로 실행과
+   * nullifier·commitment는 진짜다.
+   */
+  simulated?: boolean;
 }) {
   const visible = revealed ? loans : loans.slice(0, Math.max(loans.length - 1, 0));
   if (visible.length === 0) {
@@ -53,8 +62,8 @@ export function LedgerTable({
           <th>금융사</th>
           <th className="num">금액</th>
           <th className="hash">봉인값</th>
-          <th className="num">블록</th>
-          <th className="hash">tx</th>
+          <th className="num">{simulated ? '순번' : '블록'}</th>
+          <th className="hash">{simulated ? 'tx (모의)' : 'tx'}</th>
           <th className="hash">시각</th>
         </tr>
       </thead>
@@ -69,7 +78,7 @@ export function LedgerTable({
             <td className="num">{formatAmount(loan.amount)}</td>
             <td className="hash">{shortHash(loan.commitment)}</td>
             <td className="num">{loan.block}</td>
-            <td className="hash">
+            <td className={`hash ${simulated ? 'sim' : ''}`}>
               {explorerBase ? (
                 <a
                   className="txlink"

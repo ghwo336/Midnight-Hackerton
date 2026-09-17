@@ -18,6 +18,8 @@ export interface LoanRow {
 
 export interface ChainStatus {
   readonly network: string;
+  /** false면 tx·블록이 시뮬레이터 값이다. 진짜처럼 표시하면 안 된다. */
+  readonly simulated: boolean;
   readonly blockHeight: number;
   readonly contractAddress: string;
   readonly connected: boolean;

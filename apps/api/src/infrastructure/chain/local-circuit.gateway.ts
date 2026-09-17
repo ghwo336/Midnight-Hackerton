@@ -56,6 +56,8 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
     const snap = this.sim.snapshot();
     return {
       network: 'local-circuit',
+      // 회로 실행은 진짜지만 tx/블록은 시뮬레이터가 붙인 번호다
+      simulated: true,
       blockHeight: this.sim.currentBlock,
       contractAddress: snap.contractAddress,
       connected: true,

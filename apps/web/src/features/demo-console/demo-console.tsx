@@ -258,10 +258,11 @@ export function DemoConsole() {
               체인 <b>{status?.network ?? EMPTY}</b>
             </span>
             <span className="topbar__item">
-              블록 <b className="num">{status?.blockHeight ?? EMPTY}</b>
+              {status?.simulated ? '순번' : '블록'}{' '}
+              <b className="num">{status?.blockHeight ?? EMPTY}</b>
             </span>
             <span className="topbar__item">
-              컨트랙트{' '}
+              {status?.simulated ? '컨트랙트 (모의)' : '컨트랙트'}{' '}
               <b className="num">
                 {status ? shortHash(`0x${status.contractAddress}`) : EMPTY}
               </b>
@@ -290,6 +291,7 @@ export function DemoConsole() {
               loan={loanFor(id)}
               runtime={runtimes[id] ?? IDLE_RUNTIME}
               elapsedMs={elapsedFor(id)}
+              simulated={status?.simulated ?? true}
               reveal={(id === 'lender-a' ? revealA : revealB).reveal}
               vaultContrast={contrastFor(id)}
               dimmed={false}
@@ -305,6 +307,7 @@ export function DemoConsole() {
           <div className="section__body">
             <LedgerTable
               loans={loans.data ?? []}
+              simulated={status?.simulated ?? true}
               revealed={revealA.reveal.ledger && revealB.reveal.ledger}
               explorerBase={status?.network === 'local-circuit' ? null : status?.network ?? null}
             />
