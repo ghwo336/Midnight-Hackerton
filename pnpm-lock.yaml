@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@midnight-ntwrk/ledger-v8': 8.1.2
+  '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
 
 importers:
 
@@ -711,9 +712,6 @@ packages:
 
   '@midnight-ntwrk/onchain-runtime-v3@3.0.0':
     resolution: {integrity: sha512-HbFbUOsvgpEFy1OT0Ni2LMFk4jnMQS1em+H+Mof/B3DpnNKl0Lkx5QiulKOc6pyU4KPEagOqx4fYNyVXFwgZ7g==}
-
-  '@midnight-ntwrk/onchain-runtime-v3@3.1.1':
-    resolution: {integrity: sha512-3H5soWI8fWrngV/BzFpZMbx/JsyaK0us8MYe+P8ruwR01SdVMZiypWZRmKq2Dmwn0ZurE3mOdyOd+oYPH7VvTA==}
 
   '@midnight-ntwrk/platform-js@2.2.4':
     resolution: {integrity: sha512-6mrYKSSE8kPgn/5rQ2xofDJk1yAZZRdLOO6Yelweuh5GOnOGz7Qw4venDG/c4TRqtV9ouFp+F5j7ta8aprMinw==}
@@ -2976,7 +2974,7 @@ snapshots:
 
   '@midnight-ntwrk/compact-runtime@0.16.0':
     dependencies:
-      '@midnight-ntwrk/onchain-runtime-v3': 3.1.1
+      '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
 
@@ -3085,8 +3083,6 @@ snapshots:
       '@midnight-ntwrk/midnight-js-utils': 4.1.1
 
   '@midnight-ntwrk/onchain-runtime-v3@3.0.0': {}
-
-  '@midnight-ntwrk/onchain-runtime-v3@3.1.1': {}
 
   '@midnight-ntwrk/platform-js@2.2.4':
     dependencies:
