@@ -576,3 +576,234 @@ button { font: inherit; color: inherit; }
 /* 시뮬레이션 값은 진짜 트랜잭션처럼 보이지 않게 낮춘다. 새 색은 쓰지 않는다. */
 .ledger td.sim { color: var(--ink-3); }
 .hint--error { color: var(--seal); }
+
+/* ═══════════════════════════════════════════════════════════
+   역할별 독립 화면
+   각 화면은 그 역할이 실제로 쓰는 앱처럼 보여야 한다.
+   새 색·그림자·둥근 모서리·아이콘을 추가하지 않는다 (DESIGN §5).
+   ═══════════════════════════════════════════════════════════ */
+
+.roleapp {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.roleapp__body {
+  flex: 1;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.roleapp__body > .section { border: 1px solid var(--line); }
+
+/* ── 역할 표시줄 ─────────────────────────────────────────── */
+/* 지금 누구의 화면인지가 맨 위 한 줄로 읽혀야 한다. */
+
+.rolebar {
+  background: var(--panel);
+  border-bottom: 2px solid var(--line-hard);
+  padding: 10px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rolebar__who { display: flex; align-items: baseline; gap: 8px; }
+.rolebar__role { font-size: 16px; font-weight: 600; }
+.rolebar__product {
+  font-size: 13px;
+  color: var(--ink-2);
+  border-left: 1px solid var(--line);
+  padding-left: 8px;
+}
+/* 이 화면이 무엇을 못 보는지. 제품 주장의 절반이 여기 있다. */
+.rolebar__note { font-size: 12.5px; color: var(--ink-3); }
+.rolebar__nav { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+.rolebar__link {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  padding: 3px 9px;
+}
+.rolebar__link--active {
+  border-color: var(--line-hard);
+  color: var(--ink);
+  font-weight: 600;
+}
+.rolebar__open {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  padding: 3px 9px;
+  text-decoration: none;
+}
+
+/* ── 발표 콘솔: 역할 화면을 그대로 띄운다 ────────────────── */
+/*
+ * iframe인 이유: 콘솔에서 보이는 화면과 /supplier를 직접 연 화면이
+ * 같아야 한다. 따로 만들면 콘솔이 연출이 된다.
+ */
+
+.console-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+.console-nav__label { font-size: 12.5px; color: var(--ink-3); margin-right: 4px; }
+
+.frames {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.frame {
+  border: 1px solid var(--line-hard);
+  background: var(--panel);
+  min-width: 0;
+}
+.frame--wide { margin-top: 12px; }
+.frame__view {
+  display: block;
+  width: 100%;
+  height: 720px;
+  border: 0;
+  background: var(--bg);
+}
+.frame__view--ledger { height: 420px; }
+
+/* ── 심사 체크리스트 ─────────────────────────────────────── */
+/*
+ * 세 상태만 있다: 통과 · 실패 · 미평가.
+ * 미평가를 통과처럼 칠하지 않는 것이 이 블록의 전부다. 회로가 앞 assert에서
+ * 멈추면 뒤는 실행되지 않았고, 그걸 초록으로 보이게 하면 화면이 하지 않은
+ * 검증을 주장하게 된다.
+ */
+
+.checks { list-style: none; margin: 10px 0 0; padding: 0; }
+.check {
+  display: grid;
+  grid-template-columns: 18px minmax(96px, auto) 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+.check__mark { font-weight: 600; text-align: center; }
+.check__label { font-weight: 500; }
+.check__assert {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 회로가 봤는지 사전 검사가 봤는지. 둘은 같은 무게가 아니다. */
+.check__by { font-size: 11.5px; color: var(--ink-3); }
+
+.check--pass .check__mark { color: var(--settle); }
+.check--fail .check__mark { color: var(--seal); }
+.check--fail .check__label { color: var(--seal); font-weight: 600; }
+.check--skipped .check__mark,
+.check--skipped .check__label { color: var(--ink-3); }
+
+/* ── 신청 큐 ─────────────────────────────────────────────── */
+
+.queue {
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.queue--settled  { border-left-color: var(--settle); }
+.queue--rejected { border-left-color: var(--seal); }
+.queue__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.queue__when { font-size: 12.5px; color: var(--ink-3); }
+.queue__amount { font-weight: 600; }
+.queue__head .status { margin-left: auto; }
+.queue__meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.queue__cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.queue__cell .num { font-size: 13px; }
+
+/* ── 금융사 조건 비교 ────────────────────────────────────── */
+
+.terms { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.terms th, .terms td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+}
+.terms th {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+}
+.terms th.num, .terms td.num { text-align: right; }
+.terms td:last-child { text-align: right; }
+.btn--inline { padding: 4px 12px; font-size: 12.5px; }
+
+/* ── 발급 폼 ─────────────────────────────────────────────── */
+
+.form { display: flex; flex-direction: column; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field__label { font-size: 12.5px; color: var(--ink-3); }
+.field__input {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel-2);
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.field__input:focus { outline: 2px solid var(--line-hard); outline-offset: -2px; }
+.field__input::placeholder { color: var(--ink-3); }
+
+/* ── 반응형 ──────────────────────────────────────────────── */
+
+@media (max-width: 1280px) {
+  .check { grid-template-columns: 18px minmax(80px, auto) 1fr auto; }
+  .frame__view { height: 640px; }
+}
+@media (max-width: 1100px) {
+  .frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .queue__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .frames { grid-template-columns: minmax(0, 1fr); }
+  .check { grid-template-columns: 18px 1fr auto; }
+  /* 좁아지면 회로 표현식을 접는다. 라벨과 판정은 남는다. */
+  .check__assert { display: none; }
+  .rolebar__nav { margin-left: 0; width: 100%; }
+}
+@media (max-width: 640px) {
+  .roleapp__body { padding: 12px; gap: 12px; }
+  .queue__meta { grid-template-columns: minmax(0, 1fr); }
+  .frame__view { height: 560px; }
+  .rolebar { gap: 8px; }
+}

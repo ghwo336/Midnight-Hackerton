@@ -35,11 +35,95 @@ export interface SupplierInvoice {
   readonly usedBlock: number | null;
 }
 
+/**
+ * 심사 체크리스트 한 줄.
+ *
+ * `by`가 null이면 아무도 보지 않았다는 뜻이다. 화면이 그걸 통과로 그리면
+ * 하지 않은 검증을 주장하게 된다.
+ */
+export type CheckKey = 'issuer' | 'ownership' | 'limit' | 'unused';
+export type CheckState = 'pass' | 'fail' | 'skipped';
+export type CheckVerifier = 'circuit' | 'pre-check';
+
+export interface CheckResult {
+  readonly state: CheckState;
+  readonly by: CheckVerifier | null;
+}
+
+/** 라벨과 회로 표현식은 백엔드가 준다. 프론트가 지어내지 않는다. */
+export interface CheckDescriptor {
+  readonly key: CheckKey;
+  readonly label: string;
+  readonly assert: string;
+}
+
+/**
+ * 금융사에 도착한 신청 한 건.
+ *
+ * 이 타입에 채권 원문 필드가 없다. 추가하지 않는다 (CONTEXT §4.1).
+ * 금액과 중복 확인값은 확정되면 공개 원장에 올라가는 값이라 담는다.
+ */
+export interface ApplicationRow {
+  readonly id: string;
+  readonly lender: LenderId;
+  readonly amount: string;
+  readonly nullifier: string | null;
+  readonly receivedAt: string;
+  readonly outcome: 'settled' | 'rejected';
+  readonly checks: Record<CheckKey, CheckResult>;
+  readonly reason: string | null;
+  readonly block: number | null;
+  readonly txHash: string | null;
+  readonly elapsedMs: number;
+}
+
 export interface LenderState {
   readonly lenderId: LenderId;
   readonly label: string;
   readonly vault: string;
+  readonly ltvBps: string;
   readonly loans: readonly LoanRow[];
+  readonly applications: readonly ApplicationRow[];
+}
+
+/**
+ * 금융사 취급 조건. 전부 공개 원장에서 읽은 값이다.
+ * 금리나 수수료 같은 없는 항목을 만들지 않는다.
+ */
+export interface LenderTerms {
+  readonly lenderId: LenderId;
+  readonly label: string;
+  readonly vault: string;
+}
+
+export interface LenderTermsList {
+  readonly lenders: readonly LenderTerms[];
+  readonly ltvBps: string;
+}
+
+/** 발급 기관 콘솔 상태. 전부 공개값이다. */
+export interface IssuerState {
+  readonly issuerId: string;
+  readonly issuerRoot: string;
+  readonly invoiceCount: number;
+  readonly ltvBps: string;
+  readonly blockHeight: number;
+}
+
+/** 발급 결과. 원문은 돌아오지 않고 루트 전이만 온다. */
+export interface IssueResult {
+  readonly invoiceId: string;
+  readonly rootBefore: string;
+  readonly rootAfter: string;
+  readonly invoiceCount: number;
+}
+
+export interface IssueInvoiceBody {
+  readonly faceAmount: string;
+  readonly counterparty: string;
+  readonly dueDate: string;
+  readonly approvalNumber: string;
+  readonly memo: string;
 }
 
 export interface FinancingSettled {

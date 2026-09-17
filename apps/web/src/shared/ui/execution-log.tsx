@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { LogLine } from '@/features/demo-console/lender-runtime';
+import type { LogLine } from '@/shared/runtime/financing-runtime';
 
 /**
  * 실행 로그.

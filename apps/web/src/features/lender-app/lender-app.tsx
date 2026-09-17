@@ -1,0 +1,211 @@
+'use client';
+
+import { useCallback, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/shared/api/client';
+import type { ApplicationRow, LenderId } from '@/shared/api/types';
+import { RoleHeader } from '@/shared/role/role-header';
+import { useLive } from '@/shared/role/use-live';
+import type { OnceEvent } from '@/shared/sse/use-once-events';
+import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
+import { Stamp, type StampState } from '@/shared/ui/stamp';
+import { Checklist } from './checklist';
+import { useCheckReveal } from './use-check-reveal';
+
+/**
+ * 금융사의 여신 심사 앱.
+ *
+ * 이 화면에 없는 것:
+ *   - 채권 원문 (구매기업·액면·지급일·승인번호). props 타입에 자리가 없다.
+ *   - 다른 금융사의 예치 잔액·대출·신청
+ *   - 공개 원장 전체
+ *
+ * 있는 것: 내 예치 잔액, 나에게 온 신청과 그 검증 결과 네 줄, 내가 실행한 대출.
+ *
+ * 증명 생성 단계를 여기 두지 않는다. 증명은 채권 원문을 가진 납품업체 쪽에서
+ * 만들어진다. 여기는 받은 증명을 검증한 결과만 본다.
+ */
+function clock(iso: string): string {
+  const d = new Date(iso);
+  return [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map((n) => String(n).padStart(2, '0'))
+    .join(':');
+}
+
+const REASON_TEXT: Record<string, string> = {
+  NULLIFIER_ALREADY_USED: '이미 다른 곳에서 사용된 담보',
+  AMOUNT_EXCEEDS_LTV: '요청 금액이 담보 한도 초과',
+  ISSUER_ATTESTATION_FAILED: '발급 기관이 인증하지 않은 채권',
+  OWNERSHIP_VERIFY_FAILED: '발급 기관이 인증하지 않은 채권',
+  LENDER_NOT_REGISTERED: '등록되지 않은 금융사',
+  INSUFFICIENT_LENDER_FUNDING: '예치 잔액 부족',
+  INVOICE_NOT_FOUND: '신청 대상 채권 없음',
+};
+
+export function LenderApp({ lenderId }: { lenderId: LenderId }) {
+  /** 지금 심사 중인 신청이 있는가. 이벤트로만 알 수 있다. */
+  const [pending, setPending] = useState(false);
+  const reveal = useCheckReveal(4);
+
+  const state = useQuery({
+    queryKey: ['lender', lenderId],
+    queryFn: () => api.lender(lenderId),
+  });
+  const descriptors = useQuery({ queryKey: ['lenderChecks'], queryFn: api.lenderChecks });
+  const status = useQuery({ queryKey: ['chain'], queryFn: api.chain, refetchInterval: 4000 });
+
+  useLive(
+    useCallback(
+      (event: OnceEvent) => {
+        if (event.type !== 'financing.stage') return;
+        if (event.lender !== lenderId) return;
+        const done = event.stage === 'settled' || event.stage === 'rejected';
+        setPending(!done);
+        // 판정이 끝난 뒤에 순서를 만든다. 데이터는 이미 확정된 값이다.
+        if (done) reveal.play();
+      },
+      [lenderId, reveal],
+    ),
+  );
+
+  const applications = state.data?.applications ?? [];
+  const latest: ApplicationRow | null = applications[0] ?? null;
+
+  const stamp: StampState = pending
+    ? 'pending'
+    : latest === null
+      ? 'idle'
+      : latest.outcome === 'settled'
+        ? 'settled'
+        : 'rejected';
+
+  const simulated = status.data?.simulated ?? true;
+  const ltv = state.data ? `${Number(state.data.ltvBps) / 100}%` : EMPTY;
+
+  return (
+    <div className="roleapp">
+      <RoleHeader
+        role={state.data?.label ?? lenderId}
+        product="여신 심사"
+        current={`/lender/${lenderId}`}
+        note="채권 원문을 받지 않는다. 다른 금융사의 활동도 보이지 않는다"
+      />
+
+      <div className="roleapp__body">
+        <section className="section">
+          <header className="section__head">
+            <span>여신 현황</span>
+            <span className="panel__role">담보인정비율 {ltv}</span>
+          </header>
+          <div className="section__body">
+            <Stamp state={stamp} />
+            <div className="readout">
+              <div className="readout__row">
+                <span className="readout__key">예치 잔액</span>
+                <span className="num">
+                  {state.data ? formatAmount(state.data.vault) : EMPTY}
+                </span>
+              </div>
+              <div className="readout__row">
+                <span className="readout__key">실행한 대출</span>
+                <span className="num">{state.data?.loans.length ?? 0}건</span>
+              </div>
+              <div className="readout__row">
+                <span className="readout__key">지급 합계</span>
+                <span className="num">
+                  {formatAmount(
+                    (state.data?.loans ?? [])
+                      .reduce((acc, loan) => acc + BigInt(loan.amount), 0n)
+                      .toString(),
+                  )}
+                </span>
+              </div>
+              <div className="readout__row">
+                <span className="readout__key">받은 신청</span>
+                <span className="num">{applications.length}건</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section">
+          <header className="section__head">
+            <span>대출 신청 큐</span>
+            <span className="panel__role">채권 내용 없이 판정한다</span>
+          </header>
+          <div className="section__body">
+            {applications.length === 0 ? (
+              <p className="ledger__empty">들어온 신청이 없다.</p>
+            ) : (
+              applications.map((application) => (
+                <article
+                  key={application.id}
+                  className={`queue queue--${application.outcome}`}
+                >
+                  <header className="queue__head">
+                    <span className="queue__when">{clock(application.receivedAt)}</span>
+                    <span className="queue__amount num">
+                      {formatAmount(application.amount)}
+                    </span>
+                    <span
+                      className={`status ${
+                        application.outcome === 'settled'
+                          ? 'status--settled'
+                          : 'status--rejected'
+                      }`}
+                    >
+                      {application.outcome === 'settled' ? '지급 완료' : '지급 거부'}
+                    </span>
+                  </header>
+
+                  <Checklist
+                    descriptors={descriptors.data ?? []}
+                    checks={application.checks}
+                    shown={application.id === latest?.id ? reveal.shown : undefined}
+                  />
+
+                  {application.reason ? (
+                    <p className="reject-note">
+                      {REASON_TEXT[application.reason] ?? application.reason}
+                    </p>
+                  ) : null}
+
+                  <div className="queue__meta">
+                    <span className="queue__cell">
+                      <span className="readout__key">중복 확인값</span>
+                      <span className="num">
+                        {application.nullifier ? shortHash(application.nullifier) : EMPTY}
+                      </span>
+                    </span>
+                    <span className="queue__cell">
+                      <span className="readout__key">{simulated ? '확정 (모의)' : '확정'}</span>
+                      <span className="num">
+                        {application.block === null ? EMPTY : `블록 ${application.block}`}
+                      </span>
+                    </span>
+                    <span className="queue__cell">
+                      <span className="readout__key">{simulated ? 'tx (모의)' : 'tx'}</span>
+                      <span className={`num ${simulated ? 'sim' : ''}`}>
+                        {application.txHash ? shortHash(application.txHash) : EMPTY}
+                      </span>
+                    </span>
+                    <span className="queue__cell">
+                      <span className="readout__key">심사 소요</span>
+                      <span className="num">
+                        {(application.elapsedMs / 1000).toFixed(2)}s
+                      </span>
+                    </span>
+                  </div>
+                </article>
+              ))
+            )}
+            <p className="hint">
+              심사에 쓴 것은 증명과 위 네 검사뿐이다. 구매기업·지급일·승인번호는
+              받지 않았고, 이 화면의 어떤 응답에도 들어 있지 않다.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}

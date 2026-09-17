@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { REVEAL, REVEAL_ALL, REVEAL_NONE, type Reveal } from './lender-runtime';
+import { REVEAL, REVEAL_ALL, REVEAL_NONE, type Reveal } from './financing-runtime';
 
 /**
  * 순차 노출 오케스트레이터.
