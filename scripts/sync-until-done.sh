@@ -11,7 +11,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 
 LOG=/tmp/sync.log
-MAX=40
+MAX=200
 i=0
 
 while [ $i -lt $MAX ]; do
