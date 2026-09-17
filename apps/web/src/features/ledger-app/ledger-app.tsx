@@ -16,8 +16,8 @@ import { LedgerTable } from '@/entities/loan/ledger-table';
  */
 export function LedgerApp() {
   const loans = useQuery({ queryKey: ['loans'], queryFn: api.loans });
-  const status = useQuery({ queryKey: ['chain'], queryFn: api.chain, refetchInterval: 4000 });
-  useLive();
+  const status = useQuery({ queryKey: ['chain'], queryFn: api.chain });
+  useLive('standalone');
 
   const chain = status.data;
   const simulated = chain?.simulated ?? true;

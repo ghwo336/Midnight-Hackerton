@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { LenderId } from '@/shared/api/types';
@@ -44,8 +45,9 @@ export function DemoConsole() {
   const [frameKey, setFrameKey] = useState(0);
   const [climaxDone, setClimaxDone] = useState(false);
 
-  const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain, refetchInterval: 4000 });
-  useLive();
+  const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
+  // 콘솔은 단계 이벤트를 그리지 않는다. 연결을 붙들 이유가 없다.
+  useLive('never');
 
   const status = chain.data;
 
@@ -160,17 +162,15 @@ export function DemoConsole() {
         </header>
 
         <nav className="console-nav">
-          <span className="console-nav__label">역할별 화면을 따로 연다</span>
+          <span className="console-nav__label">역할별 화면</span>
+          {/*
+            같은 탭에서 넘어간다. 새 창으로 띄우면 역할을 오갈 때마다
+            창이 쌓인다. 각 화면 상단의 역할 표시줄로 되돌아올 수 있다.
+          */}
           {ROLES.map((role) => (
-            <a
-              key={role.href}
-              className="rolebar__link"
-              href={role.href}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <Link key={role.href} className="rolebar__link" href={role.href}>
               {role.label}
-            </a>
+            </Link>
           ))}
         </nav>
 

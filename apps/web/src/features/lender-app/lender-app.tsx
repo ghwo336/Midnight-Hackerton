@@ -52,9 +52,11 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
     queryFn: () => api.lender(lenderId),
   });
   const descriptors = useQuery({ queryKey: ['lenderChecks'], queryFn: api.lenderChecks });
-  const status = useQuery({ queryKey: ['chain'], queryFn: api.chain, refetchInterval: 4000 });
+  // 갱신은 useLive가 맡는다. 여기서 또 주기를 돌리면 요청만 늘어난다.
+  const status = useQuery({ queryKey: ['chain'], queryFn: api.chain });
 
   useLive(
+    'standalone',
     useCallback(
       (event: OnceEvent) => {
         if (event.type !== 'financing.stage') return;

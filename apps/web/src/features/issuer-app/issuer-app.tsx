@@ -34,7 +34,7 @@ export function IssuerApp() {
   const [error, setError] = useState<string | null>(null);
 
   const state = useQuery({ queryKey: ['issuer'], queryFn: api.issuer });
-  useLive();
+  useLive('standalone');
 
   const set = (key: keyof typeof EMPTY_FORM) => (event: { target: { value: string } }) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));

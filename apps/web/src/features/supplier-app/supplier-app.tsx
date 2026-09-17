@@ -38,8 +38,13 @@ export function SupplierApp() {
   const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
   const terms = useQuery({ queryKey: ['lenderTerms'], queryFn: api.lenderTerms });
 
-  // 내 신청의 진행 단계만 따라간다. 다른 금융사에 간 신청은 내 것이 아니다.
+  /*
+   * 납품업체만 스트림을 쓴다. 증명 생성 단계가 이 화면의 내용 자체이고,
+   * 폴링으로는 witness → 증명 → 제출이 지나가는 걸 볼 수 없다.
+   * 나머지 화면은 폴링이라 콘솔이 iframe을 띄워도 연결 한도를 먹지 않는다.
+   */
   useLive(
+    'always',
     useCallback(
       (event: OnceEvent) => {
         if (event.type !== 'financing.stage') return;
@@ -93,6 +98,16 @@ export function SupplierApp() {
   );
 
   const ltv = terms.data ? `${Number(terms.data.ltvBps) / 100}%` : EMPTY;
+
+  /*
+   * 응답이 오래 걸리면 화면이 그렇다고 말한다.
+   *
+   * 로컬 회로 실행은 수십 밀리초에 끝난다. 10초가 넘었다면 증명이 느린 게
+   * 아니라 요청이 아예 못 나간 것이다. 아무 설명 없이 경과 시간만 올라가면
+   * 발표 중에 고장인지 원래 느린 건지 구분할 방법이 없다.
+   */
+  const elapsedMs = runtime.startedAt === null ? 0 : Date.now() - runtime.startedAt;
+  const stalled = inFlight && elapsedMs > 10_000;
 
   return (
     <div className="roleapp">
@@ -195,10 +210,12 @@ export function SupplierApp() {
                 })}
               </tbody>
             </table>
-            <p className="hint">
-              {selected
-                ? `채권 #${list.findIndex((i) => i.invoiceId === selected.invoiceId) + 1} 선택됨`
-                : '신청할 채권이 없다'}
+            <p className={`hint ${stalled ? 'hint--error' : ''}`}>
+              {stalled
+                ? '응답이 오지 않는다. 로컬 실행은 1초 안에 끝난다. 서버가 떠 있는지 확인한다'
+                : selected
+                  ? `채권 #${list.findIndex((i) => i.invoiceId === selected.invoiceId) + 1} 선택됨`
+                  : '신청할 채권이 없다'}
             </p>
           </div>
         </section>
