@@ -6,7 +6,7 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
 import { buildProviders, ONCE_PRIVATE_STATE_ID } from './providers';
-import { ensureIssuerSecret } from './private-state';
+import { ensureIssuerSecret, writeIssuerPublicKey } from './private-state';
 import { Recorder } from './measure';
 
 /**
@@ -203,6 +203,10 @@ export async function runBootstrap(
   const issuerSecret = await ensureIssuerSecret();
   const privateState: OncePrivateState = { issuerSecret, activeInvoice: null };
 
+  // 진입 화면이 WASM 없이 대조할 수 있도록 공개키를 같이 저장한다.
+  const issuerPublicKey = bytesToHex(pureCircuits.issuerPublicKey(issuerSecret));
+  await writeIssuerPublicKey(issuerPublicKey);
+
   let contractAddress: string | null = null;
   let deployed: { callTx: Record<string, (...args: unknown[]) => Promise<unknown>> } | null = null;
 
@@ -281,10 +285,5 @@ export async function runBootstrap(
     // 단계에 이미 기록했다. 여기서는 부분 결과를 그대로 돌려준다.
   }
 
-  return {
-    contractAddress,
-    issuerPublicKey: bytesToHex(pureCircuits.issuerPublicKey(issuerSecret)),
-    steps: list,
-    recorder,
-  };
+  return { contractAddress, issuerPublicKey, steps: list, recorder };
 }

@@ -1,11 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import type { LenderId } from '@/shared/api/types';
-import { ROLES } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import { EMPTY, shortHash } from '@/shared/ui/format';
 import {
@@ -197,18 +195,6 @@ export function DemoConsole() {
           </span>
         </header>
 
-        <nav className="console-nav">
-          <span className="console-nav__label">역할별 화면</span>
-          {/*
-            같은 탭에서 넘어간다. 새 창으로 띄우면 역할을 오갈 때마다
-            창이 쌓인다. 각 화면 상단의 역할 표시줄로 되돌아올 수 있다.
-          */}
-          {ROLES.map((role) => (
-            <Link key={role.href} className="rolebar__link" href={role.href}>
-              {role.label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="frames">
           {FRAMES.map((frame) => (

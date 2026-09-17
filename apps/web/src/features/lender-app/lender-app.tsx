@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { ApplicationRow, LenderId } from '@/shared/api/types';
-import { RoleHeader } from '@/shared/role/role-header';
+import { RoleHeader, type AccountView } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
@@ -51,7 +51,13 @@ const REASON_TEXT: Record<string, string> = {
   INVOICE_NOT_FOUND: '신청 대상 채권 없음',
 };
 
-export function LenderApp({ lenderId }: { lenderId: LenderId }) {
+export function LenderApp({
+  lenderId,
+  account,
+}: {
+  lenderId: LenderId;
+  account?: AccountView;
+}) {
   /** 지금 심사 중인 신청이 있는가. 이벤트로만 알 수 있다. */
   const [pending, setPending] = useState(false);
   const reveal = useCheckReveal(4);
@@ -98,7 +104,7 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
       <RoleHeader
         role={state.data?.label ?? LENDER_LABEL[lenderId]}
         product="여신 심사"
-        current={`/lender/${lenderId}`}
+        account={account}
       />
 
       <div className="roleapp__body">

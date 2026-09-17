@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import type { LenderId, SupplierInvoice } from '@/shared/api/types';
-import { RoleHeader } from '@/shared/role/role-header';
+import { RoleHeader, type AccountView } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
@@ -25,7 +25,7 @@ import {
  * 납품업체뿐이고, 증명은 그 값들로 만들어진다. 금융사 화면에서 "증명 생성
  * 0.01초"를 보여주면 금융사가 증명을 만든 것처럼 읽힌다.
  */
-export function SupplierApp() {
+export function SupplierApp({ account }: { account?: AccountView }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -110,11 +110,7 @@ export function SupplierApp() {
 
   return (
     <div className="roleapp">
-      <RoleHeader
-        role="납품업체"
-        product="자금 조달"
-        current="/supplier"
-      />
+      <RoleHeader role="납품업체" product="자금 조달" account={account} />
 
       <div className="roleapp__body">
         <section className="section">

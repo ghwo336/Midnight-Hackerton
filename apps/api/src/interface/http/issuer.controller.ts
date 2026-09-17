@@ -27,6 +27,7 @@ export class IssuerController {
   async state() {
     return {
       issuerId: await this.reader.getIssuerId(),
+      issuerPk: await this.reader.getIssuerPk(),
       issuerRoot: await this.reader.getIssuerRoot(),
       invoiceCount: await this.reader.getInvoiceCount(),
       ltvBps: (await this.reader.getLtvBps()).toString(),

@@ -101,9 +101,36 @@ export interface LenderTermsList {
   readonly ltvBps: string;
 }
 
+/**
+ * 계정이 무엇을 할 수 있는가.
+ *
+ * 화면이 역할을 고르게 하지 않는다. 접속한 주소로 물어보고 그 결과로
+ * 들어간다. issuer 는 여기 오지 않는다 — 발급 권한은 issuerSecret 을
+ * 쥐고 있느냐로 정해지고 그 키는 브라우저에만 있어서 서버가 모른다.
+ */
+export type RoleKind = 'issuer' | 'supplier' | 'lender';
+
+export interface Identity {
+  readonly address: string;
+  readonly roles: readonly RoleKind[];
+  readonly lenderId: LenderId | null;
+  readonly lenderLabel: string | null;
+  readonly supplierId: string | null;
+}
+
+export interface ClaimResult {
+  readonly ok: boolean;
+  readonly lenderId?: LenderId | null;
+  readonly lenderLabel?: string | null;
+  readonly supplierId?: string;
+  readonly reason: string | null;
+}
+
 /** 발급 기관 콘솔 상태. 전부 공개값이다. */
 export interface IssuerState {
   readonly issuerId: string;
+  /** 발급 기관 공개키. 이 기기가 발급 권한을 쥐었는지 대조한다. */
+  readonly issuerPk: string;
   readonly issuerRoot: string;
   readonly invoiceCount: number;
   readonly ltvBps: string;

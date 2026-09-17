@@ -24,11 +24,7 @@ export function LedgerApp() {
 
   return (
     <div className="roleapp">
-      <RoleHeader
-        role="공개 원장"
-        product="누구나 열람"
-        current="/ledger"
-      />
+      <RoleHeader role="공개 원장" product="누구나 열람" />
 
       <div className="roleapp__body">
         <section className="section">

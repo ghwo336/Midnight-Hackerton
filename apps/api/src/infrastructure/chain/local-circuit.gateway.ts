@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OnceContractSimulator } from '@once/chain';
+import { bytesToHex } from '@once/domain';
 import { SIMULATOR_SOURCE, type SimulatorSource } from './simulator.source.js';
 import {
   ChainSubmitFailedError,
@@ -34,6 +35,10 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
 
   async getIssuerId(): Promise<Hex> {
     return this.sim.snapshot().issuerId;
+  }
+
+  async getIssuerPk(): Promise<Hex> {
+    return bytesToHex(this.sim.ledgerView.issuerPk);
   }
 
   async getIssuerRoot(): Promise<Hex> {

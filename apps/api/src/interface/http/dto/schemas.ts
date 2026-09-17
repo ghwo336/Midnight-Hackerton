@@ -23,3 +23,11 @@ export const IssueInvoiceSchema = z.object({
 });
 
 export type IssueInvoiceDto = z.infer<typeof IssueInvoiceSchema>;
+
+/** 역할 claim. 주소 형식은 지갑마다 달라 길이만 본다. */
+export const ClaimRoleSchema = z.object({
+  address: z.string().min(8).max(200),
+  role: z.enum(['lender', 'supplier']),
+});
+
+export type ClaimRoleDto = z.infer<typeof ClaimRoleSchema>;

@@ -7,6 +7,7 @@ import {
 } from '../../application/ports/private-state.repository.js';
 import { InMemoryPrivateStateRepository } from '../persistence/in-memory-private-state.repository.js';
 import { InMemoryApplicationLog } from '../persistence/in-memory-application-log.js';
+import { InMemoryIdentityRegistry } from '../persistence/in-memory-identity.registry.js';
 import { SUPPLIER_ID, loadEnv } from '../../config/demo.config.js';
 
 /**
@@ -49,6 +50,7 @@ export class DemoSeedService implements OnModuleInit {
     @Inject(IssueInvoiceUseCase) private readonly issueInvoice: IssueInvoiceUseCase,
     @Inject(PRIVATE_STATE_REPO) private readonly privateState: PrivateStateRepository,
     @Inject(InMemoryApplicationLog) private readonly applications: InMemoryApplicationLog,
+    @Inject(InMemoryIdentityRegistry) private readonly identities: InMemoryIdentityRegistry,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -61,6 +63,8 @@ export class DemoSeedService implements OnModuleInit {
 
     // 원장을 되돌렸는데 신청 큐가 남아 있으면 금융사 화면이 없는 대출을 가리킨다
     this.applications.clear();
+    // 역할 등록부도 되돌린다. 남겨 두면 없는 대출을 가진 금융사가 생긴다.
+    this.identities.clear();
 
     // 포트 인터페이스에 데모 전용 메서드를 넣지 않는다. 구체 타입으로 좁힌다.
     if (this.privateState instanceof InMemoryPrivateStateRepository) {

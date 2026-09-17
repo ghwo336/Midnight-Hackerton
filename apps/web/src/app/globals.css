@@ -826,3 +826,103 @@ button { font: inherit; color: inherit; }
   .frame__view { height: 560px; }
   .rolebar { gap: 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   앱 진입: 지갑이 역할을 정한다
+   역할 스위처를 두지 않는다. 계정 메뉴 안에서만 바꾼다.
+   ═══════════════════════════════════════════════════════════ */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.app-shell > .roleapp { flex: 1; min-height: 0; }
+
+/* ── 첫 화면 ─────────────────────────────────────────────── */
+/* 제품 한 줄과 연결 버튼. 기능 소개도 역할 목록도 두지 않는다. */
+
+.gate {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+.gate__box {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--line-hard);
+  padding: 28px 24px;
+}
+.gate__name { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+.gate__line {
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.6;
+  margin: 0 0 20px;
+}
+
+/* ── 계정 메뉴 ───────────────────────────────────────────── */
+
+.account { margin-left: auto; position: relative; }
+.account__chip {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  border-radius: 0;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.account__chip:active { background: var(--line-soft); }
+.account__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 260px;
+  background: var(--panel);
+  border: 1px solid var(--line-hard);
+  z-index: 20;
+}
+.account__addr {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--line);
+  word-break: break-all;
+}
+.account__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--panel);
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.account__item:last-child { border-bottom: 0; }
+.account__item:active { background: var(--panel-2); }
+
+/* ── 바닥 줄 ─────────────────────────────────────────────── */
+/* 공개 원장은 앱의 기능이 아니라 바깥에 있는 것이다. */
+
+.appfoot {
+  display: flex;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.appfoot__link { font-size: 12.5px; color: var(--ink-3); text-decoration: none; }
+
+@media (max-width: 640px) {
+  .gate__box { padding: 22px 18px; }
+  .account__menu { min-width: 220px; }
+}

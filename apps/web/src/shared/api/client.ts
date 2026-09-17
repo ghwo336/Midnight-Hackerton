@@ -1,6 +1,7 @@
 import type {
-  AttackOutcome, ChainStatus, CheckDescriptor, FinancingSettled, IssueInvoiceBody, IssueResult,
-  IssuerState, LenderId, LenderState, LenderTermsList, LoanRow, SupplierInvoice,
+  AttackOutcome, ChainStatus, CheckDescriptor, ClaimResult, FinancingSettled, Identity,
+  IssueInvoiceBody, IssueResult, IssuerState, LenderId, LenderState, LenderTermsList, LoanRow,
+  SupplierInvoice,
 } from './types.js';
 
 /**
@@ -74,6 +75,13 @@ export const api = {
   chain: () => request<ChainStatus>('/public/chain'),
   loans: () => request<{ loans: LoanRow[] }>('/public/loans').then((r) => r.loans),
   invoices: () => request<{ invoices: SupplierInvoice[] }>('/supplier/invoices').then((r) => r.invoices),
+  identity: (address: string) =>
+    request<Identity>(`/identity/${encodeURIComponent(address)}`),
+  claimRole: (address: string, role: 'lender' | 'supplier') =>
+    request<ClaimResult>('/identity/claim', {
+      method: 'POST',
+      body: JSON.stringify({ address, role }),
+    }),
   lenderTerms: () => request<LenderTermsList>('/public/lenders'),
   lender: (id: LenderId) => request<LenderState>(`/lender/${id}`),
   lenderChecks: () =>

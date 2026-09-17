@@ -7,6 +7,7 @@ import { ISSUER_STRATEGY } from './application/ports/issuer-verification.strateg
 import {
   APPLICATION_LOG_READER, APPLICATION_LOG_WRITER,
 } from './application/ports/application-log.js';
+import { IDENTITY_REGISTRY } from './application/ports/identity.registry.js';
 
 import { IssueInvoiceUseCase } from './application/issue-invoice.usecase.js';
 import { ListInvoicesUseCase } from './application/list-invoices.usecase.js';
@@ -21,11 +22,13 @@ import { MerkleIssuerStrategy } from './infrastructure/chain/merkle-issuer.strat
 import { DemoSeedService } from './infrastructure/chain/demo-seed.service.js';
 import { InMemoryPrivateStateRepository } from './infrastructure/persistence/in-memory-private-state.repository.js';
 import { InMemoryApplicationLog } from './infrastructure/persistence/in-memory-application-log.js';
+import { InMemoryIdentityRegistry } from './infrastructure/persistence/in-memory-identity.registry.js';
 
 import { PublicController } from './interface/http/public.controller.js';
 import { SupplierController } from './interface/http/supplier.controller.js';
 import { LenderController } from './interface/http/lender.controller.js';
 import { IssuerController } from './interface/http/issuer.controller.js';
+import { IdentityController } from './interface/http/identity.controller.js';
 import { DemoController } from './interface/http/demo.controller.js';
 import { OnceEventsService } from './interface/events/once-events.service.js';
 
@@ -43,6 +46,7 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     SupplierController,
     LenderController,
     IssuerController,
+    IdentityController,
     DemoController,
   ],
   providers: [
@@ -52,12 +56,14 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     LocalCircuitChainGateway,
     InMemoryPrivateStateRepository,
     InMemoryApplicationLog,
+    InMemoryIdentityRegistry,
 
     { provide: CHAIN_READER, useExisting: LocalCircuitChainGateway },
     { provide: CHAIN_WRITER, useExisting: LocalCircuitChainGateway },
     { provide: PRIVATE_STATE_REPO, useExisting: InMemoryPrivateStateRepository },
     { provide: APPLICATION_LOG_WRITER, useExisting: InMemoryApplicationLog },
     { provide: APPLICATION_LOG_READER, useExisting: InMemoryApplicationLog },
+    { provide: IDENTITY_REGISTRY, useExisting: InMemoryIdentityRegistry },
     { provide: ISSUER_STRATEGY, useClass: MerkleIssuerStrategy },
 
     IssueInvoiceUseCase,

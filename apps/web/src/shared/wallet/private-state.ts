@@ -61,6 +61,26 @@ async function withStore<T>(
  * 기기를 옮기면 같은 컨트랙트의 발급 기관 권한을 쓸 수 없다. 그게 맞다.
  */
 const ISSUER_SECRET_KEY = 'issuerSecret';
+const ISSUER_PK_KEY = 'issuerPublicKey';
+
+/**
+ * 유도된 발급 기관 공개키를 같이 저장한다.
+ *
+ * 진입 화면이 "이 기기가 발급 권한을 쥐었는가"를 판단해야 하는데, 그걸
+ * 위해 비밀키에서 공개키를 유도하려면 회로 런타임(WASM)을 끌어와야 한다.
+ * 첫 화면에 10MB 를 로드할 이유가 없다. 만들 때 한 번 유도해 두고
+ * 여기서는 문자열만 비교한다.
+ */
+export async function writeIssuerPublicKey(hex: string): Promise<void> {
+  await withStore<IDBValidKey>(STORE_KEYS, 'readwrite', (s) => s.put(hex, ISSUER_PK_KEY));
+}
+
+export async function readIssuerPublicKey(): Promise<string | null> {
+  const value = await withStore<string | undefined>(STORE_KEYS, 'readonly', (s) =>
+    s.get(ISSUER_PK_KEY),
+  );
+  return value ?? null;
+}
 
 export async function ensureIssuerSecret(): Promise<Uint8Array> {
   const existing = await withStore<Uint8Array | undefined>(STORE_KEYS, 'readonly', (s) =>

@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import type { IssueResult } from '@/shared/api/types';
-import { RoleHeader } from '@/shared/role/role-header';
+import { RoleHeader, type AccountView } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
 
@@ -26,7 +26,7 @@ const EMPTY_FORM = {
   memo: '',
 };
 
-export function IssuerApp() {
+export function IssuerApp({ account }: { account?: AccountView }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
@@ -70,11 +70,7 @@ export function IssuerApp() {
 
   return (
     <div className="roleapp">
-      <RoleHeader
-        role="발급 기관"
-        product="채권 발행"
-        current="/issuer"
-      />
+      <RoleHeader role="발급 기관" product="채권 발행" account={account} />
 
       <div className="roleapp__body">
         <section className="section">

@@ -34,6 +34,11 @@ export interface ChainStatus {
 export interface ChainReader {
   getIssuerId(): Promise<Hex>;
   /**
+   * 발급 기관 공개키. 원장에 있는 공개값이다.
+   * 접속한 기기가 발급 권한을 쥐고 있는지 대조하는 데 쓰인다.
+   */
+  getIssuerPk(): Promise<Hex>;
+  /**
    * 발급자 Merkle 루트. 공개값이다 (CONTEXT §5).
    * 발급 기관 화면이 표시하고, 금융사가 원문 없이 인증을 검증하는 기준이다.
    */

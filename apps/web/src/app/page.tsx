@@ -1,9 +1,11 @@
-import { DemoConsole } from '@/features/demo-console/demo-console';
+import { AppEntry } from '@/features/app-entry/app-entry';
 
 /**
- * 데모 콘솔. 서버 컴포넌트가 기본이고, 상호작용이 필요한 곳만
- * 'use client'다 (SPEC §9.2).
+ * 진입점. 지갑이 역할을 정한다.
+ *
+ * 발표용 3분할 콘솔은 /console 로 옮겼다. 실제 서비스에 "어느 역할로
+ * 볼까요" 선택은 없으므로 그게 기본 화면이면 안 된다.
  */
 export default function Page() {
-  return <DemoConsole />;
+  return <AppEntry />;
 }
