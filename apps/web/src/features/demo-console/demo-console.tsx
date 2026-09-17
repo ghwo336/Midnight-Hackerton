@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/shared/api/client';
+import { ApiError, api } from '@/shared/api/client';
 import type { LenderId } from '@/shared/api/types';
 import { ROLES } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
@@ -178,7 +178,21 @@ export function DemoConsole() {
               </b>
             </span>
             <span className="topbar__item">
-              노드 <b>{status?.connected ? '연결됨' : '끊김'}</b>
+              {/*
+                연결 실패를 '끊김' 한 단어로 뭉개지 않는다. 요청이 무응답으로
+                매달리면 화면은 값이 '—' 인 채 멈추고 아무 단서도 남지 않는다.
+                무엇이 안 됐는지 그대로 적는다.
+              */}
+              노드{' '}
+              <b className={chain.error ? 'topbar__fail' : ''}>
+                {chain.error
+                  ? chain.error instanceof ApiError
+                    ? chain.error.message
+                    : '연결 실패'
+                  : status?.connected
+                    ? '연결됨'
+                    : '끊김'}
+              </b>
             </span>
           </span>
         </header>
