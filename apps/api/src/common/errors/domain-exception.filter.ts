@@ -1,7 +1,7 @@
 import {
   Catch, HttpStatus, type ArgumentsHost, type ExceptionFilter,
 } from '@nestjs/common';
-import { DomainError, ERROR_HTTP_MAP } from '@once/domain';
+import { CIRCUIT_ASSERT, DomainError, ERROR_HTTP_MAP } from '@once/domain';
 import type { Response } from 'express';
 
 /**
@@ -20,7 +20,11 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof DomainError) {
       const status = ERROR_HTTP_MAP[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR;
-      response.status(status).json({ code: exception.code, message: exception.message });
+      response.status(status).json({
+        code: exception.code,
+        message: exception.message,
+        circuitAssert: CIRCUIT_ASSERT[exception.code],
+      });
       return;
     }
 

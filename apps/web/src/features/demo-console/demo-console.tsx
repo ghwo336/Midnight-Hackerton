@@ -13,9 +13,11 @@ import {
   AttackPanel, ATTACK_IDS, type AttackId, type AttackStatus,
 } from '@/features/attack-panel/attack-panel';
 import {
-  INITIAL_RUNTIMES, IDLE_RUNTIME, applyStage, beginRequest,
+  INITIAL_RUNTIMES, IDLE_RUNTIME, REVEAL, applyStage, beginRequest,
   type LenderRuntimes,
 } from './lender-runtime';
+import { useReveal } from './use-reveal';
+import type { VaultContrast } from '@/features/lender-panel/lender-panel';
 
 const LABEL: Record<LenderId, string> = { 'lender-a': '금융사 A', 'lender-b': '금융사 B' };
 
@@ -37,6 +39,12 @@ export function DemoConsole() {
   const [runtimes, setRuntimes] = useState<LenderRuntimes>(INITIAL_RUNTIMES);
   const [attacks, setAttacks] = useState<Record<AttackId, AttackStatus>>(IDLE_ATTACKS);
   const [tick, setTick] = useState(0);
+  /** A5 진행 중에는 두 금융사 패널만 남기고 나머지를 어둡게 한다. */
+  const [climax, setClimax] = useState(false);
+  const [climaxDone, setClimaxDone] = useState(false);
+  const [vaultBefore, setVaultBefore] = useState<Record<LenderId, string> | null>(null);
+  const revealA = useReveal(0);
+  const revealB = useReveal(0);
 
   const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain, refetchInterval: 4000 });
   const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
@@ -67,6 +75,19 @@ export function DemoConsole() {
         const lender = event.lender as LenderId;
         setRuntimes((prev) => ({ ...prev, [lender]: applyStage(prev[lender], event) }));
       }
+      if (event.type === 'financing.rejected') {
+        const lender = event.lender as LenderId;
+        setRuntimes((prev) => ({
+          ...prev,
+          [lender]: applyStage(prev[lender], {
+            stage: 'rejected',
+            at: new Date().toISOString(),
+            elapsedMs: 0,
+            reason: event.reason,
+            circuitAssert: event.circuitAssert ?? null,
+          }),
+        }));
+      }
       refreshAll();
     },
     [refreshAll],
@@ -78,18 +99,26 @@ export function DemoConsole() {
 
   const request = useCallback(
     async (lender: LenderId, invoiceId: string, amount: string) => {
+      const rev = lender === 'lender-a' ? revealA : revealB;
+      rev.reset();
       setRuntimes((prev) => ({ ...prev, [lender]: beginRequest(new Date().toISOString()) }));
       try {
         await api.finance(invoiceId, lender, amount);
       } catch (error: unknown) {
         const code = error instanceof ApiError ? error.code : 'UNKNOWN';
+        const assertExpr = error instanceof ApiError ? error.circuitAssert : null;
         setRuntimes((prev) => ({
           ...prev,
-          [lender]: { ...prev[lender], phase: 'rejected', reason: code },
+          [lender]: { ...prev[lender], phase: 'rejected', reason: code, circuitAssert: assertExpr },
         }));
       }
+      // 응답이 도착한 뒤에 순서를 만든다. 데이터는 이미 확정된 값이다.
+      setRuntimes((prev) => {
+        rev.play(prev[lender].log.length);
+        return prev;
+      });
     },
-    [],
+    [revealA, revealB],
   );
 
   const requestSelected = useCallback(
@@ -119,12 +148,25 @@ export function DemoConsole() {
     if (!target) return;
     setSelectedId(target.invoiceId);
     setBusy(true);
+    setClimax(true);
+    setClimaxDone(false);
+    setVaultBefore({
+      'lender-a': lenderA.data?.vault ?? '0',
+      'lender-b': lenderB.data?.vault ?? '0',
+    });
     setAttacks((prev) => ({ ...prev, A5: { kind: 'running' } }));
     try {
       await Promise.allSettled([
         request('lender-a', target.invoiceId, target.maxLoanAmount),
         request('lender-b', target.invoiceId, target.maxLoanAmount),
       ]);
+      // 두 도장이 같은 프레임에 찍히도록 노출을 한 번에 재생한다
+      revealA.play(6);
+      revealB.play(6);
+      setTimeout(() => {
+        setClimax(false);
+        setClimaxDone(true);
+      }, REVEAL.total);
       setAttacks((prev) => ({
         ...prev,
         A5: {
@@ -141,7 +183,7 @@ export function DemoConsole() {
       setBusy(false);
       refreshAll();
     }
-  }, [invoices.data, request, refreshAll]);
+  }, [invoices.data, request, refreshAll, lenderA.data, lenderB.data, revealA, revealB]);
 
   const runAttack = useCallback(
     async (id: AttackId) => {
@@ -171,13 +213,18 @@ export function DemoConsole() {
       setRuntimes(INITIAL_RUNTIMES);
       setAttacks(IDLE_ATTACKS);
       setSelectedId(null);
+      setClimax(false);
+      setClimaxDone(false);
+      setVaultBefore(null);
+      revealA.showAll();
+      revealB.showAll();
     } catch {
       // 발표 중 리셋이 실패해도 화면은 유지한다
     } finally {
       setBusy(false);
       refreshAll();
     }
-  }, [refreshAll]);
+  }, [refreshAll, revealA, revealB]);
 
   const loanFor = (lender: LenderId) =>
     loans.data?.find((loan) => loan.lender === lender) ?? null;
@@ -190,11 +237,27 @@ export function DemoConsole() {
 
   const status = chain.data;
 
+  /** A5 직후 두 패널의 잔액 변화를 나란히 대비시킨다. */
+  const contrastFor = (id: LenderId): VaultContrast | null => {
+    if (!climaxDone || !vaultBefore) return null;
+    const before = BigInt(vaultBefore[id] ?? '0');
+    const after = BigInt((id === 'lender-a' ? lenderA.data : lenderB.data)?.vault ?? '0');
+    const diff = before - after;
+    return diff > 0n
+      ? { kind: 'spent', delta: `−${new Intl.NumberFormat('ko-KR').format(diff)}` }
+      : { kind: 'unchanged', delta: '변동 없음' };
+  };
+
   return (
-    <div className="app">
+    <div className={`app ${climax ? 'app--climax' : ''}`}>
       <div className="shell">
         <header className="topbar">
-          <span className="topbar__name">ONCE Finance</span>
+          <span className="topbar__title">
+            <span className="topbar__name">ONCE Finance</span>
+            <span className="topbar__tagline">
+              같은 채권으로 두 번 대출받을 수 없다 — 장부를 공유하지 않고
+            </span>
+          </span>
           <span className="topbar__status">
             <span className="topbar__item">
               체인 <b>{status?.network ?? EMPTY}</b>
@@ -216,6 +279,7 @@ export function DemoConsole() {
 
         <div className="columns">
           <SupplierPanel
+            dimmed={climax}
             invoices={invoices.data ?? []}
             selectedId={selectedId}
             busy={busy}
@@ -231,21 +295,34 @@ export function DemoConsole() {
               loan={loanFor(id)}
               runtime={runtimes[id] ?? IDLE_RUNTIME}
               elapsedMs={elapsedFor(id)}
+              reveal={(id === 'lender-a' ? revealA : revealB).reveal}
+              vaultContrast={contrastFor(id)}
+              dimmed={false}
             />
           ))}
         </div>
 
-        <section className="section">
+        <section className={`section ${climax ? 'section--dimmed' : ''}`}>
           <header className="section__head">
             <span>공개 원장</span>
             <span className="panel__role">이 화면에 채권 내용은 없다</span>
           </header>
           <div className="section__body">
-            <LedgerTable loans={loans.data ?? []} />
+            <LedgerTable
+              loans={loans.data ?? []}
+              revealed={revealA.reveal.ledger && revealB.reveal.ledger}
+              explorerBase={status?.network === 'local-circuit' ? null : status?.network ?? null}
+            />
           </div>
         </section>
 
-        <AttackPanel statuses={attacks} busy={busy} onRun={runAttack} onReset={reset} />
+        {climaxDone ? (
+          <p className="climax-note">한 건만 나갔다. B는 A의 장부를 보지 않았다.</p>
+        ) : null}
+
+        <div className={climax ? 'section--dimmed' : ''}>
+          <AttackPanel statuses={attacks} busy={busy} onRun={runAttack} onReset={reset} />
+        </div>
       </div>
     </div>
   );

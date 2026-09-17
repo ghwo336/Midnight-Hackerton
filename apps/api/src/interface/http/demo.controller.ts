@@ -1,4 +1,5 @@
 import { BadRequestException, Controller, Inject, Param, Post } from '@nestjs/common';
+import { CIRCUIT_ASSERT } from '@once/domain';
 import { ATTACK_IDS, RunAttackUseCase, type AttackId } from '../../application/run-attack.usecase.js';
 import { SimulatorHolder } from '../../infrastructure/chain/simulator.holder.js';
 import { DemoSeedService } from '../../infrastructure/chain/demo-seed.service.js';
@@ -24,7 +25,12 @@ export class DemoController {
     }
     const outcome = await this.runAttack.execute(id as AttackId, SUPPLIER_ID, SUPPLIER_ADDRESS);
     if (outcome.blocked) {
-      this.events.publish({ type: 'financing.rejected', reason: 'NULLIFIER_ALREADY_USED', lender: 'lender-b' });
+      this.events.publish({
+        type: 'financing.rejected',
+        reason: 'NULLIFIER_ALREADY_USED',
+        lender: 'lender-b',
+        circuitAssert: CIRCUIT_ASSERT['NULLIFIER_ALREADY_USED'],
+      });
     }
     return outcome;
   }

@@ -9,7 +9,12 @@ import type {
 const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3011';
 
 export class ApiError extends Error {
-  constructor(readonly code: string, message: string) {
+  constructor(
+    readonly code: string,
+    message: string,
+    /** 어느 회로 assert에서 걸렸는지. 회로 밖 오류면 null. */
+    readonly circuitAssert: string | null = null,
+  ) {
     super(message);
     this.name = 'ApiError';
   }
@@ -23,8 +28,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { code?: string; message?: string } | null;
-    throw new ApiError(body?.code ?? 'UNKNOWN', body?.message ?? 'request failed');
+    const body = (await response.json().catch(() => null)) as
+      | { code?: string; message?: string; circuitAssert?: string | null }
+      | null;
+    throw new ApiError(
+      body?.code ?? 'UNKNOWN',
+      body?.message ?? 'request failed',
+      body?.circuitAssert ?? null,
+    );
   }
   return (await response.json()) as T;
 }

@@ -391,3 +391,101 @@ button { font: inherit; color: inherit; }
   font-size: 13.5px;
 }
 .summary__key { font-size: 12.5px; color: var(--ink-3); }
+
+/* ══════════════════════════════════════════════════════════
+   마감: 헤더 한 줄, 순차 노출, A5 클라이맥스, 애니메이션 5곳
+   새 색·아이콘·라이브러리 없음. 전부 CSS.
+   ══════════════════════════════════════════════════════════ */
+
+.topbar__title { display: flex; align-items: baseline; gap: 12px; }
+.topbar__tagline { font-size: 14px; color: var(--ink-3); }
+
+/* (a) 진행 단계 가는 바 — 로그가 순차로 뜨는 동안 차오른다 */
+.stages__head { display: flex; align-items: center; gap: 10px; }
+.stages__bar {
+  flex: 1;
+  height: 2px;
+  background: var(--line-soft);
+}
+.stages__fill {
+  display: block;
+  height: 2px;
+  background: var(--settle);
+  transition: width 120ms linear;
+}
+
+/* (b) 원장 새 행 — 위에서 내려오고 1초간 좌측 보더 강조 */
+@keyframes ledger-in {
+  from { transform: translateY(-6px); }
+  to   { transform: translateY(0); }
+}
+@keyframes ledger-mark {
+  0%, 70% { box-shadow: inset 2px 0 0 0 var(--settle); }
+  100%    { box-shadow: inset 2px 0 0 0 transparent; }
+}
+.ledger__row--new td {
+  animation: ledger-in 140ms cubic-bezier(.2,.8,.3,1), ledger-mark 1000ms linear;
+}
+
+/* (c) 도장 순간 패널 반응 */
+@keyframes panel-settle-flash {
+  from { background: var(--settle-bg); }
+  to   { background: var(--panel); }
+}
+@keyframes panel-reject-flash {
+  from { background: var(--seal-bg); }
+  to   { background: var(--panel); }
+}
+@keyframes panel-shake {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-3px); }
+  75%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+.panel--settled  { animation: panel-settle-flash 120ms linear; }
+.panel--rejected { animation: panel-reject-flash 180ms linear, panel-shake 180ms linear; }
+
+/* (e) A5 — 두 도장이 찍히는 순간 나머지를 낮춘다 */
+.panel--dimmed,
+.section--dimmed {
+  opacity: 0.8;
+  transition: opacity 120ms linear;
+}
+.app--climax .shell > .section,
+.app--climax .panel--dimmed {
+  opacity: 0.6;
+  transition: opacity 100ms linear;
+}
+
+/* A5 직후 잔액 대비 — 줄어든 쪽 청색, 그대로인 쪽 적색 */
+.vault { border-left: 3px solid transparent; padding-left: 9px; }
+.vault--spent     { border-left-color: var(--settle); }
+.vault--unchanged { border-left-color: var(--seal); }
+.vault__values { display: flex; align-items: baseline; gap: 12px; }
+.vault__delta { font-size: 12.5px; }
+.vault--spent .vault__delta     { color: var(--settle); }
+.vault--unchanged .vault__delta { color: var(--seal); }
+
+.climax-note {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 원장 tx 링크 — 테스트넷에서만. 로컬은 해시만 */
+.txlink { color: var(--settle); text-decoration: underline; }
+
+/* ── 모션을 끄기로 한 사용자에게는 전부 끈다 ──────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

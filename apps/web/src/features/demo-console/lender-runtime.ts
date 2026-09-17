@@ -9,6 +9,47 @@ export interface LogLine {
   readonly tone: 'normal' | 'seal';
 }
 
+/**
+ * 순차 노출 타임라인 (밀리초).
+ *
+ * **응답은 이미 도착해 있다. 데이터는 확정된 값이고, 표시 순서만 만든다.**
+ * 인위적으로 요청을 늦추거나 가짜 단계를 넣지 않는다. 백엔드가 0.03초에
+ * 끝냈다면 그 0.03초는 진행 단계에 실측값 그대로 찍히고, 아래 타임라인은
+ * 그 결과를 사람이 따라갈 수 있게 펼쳐 보여줄 뿐이다.
+ *
+ * 전체 600ms 안에 끝난다.
+ */
+export const REVEAL = {
+  /** 로그 한 줄당 간격 */
+  logStep: 40,
+  /** 금액 카운트업 시작 (400ms 동안 진행 → 600ms에 종료) */
+  amountsAt: 200,
+  /** 진행 단계 채워짐 */
+  stagesAt: 260,
+  /** 도장 + 패널 반응 */
+  stampAt: 300,
+  /** 원장에 행 추가 */
+  ledgerAt: 360,
+  total: 600,
+} as const;
+
+/** 화면에 무엇까지 드러났는지. 도착한 데이터와 별개다. */
+export interface Reveal {
+  readonly logCount: number;
+  readonly stages: boolean;
+  readonly stamp: boolean;
+  readonly amounts: boolean;
+  readonly ledger: boolean;
+}
+
+export const REVEAL_NONE: Reveal = {
+  logCount: 0, stages: false, stamp: false, amounts: false, ledger: false,
+};
+
+export const REVEAL_ALL: Reveal = {
+  logCount: Number.MAX_SAFE_INTEGER, stages: true, stamp: true, amounts: true, ledger: true,
+};
+
 /** 진행 중인 요청의 실시간 상태. 확정 이후에는 원장이 진실이다. */
 export interface LenderRuntime {
   readonly phase: FinancingStage | 'idle';
@@ -16,6 +57,7 @@ export interface LenderRuntime {
   readonly stageMs: Partial<Record<FinancingStage, number>>;
   readonly block: number | null;
   readonly reason: string | null;
+  readonly circuitAssert: string | null;
   readonly log: readonly LogLine[];
 }
 
@@ -25,6 +67,7 @@ export const IDLE_RUNTIME: LenderRuntime = {
   stageMs: {},
   block: null,
   reason: null,
+  circuitAssert: null,
   log: [],
 };
 
@@ -57,13 +100,21 @@ export function beginRequest(at: string): LenderRuntime {
     stageMs: {},
     block: null,
     reason: null,
+    circuitAssert: null,
     log: [{ at: clock(at), text: '대출 신청 접수', tone: 'normal' }],
   };
 }
 
 export function applyStage(
   current: LenderRuntime,
-  event: { stage: FinancingStage; at: string; elapsedMs: number; block?: number },
+  event: {
+    stage: FinancingStage;
+    at: string;
+    elapsedMs: number;
+    block?: number;
+    reason?: string;
+    circuitAssert?: string | null;
+  },
 ): LenderRuntime {
   const log = [...current.log];
   const seconds = (event.elapsedMs / 1000).toFixed(2);
@@ -76,7 +127,14 @@ export function applyStage(
       tone: 'normal',
     });
   } else if (event.stage === 'rejected') {
-    log.push({ at: clock(event.at), text: `거부 · NULLIFIER_ALREADY_USED`, tone: 'seal' });
+    // 연출이 아니라 회로가 거부했다는 게 읽혀야 한다 (어느 assert에서 걸렸는지).
+    const reason = event.reason ?? 'NULLIFIER_ALREADY_USED';
+    const assertExpr = event.circuitAssert;
+    log.push({
+      at: clock(event.at),
+      text: assertExpr ? `거부 · assert: ${assertExpr} · ${reason}` : `거부 · ${reason}`,
+      tone: 'seal',
+    });
     log.push({ at: clock(event.at), text: '지급 없음 · 예치 잔액 변동 없음', tone: 'seal' });
   } else {
     log.push({ at: clock(event.at), text: `${STAGE_TEXT[event.stage]} · ${seconds}s`, tone: 'normal' });
@@ -92,8 +150,12 @@ export function applyStage(
   };
 }
 
-export function applyRejection(current: LenderRuntime, reason: string): LenderRuntime {
-  return { ...current, phase: 'rejected', reason };
+export function applyRejection(
+  current: LenderRuntime,
+  reason: string,
+  circuitAssert: string | null,
+): LenderRuntime {
+  return { ...current, phase: 'rejected', reason, circuitAssert };
 }
 
 export type StampState = 'idle' | 'pending' | 'settled' | 'rejected';

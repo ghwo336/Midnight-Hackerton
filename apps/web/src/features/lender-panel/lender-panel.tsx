@@ -3,8 +3,9 @@
 import type { LenderId, LenderState, LoanRow } from '@/shared/api/types';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
 import {
-  progressBar, resolveStamp, type LenderRuntime,
+  progressBar, resolveStamp, type LenderRuntime, type Reveal,
 } from '@/features/demo-console/lender-runtime';
+import { useCountUp } from '@/features/demo-console/use-reveal';
 import { Stamp } from './stamp';
 import { ExecutionLog } from './execution-log';
 
@@ -26,6 +27,12 @@ function ms(value: number | undefined): string {
   return value === undefined ? EMPTY : `${(value / 1000).toFixed(2)}s`;
 }
 
+/** A5에서 두 패널의 잔액을 나란히 대비시키기 위한 표시. */
+export interface VaultContrast {
+  readonly kind: 'spent' | 'unchanged';
+  readonly delta: string;
+}
+
 /**
  * 금융사 패널.
  *
@@ -39,6 +46,9 @@ export function LenderPanel({
   loan,
   runtime,
   elapsedMs,
+  reveal,
+  vaultContrast,
+  dimmed,
 }: {
   role: LenderId;
   label: string;
@@ -46,19 +56,40 @@ export function LenderPanel({
   loan: LoanRow | null;
   runtime: LenderRuntime;
   elapsedMs: number | null;
+  reveal: Reveal;
+  vaultContrast: VaultContrast | null;
+  dimmed: boolean;
 }) {
-  const stamp = resolveStamp(runtime, loan);
+  const settledStamp = resolveStamp(runtime, loan);
+  // 도장은 노출 순서를 따른다. 아직 드러나기 전이면 진행 중으로 보인다.
+  const stamp =
+    !reveal.stamp && (settledStamp === 'settled' || settledStamp === 'rejected')
+      ? 'pending'
+      : settledStamp;
 
-  // 확정 금액은 원장이 진실이다. 거부면 0을 남긴다 — 자금이 나가지 않았다는 게 주장이다.
-  const amount = stamp === 'settled' ? (loan?.amount ?? '0') : '0';
-  const txHash = stamp === 'settled' ? (loan?.txHash ?? null) : null;
-  const block = stamp === 'settled' ? (loan?.block ?? runtime.block) : null;
+  const finalAmount = settledStamp === 'settled' ? (loan?.amount ?? '0') : '0';
+  const amount = useCountUp(finalAmount, reveal.amounts);
+  const vault = useCountUp(lender?.vault ?? '0', reveal.amounts);
 
+  const txHash = settledStamp === 'settled' ? (loan?.txHash ?? null) : null;
+  const block = settledStamp === 'settled' ? (loan?.block ?? runtime.block) : null;
   const inFlight = stamp === 'pending';
   const proving = runtime.stageMs['proving'] ?? runtime.stageMs['witness'];
 
+  const shownLog = runtime.log.slice(0, reveal.logCount);
+  const logProgress =
+    runtime.log.length === 0 ? 0 : Math.min(shownLog.length / runtime.log.length, 1);
+
+  // 도장이 찍히는 순간의 패널 반응 (확정=청색 플래시, 거부=흔들림+적색 플래시)
+  const reaction =
+    reveal.stamp && settledStamp === 'settled'
+      ? 'panel--settled'
+      : reveal.stamp && settledStamp === 'rejected'
+        ? 'panel--rejected'
+        : '';
+
   return (
-    <section className="panel">
+    <section className={`panel ${reaction} ${dimmed ? 'panel--dimmed' : ''}`}>
       <header className="panel__head">
         <span>{label}</span>
         <span className="panel__role">대출 심사</span>
@@ -76,14 +107,28 @@ export function LenderPanel({
             <span className="readout__key">지급 금액</span>
             <span className="num">{formatAmount(amount)}</span>
           </div>
-          <div className="readout__row">
+          <div
+            className={`readout__row ${
+              vaultContrast ? `vault vault--${vaultContrast.kind}` : ''
+            }`}
+          >
             <span className="readout__key">예치 잔액</span>
-            <span className="num">{lender ? formatAmount(lender.vault) : EMPTY}</span>
+            <span className="vault__values">
+              {vaultContrast ? (
+                <span className="vault__delta">{vaultContrast.delta}</span>
+              ) : null}
+              <span className="num">{lender ? formatAmount(vault) : EMPTY}</span>
+            </span>
           </div>
         </div>
 
         <div className="stages">
-          <div className="stages__head">진행 단계</div>
+          <div className="stages__head">
+            진행 단계
+            <span className="stages__bar" aria-hidden="true">
+              <span className="stages__fill" style={{ width: `${logProgress * 100}%` }} />
+            </span>
+          </div>
           <div className="readout__row">
             <span className="readout__key">증명 생성</span>
             <span className="num">
@@ -92,33 +137,37 @@ export function LenderPanel({
                   <span className="bar">{progressBar(runtime.phase)}</span>{' '}
                   {elapsedMs === null ? EMPTY : `${(elapsedMs / 1000).toFixed(1)}s`}
                 </>
-              ) : (
+              ) : reveal.stages ? (
                 ms(proving)
+              ) : (
+                EMPTY
               )}
             </span>
           </div>
           <div className="readout__row">
             <span className="readout__key">트랜잭션 제출</span>
             <span className="num">
-              {runtime.stageMs['submitting'] !== undefined ? '✓' : EMPTY}
+              {reveal.stages && runtime.stageMs['submitting'] !== undefined ? '✓' : EMPTY}
             </span>
           </div>
           <div className="readout__row">
             <span className="readout__key">확정</span>
-            <span className="num">{block === null ? EMPTY : `블록 ${block}`}</span>
+            <span className="num">
+              {reveal.stages && block !== null ? `블록 ${block}` : EMPTY}
+            </span>
           </div>
           <div className="readout__row">
             <span className="readout__key">tx</span>
-            <span className="num">{txHash ? shortHash(txHash) : EMPTY}</span>
+            <span className="num">{reveal.stages && txHash ? shortHash(txHash) : EMPTY}</span>
           </div>
         </div>
 
-        {stamp === 'rejected' ? (
+        {reveal.stamp && settledStamp === 'rejected' ? (
           <p className="reject-note">이 채권은 다른 금융사에서 사용 승인되었습니다</p>
         ) : null}
 
         <div className="stages__head">실행 로그</div>
-        <ExecutionLog lines={runtime.log} />
+        <ExecutionLog lines={shownLog} />
       </div>
     </section>
   );

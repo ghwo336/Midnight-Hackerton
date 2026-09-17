@@ -20,8 +20,19 @@ function clock(iso: string | null): string {
  *
  * 새 행이 추가될 때 애니메이션을 넣지 않는다. 그냥 나타난다.
  */
-export function LedgerTable({ loans }: { loans: readonly LoanRow[] }) {
-  if (loans.length === 0) {
+export function LedgerTable({
+  loans,
+  revealed = true,
+  explorerBase = null,
+}: {
+  loans: readonly LoanRow[];
+  /** 순차 노출: 아직 차례가 아니면 최신 행을 감춘다. */
+  revealed?: boolean;
+  /** 테스트넷이면 네트워크 이름, 로컬이면 null (링크 없이 해시만). */
+  explorerBase?: string | null;
+}) {
+  const visible = revealed ? loans : loans.slice(0, Math.max(loans.length - 1, 0));
+  if (visible.length === 0) {
     return <p className="ledger__empty">아직 확정된 대출이 없다.</p>;
   }
 
@@ -48,14 +59,31 @@ export function LedgerTable({ loans }: { loans: readonly LoanRow[] }) {
         </tr>
       </thead>
       <tbody>
-        {loans.map((loan) => (
-          <tr key={loan.nullifier}>
+        {visible.map((loan, index) => (
+          <tr
+            key={loan.nullifier}
+            className={index === visible.length - 1 && revealed ? 'ledger__row--new' : ''}
+          >
             <td className="hash">{shortHash(loan.nullifier)}</td>
             <td>{LENDER_LABEL[loan.lender] ?? EMPTY}</td>
             <td className="num">{formatAmount(loan.amount)}</td>
             <td className="hash">{shortHash(loan.commitment)}</td>
             <td className="num">{loan.block}</td>
-            <td className="hash">{shortHash(loan.txHash)}</td>
+            <td className="hash">
+              {explorerBase ? (
+                <a
+                  className="txlink"
+                  href={`https://indexer.${explorerBase}.midnight.network/api/v3/graphql`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={loan.txHash}
+                >
+                  {shortHash(loan.txHash)}
+                </a>
+              ) : (
+                shortHash(loan.txHash)
+              )}
+            </td>
             <td className="hash">{clock(loan.settledAt)}</td>
           </tr>
         ))}

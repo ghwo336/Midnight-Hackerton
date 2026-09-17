@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Inject, Post, UsePipes } from '@nestjs/common';
 import type { DomainErrorCode } from '@once/domain';
-import { DomainError } from '@once/domain';
+import { CIRCUIT_ASSERT, DomainError } from '@once/domain';
 import { ListInvoicesUseCase } from '../../application/list-invoices.usecase.js';
 import { RequestFinancingUseCase } from '../../application/request-financing.usecase.js';
 import { OnceEventsService } from '../events/once-events.service.js';
@@ -80,6 +80,7 @@ export class SupplierController {
           type: 'financing.rejected',
           reason: error.code as DomainErrorCode,
           lender: dto.lenderId,
+          circuitAssert: CIRCUIT_ASSERT[error.code],
         });
       }
       throw error;

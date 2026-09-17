@@ -37,6 +37,8 @@ export type OnceEvent =
       readonly type: 'financing.rejected';
       readonly reason: DomainErrorCode;
       readonly lender: LenderId;
+      /** 어느 회로 assert에서 걸렸는지. 회로 밖 오류면 null. */
+      readonly circuitAssert: string | null;
     };
 
 @Injectable()

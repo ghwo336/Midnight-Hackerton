@@ -19,7 +19,12 @@ export type OnceEvent =
       type: 'financing.settled';
       nullifier: string; lender: string; amount: string; txHash: string; block: number;
     }
-  | { type: 'financing.rejected'; reason: string; lender: string };
+  | {
+      type: 'financing.rejected';
+      reason: string;
+      lender: string;
+      circuitAssert?: string | null;
+    };
 
 /**
  * 3개 패널이 동시에 갱신돼야 데모가 산다 (SPEC §8.4).

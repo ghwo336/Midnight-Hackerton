@@ -10,12 +10,14 @@ import { formatAmount } from '@/shared/ui/format';
  * 주요/보조 버튼을 색으로 구분하지 않는다. 배치 순서로 구분한다 (DESIGN §5.4).
  */
 export function SupplierPanel({
+  dimmed = false,
   invoices,
   selectedId,
   busy,
   onSelect,
   onRequest,
 }: {
+  dimmed?: boolean;
   invoices: readonly SupplierInvoice[];
   selectedId: string | null;
   busy: boolean;
@@ -37,7 +39,7 @@ export function SupplierPanel({
   );
 
   return (
-    <section className="panel">
+    <section className={`panel ${dimmed ? "panel--dimmed" : ""}`}>
       <header className="panel__head">
         <span>납품업체</span>
         <span className="panel__role">보유 채권 {invoices.length}건</span>
