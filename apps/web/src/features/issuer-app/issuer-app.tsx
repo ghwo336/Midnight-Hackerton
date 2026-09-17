@@ -14,9 +14,9 @@ import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
  * 발급 기관은 채권을 만드는 주체라 원문을 안다. 하지만 발급하고 나면
  * 원문은 납품업체 쪽에만 남고 원장에는 리프 하나가 들어간다.
  *
- * 이 화면의 증거는 **루트 전이**다. 발급 전후로 루트가 바뀌는데, 그 사이에
- * 원장에 올라간 것은 32바이트 해시 하나뿐이다. 금융사는 나중에 이 루트
- * 하나로 "발급 기관이 인증한 채권인가"를 원문 없이 검증한다.
+ * 발급 전후로 루트가 바뀌는데, 그 사이에 원장에 올라간 것은 32바이트 해시
+ * 하나뿐이다. 금융사는 나중에 이 루트 하나로 "발급 기관이 인증한 채권인가"를
+ * 원문 없이 검증한다. 화면은 그 사실을 문장으로 설명하지 않고 값만 보여준다.
  */
 const EMPTY_FORM = {
   faceAmount: '',
@@ -74,14 +74,12 @@ export function IssuerApp() {
         role="발급 기관"
         product="채권 발행"
         current="/issuer"
-        note="발급 후 원문은 납품업체에만 남는다. 원장에는 리프 해시 하나"
       />
 
       <div className="roleapp__body">
         <section className="section">
           <header className="section__head">
             <span>발급 현황</span>
-            <span className="panel__role">전부 공개값</span>
           </header>
           <div className="section__body">
             <div className="readout">
@@ -114,7 +112,6 @@ export function IssuerApp() {
         <section className="section">
           <header className="section__head">
             <span>채권 발행</span>
-            <span className="panel__role">아래 값 중 원장에 올라가는 것은 없다</span>
           </header>
           <div className="section__body">
             <div className="form">
@@ -169,7 +166,7 @@ export function IssuerApp() {
             <p className="hint">
               {digits === ''
                 ? '액면금액은 숫자만 입력한다'
-                : `액면 ${formatAmount(digits)} · 담보 한도는 컨트랙트가 계산한다`}
+                : `액면 ${formatAmount(digits)}`}
             </p>
             {error ? <p className="hint hint--error">{error}</p> : null}
 
@@ -190,7 +187,6 @@ export function IssuerApp() {
           <section className="section">
             <header className="section__head">
               <span>마지막 발급</span>
-              <span className="panel__role">원장에 올라간 것은 루트 변경뿐</span>
             </header>
             <div className="section__body">
               <div className="readout">
@@ -211,10 +207,6 @@ export function IssuerApp() {
                   <span className="num">{result.invoiceCount}</span>
                 </div>
               </div>
-              <p className="hint">
-                방금 입력한 구매기업·지급일·승인번호는 이 응답에 없다. 트리는
-                자랐고 루트는 바뀌었지만, 무엇이 들어갔는지는 원장에서 읽을 수 없다.
-              </p>
             </div>
           </section>
         ) : null}

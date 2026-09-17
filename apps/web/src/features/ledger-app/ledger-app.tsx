@@ -28,7 +28,6 @@ export function LedgerApp() {
         role="공개 원장"
         product="누구나 열람"
         current="/ledger"
-        note="이 표에 채권 내용은 한 글자도 없다"
       />
 
       <div className="roleapp__body">
@@ -66,7 +65,7 @@ export function LedgerApp() {
         <section className="section">
           <header className="section__head">
             <span>대출 기록</span>
-            <span className="panel__role">nullifier · 금융사 · 금액 · 블록 · tx</span>
+            <span className="panel__role">{loans.data?.length ?? 0}건</span>
           </header>
           <div className="section__body">
             <LedgerTable

@@ -621,8 +621,6 @@ button { font: inherit; color: inherit; }
   border-left: 1px solid var(--line);
   padding-left: 8px;
 }
-/* 이 화면이 무엇을 못 보는지. 제품 주장의 절반이 여기 있다. */
-.rolebar__note { font-size: 12.5px; color: var(--ink-3); }
 .rolebar__nav { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
 .rolebar__link {
   font-size: 12.5px;
@@ -671,6 +669,20 @@ button { font: inherit; color: inherit; }
   min-width: 0;
 }
 .frame--wide { margin-top: 12px; }
+
+/*
+ * 화면이 무엇을 보지 못하는지는 이 래퍼에만 적는다.
+ * iframe 바깥이므로 단독으로 열었을 때는 따라오지 않는다.
+ */
+.frame__cap {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.frame__who { font-size: 13px; font-weight: 600; }
+.frame__note { font-size: 12px; color: var(--ink-3); }
 .frame__view {
   display: block;
   width: 100%;

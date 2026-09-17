@@ -17,10 +17,9 @@ import {
 /**
  * 납품업체의 자금 조달 앱.
  *
- * 이 화면에 없는 것:
- *   - 공개 원장 전체 (내 채권의 사용 여부만 파생해서 본다)
- *   - 다른 금융사의 대출 내역
- *   - 다른 납품업체의 무엇이든
+ * 공개 원장 전체도, 다른 금융사의 대출 내역도 이 화면에 오지 않는다.
+ * 화면이 그 사실을 문장으로 설명하지는 않는다. 실제 제품은 자기가 감추는
+ * 것을 설명하지 않는다. 그냥 없다.
  *
  * 증명 생성 로그가 여기 있는 이유: 채권 원문과 소유자 비밀키를 가진 쪽은
  * 납품업체뿐이고, 증명은 그 값들로 만들어진다. 금융사 화면에서 "증명 생성
@@ -115,14 +114,13 @@ export function SupplierApp() {
         role="납품업체"
         product="자금 조달"
         current="/supplier"
-        note="다른 금융사의 대출 내역과 공개 원장 전체는 이 화면에 없다"
       />
 
       <div className="roleapp__body">
         <section className="section">
           <header className="section__head">
             <span>보유 채권</span>
-            <span className="panel__role">{list.length}건 · 원문은 이 기기에만</span>
+            <span className="panel__role">{list.length}건</span>
           </header>
           <div className="section__body">
             {list.length === 0 ? (
@@ -223,7 +221,6 @@ export function SupplierApp() {
         <section className="section">
           <header className="section__head">
             <span>증명 생성</span>
-            <span className="panel__role">채권 원문은 이 기기를 떠나지 않는다</span>
           </header>
           <div className="section__body">
             <div className="readout">
@@ -252,20 +249,6 @@ export function SupplierApp() {
                   ) : (
                     EMPTY
                   )}
-                </span>
-              </div>
-              <div className="readout__row">
-                <span className="readout__key">전송한 것</span>
-                <span className="num">
-                  {runtime.phase === 'idle'
-                    ? EMPTY
-                    : '증명 · 중복 확인값 · 봉인값 · 금액'}
-                </span>
-              </div>
-              <div className="readout__row">
-                <span className="readout__key">전송하지 않은 것</span>
-                <span className="num">
-                  {runtime.phase === 'idle' ? EMPTY : '구매기업 · 지급일 · 승인번호'}
                 </span>
               </div>
               {selected ? (

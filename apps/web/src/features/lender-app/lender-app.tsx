@@ -15,12 +15,10 @@ import { useCheckReveal } from './use-check-reveal';
 /**
  * 금융사의 여신 심사 앱.
  *
- * 이 화면에 없는 것:
- *   - 채권 원문 (구매기업·액면·지급일·승인번호). props 타입에 자리가 없다.
- *   - 다른 금융사의 예치 잔액·대출·신청
- *   - 공개 원장 전체
- *
- * 있는 것: 내 예치 잔액, 나에게 온 신청과 그 검증 결과 네 줄, 내가 실행한 대출.
+ * 채권 원문은 props 타입에 자리가 없고 API 응답에도 오지 않는다. 다른
+ * 금융사의 예치 잔액·대출·신청도 마찬가지다. 화면이 그 사실을 문장으로
+ * 설명하지는 않는다. 실제 제품은 자기가 감추는 것을 설명하지 않는다.
+ * 없다는 것은 응답과 DOM으로 증명된다 (test/contract-tests/role-isolation).
  *
  * 증명 생성 단계를 여기 두지 않는다. 증명은 채권 원문을 가진 납품업체 쪽에서
  * 만들어진다. 여기는 받은 증명을 검증한 결과만 본다.
@@ -90,7 +88,6 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
         role={state.data?.label ?? lenderId}
         product="여신 심사"
         current={`/lender/${lenderId}`}
-        note="채권 원문을 받지 않는다. 다른 금융사의 활동도 보이지 않는다"
       />
 
       <div className="roleapp__body">
@@ -133,7 +130,7 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
         <section className="section">
           <header className="section__head">
             <span>대출 신청 큐</span>
-            <span className="panel__role">채권 내용 없이 판정한다</span>
+            <span className="panel__role">{applications.length}건</span>
           </header>
           <div className="section__body">
             {applications.length === 0 ? (
@@ -201,10 +198,6 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
                 </article>
               ))
             )}
-            <p className="hint">
-              심사에 쓴 것은 증명과 위 네 검사뿐이다. 구매기업·지급일·승인번호는
-              받지 않았고, 이 화면의 어떤 응답에도 들어 있지 않다.
-            </p>
           </div>
         </section>
       </div>

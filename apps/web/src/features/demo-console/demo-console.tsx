@@ -27,10 +27,32 @@ import { WalletPanel } from '@/features/wallet-panel/wallet-panel';
  * 콘솔이 직접 가진 것은 공격 시나리오와 지갑뿐이다. 둘 다 역할 화면에
  * 속하지 않는 발표 도구다.
  */
-const FRAMES: readonly { href: string; label: string }[] = [
-  { href: '/supplier', label: '납품업체' },
-  { href: '/lender/lender-a', label: '금융사 A' },
-  { href: '/lender/lender-b', label: '금융사 B' },
+/**
+ * 각 화면이 무엇을 보지 못하는지는 **여기에만** 적는다.
+ *
+ * 단독 화면(/supplier 등)은 그 역할이 실제로 쓰는 앱이어야 한다. 실제
+ * 제품은 자기가 감추는 것을 설명하지 않는다. 그냥 없다. 설명을 화면 안에
+ * 넣으면 제품이 아니라 데모 설명 화면이 된다.
+ *
+ * 콘솔은 발표·심사용이므로 여기서는 설명이 필요하다. iframe 바깥 래퍼에
+ * 붙이므로 단독으로 열었을 때는 따라오지 않는다.
+ */
+const FRAMES: readonly { href: string; label: string; note: string }[] = [
+  {
+    href: '/supplier',
+    label: '납품업체',
+    note: '다른 금융사의 대출 내역과 공개 원장 전체가 이 화면에 없다',
+  },
+  {
+    href: '/lender/lender-a',
+    label: '금융사 A',
+    note: '채권 원문을 받지 않는다. 금융사 B의 활동도 보이지 않는다',
+  },
+  {
+    href: '/lender/lender-b',
+    label: '금융사 B',
+    note: '채권 원문을 받지 않는다. 금융사 A의 활동도 보이지 않는다',
+  },
 ];
 
 const IDLE_ATTACKS = Object.fromEntries(
@@ -177,6 +199,10 @@ export function DemoConsole() {
         <div className="frames">
           {FRAMES.map((frame) => (
             <section className="frame" key={frame.href}>
+              <header className="frame__cap">
+                <span className="frame__who">{frame.label}</span>
+                <span className="frame__note">{frame.note}</span>
+              </header>
               <iframe
                 key={`${frame.href}-${frameKey}`}
                 className="frame__view"
@@ -192,6 +218,10 @@ export function DemoConsole() {
         ) : null}
 
         <section className="frame frame--wide">
+          <header className="frame__cap">
+            <span className="frame__who">공개 원장</span>
+            <span className="frame__note">이 표에 채권 내용은 한 글자도 없다</span>
+          </header>
           <iframe
             key={`ledger-${frameKey}`}
             className="frame__view frame__view--ledger"
