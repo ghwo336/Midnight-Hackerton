@@ -61,8 +61,10 @@ async function main(): Promise<void> {
   console.log('지갑 동기화 중...');
   const ctx = await buildWallet(seed, config);
   const stopProgress = logSyncProgress(ctx.wallet);
-  // 5분마다 체크포인트. 중간에 끊겨도 진전이 남는다.
-  const stopCheckpoint = checkpointSync(ctx, config);
+  // 2분마다 체크포인트.
+  // 동기화는 진행에 비례해 메모리를 먹고 결국 OOM으로 죽는다(69%에서 6.65GB).
+  // 재시작하면 힙이 초기화되므로, 자주 저장해 두고 감독 루프가 이어받는 전략이다.
+  const stopCheckpoint = checkpointSync(ctx, config, 2 * 60_000);
 
   // 강제 종료(ctrl-c, stop-all.sh)에도 마지막 지점을 남긴다
   const onExit = () => {
