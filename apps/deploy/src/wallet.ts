@@ -171,6 +171,12 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
     // 두 번 틀렸다. 실제 키를 보고 맞춘다.
     if (!dumped) {
       dumped = true;
+      // dust가 마지막 병목이다. 목표값을 알아야 수렴 여부를 판단할 수 있다.
+      const dustProg = (state as { dust?: { state?: { progress?: unknown } } }).dust?.state?.progress;
+      if (dustProg) {
+        console.log('  [구조] dust.progress:', JSON.stringify(dustProg, (_k, v) =>
+          typeof v === 'bigint' ? String(v) : v));
+      }
       const sh = (state as { shielded?: object }).shielded;
       console.log('  [구조] state keys:', Object.keys(state as object).join(', '));
       if (sh) {
@@ -215,7 +221,18 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
       }
     };
     const st = state as { shielded?: unknown; dust?: unknown; unshielded?: unknown };
-    const others = ` [shielded ${done(st.shielded)} · dust ${done(st.dust)} · unshielded ${done(st.unshielded)}]`;
+
+    // dust는 목표값이 안 보여 수렴 여부를 판단할 수 없었다. 수치를 그대로 찍는다.
+    const dustNums = (() => {
+      const dp = (st.dust as { state?: { progress?: Record<string, unknown> } })?.state?.progress;
+      if (!dp) return '';
+      const a = dp['appliedIndex'] ?? dp['applied'];
+      const h = dp['highestIndex'] ?? dp['highestRelevantWalletIndex'] ?? dp['highest'];
+      return a === undefined ? '' : ` dust ${String(a)}/${String(h ?? '?')}`;
+    })();
+
+    const others =
+      ` [shielded ${done(st.shielded)} · dust ${done(st.dust)} · unshielded ${done(st.unshielded)}]${dustNums}`;
 
     // ETA는 **누적 평균**으로 낸다. 직전 구간 속도만 쓰면 블록 밀도에 따라
     // 122분 → 32분 → 263분으로 요동쳐 밤새 지켜볼 지표가 못 된다.
