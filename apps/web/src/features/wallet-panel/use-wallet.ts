@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import {
   connectWallet, describeFailure, detectWallets,
@@ -27,6 +27,18 @@ const NATIVE = '0'.repeat(64);
 
 export function useWallet(networkId: NetworkId = 'preprod') {
   const [state, setState] = useState<WalletState>(INITIAL);
+
+  /**
+   * 지갑 감지는 렌더가 아니라 effect에서 한다.
+   *
+   * detectWallets()를 렌더 중에 부르면 서버(window 없음)와 클라이언트
+   * (지갑 있음)의 결과가 달라 하이드레이션이 깨진다. 서버는 항상
+   * "지갑 없음"으로 렌더하고, 마운트 후에 실제 값으로 바꾼다.
+   */
+  const [hasWallet, setHasWallet] = useState(false);
+  useEffect(() => {
+    setHasWallet(detectWallets().length > 0);
+  }, []);
 
   const connect = useCallback(async () => {
     setState((p) => ({ ...p, status: 'connecting', message: null }));
@@ -65,5 +77,5 @@ export function useWallet(networkId: NetworkId = 'preprod') {
 
   const disconnect = useCallback(() => setState(INITIAL), []);
 
-  return { state, connect, disconnect, hasWallet: detectWallets().length > 0 };
+  return { state, connect, disconnect, hasWallet };
 }
