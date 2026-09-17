@@ -88,24 +88,19 @@ export function SupplierPanel({
         <p className={`hint ${selected ? "hint--ready" : ""}`}>
           {selected
             ? `채권 #${invoices.findIndex((i) => i.invoiceId === selectedId) + 1} 선택됨 · 신청 금액 ${formatAmount(selected.maxLoanAmount)}`
-            : '채권을 먼저 선택하세요'}
+            : '채권을 선택하지 않으면 첫 미사용 채권으로 신청한다'}
         </p>
 
         <div className="btn-row">
-          <button
-            type="button"
-            className="btn"
-            disabled={!selected || busy}
-            onClick={() => onRequest('lender-a')}
-          >
+          {/*
+            비활성으로 두지 않는다. 선택 없이 누르면 아무 반응이 없어
+            고장으로 보이고, 발표 중에 그 순간이 오면 설명할 방법이 없다.
+            선택이 없으면 첫 미사용 채권을 자동으로 고르고 진행한다.
+          */}
+          <button type="button" className="btn" disabled={busy} onClick={() => onRequest('lender-a')}>
             A에 신청
           </button>
-          <button
-            type="button"
-            className="btn"
-            disabled={!selected || busy}
-            onClick={() => onRequest('lender-b')}
-          >
+          <button type="button" className="btn" disabled={busy} onClick={() => onRequest('lender-b')}>
             B에 신청
           </button>
         </div>

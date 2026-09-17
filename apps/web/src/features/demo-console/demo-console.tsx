@@ -112,8 +112,13 @@ export function DemoConsole() {
 
   const requestSelected = useCallback(
     async (lender: LenderId) => {
-      const invoice = invoices.data?.find((item) => item.invoiceId === selectedId);
+      // 선택이 없으면 첫 미사용 채권으로 진행한다. 죽은 클릭을 만들지 않는다.
+      const invoice =
+        invoices.data?.find((item) => item.invoiceId === selectedId) ??
+        invoices.data?.find((item) => !item.used) ??
+        invoices.data?.[0];
       if (!invoice) return;
+      if (invoice.invoiceId !== selectedId) setSelectedId(invoice.invoiceId);
       setBusy(true);
       try {
         await request(lender, invoice.invoiceId, invoice.maxLoanAmount);
