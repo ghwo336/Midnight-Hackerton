@@ -48,3 +48,31 @@ export function requireSeed(): string {
   }
   return seed;
 }
+
+/**
+ * 배포에 쓰는 비밀값은 **기본값을 두지 않는다.**
+ *
+ * 로컬 데모는 편의를 위해 더미 기본값을 쓰지만, 그 값은 공개 저장소에
+ * 적혀 있다. 그대로 테스트넷에 배포하면 발급 기관 비밀키가 공개된 채로
+ * 온체인에 올라가고, 누구나 registerInvoice·fundLender를 호출할 수 있다.
+ * 그러면 A8(발급자 사칭 차단) 주장이 배포된 인스턴스에서 무너진다.
+ *
+ * 그래서 여기서는 없으면 중단한다.
+ */
+export function requireSecret(name: string): `0x${string}` {
+  const value = process.env[name];
+  if (!value || !/^0x[0-9a-f]{64}$/.test(value)) {
+    throw new Error(
+      `${name} must be set to a 32-byte hex secret for deployment. ` +
+        'Local demo defaults are public placeholders and must not be deployed. ' +
+        'Generate one with: openssl rand -hex 32',
+    );
+  }
+  return value as `0x${string}`;
+}
+
+/** 공개 값이라 기본값을 둬도 된다. */
+export function publicValue(name: string, fallback: `0x${string}`): `0x${string}` {
+  const value = process.env[name];
+  return value && /^0x[0-9a-f]{64}$/.test(value) ? (value as `0x${string}`) : fallback;
+}

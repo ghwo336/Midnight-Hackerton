@@ -6,16 +6,15 @@ import { deployContract } from '@midnight-ntwrk/midnight-js/contracts';
 import { deriveIssuerPublicKey, deriveOwnerPublicKey, computeInvoiceLeaf } from '@once/crypto';
 import { emptyPrivateState, issuerPrivateState } from '@once/chain';
 import type { Hex } from '@once/domain';
-import { ONCE_PRIVATE_STATE_ID, requireSeed, useNetwork } from './config.js';
+import {
+  ONCE_PRIVATE_STATE_ID, publicValue, requireSecret, requireSeed, useNetwork,
+} from './config.js';
 import { buildWallet, nightBalance, persistSync, unshieldedAddress, waitForSync } from './wallet.js';
 import { configureProviders } from './providers.js';
 import { onceCompiledContract } from './contract.js';
 import { hexToBytes } from '@once/domain';
 import { writeFileSync } from 'node:fs';
 
-const ISSUER_ID = (process.env['ISSUER_ID'] ?? `0x${'11'.repeat(32)}`) as Hex;
-const ISSUER_SECRET = (process.env['ISSUER_SECRET_KEY'] ?? `0x${'5e'.repeat(32)}`) as Hex;
-const SUPPLIER_SECRET = (process.env['SUPPLIER_SECRET_KEY'] ?? `0x${'7c'.repeat(32)}`) as Hex;
 const LTV_BPS = BigInt(process.env['LTV_BPS'] ?? '8000');
 
 const LENDER_A = `0x${'0a'.repeat(32)}` as Hex;
@@ -44,6 +43,12 @@ function stamp(label: string, startedAt: number): number {
 async function main(): Promise<void> {
   const config = useNetwork();
   const seed = requireSeed();
+
+  // 비밀값은 기본값 없이 env에서만 온다 (config.ts의 requireSecret 주석 참조).
+  // main() 안에서 읽어야 실패 시 스택 덤프 대신 한 줄 메시지가 나간다.
+  const ISSUER_ID = publicValue('ISSUER_ID', `0x${'11'.repeat(32)}` as Hex);
+  const ISSUER_SECRET = requireSecret('ISSUER_SECRET_KEY');
+  const SUPPLIER_SECRET = requireSecret('SUPPLIER_SECRET_KEY');
 
   console.log(`\nnetwork   ${config.name}`);
   console.log(`indexer   ${config.indexer}`);
