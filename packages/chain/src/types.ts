@@ -47,4 +47,11 @@ export interface LedgerSnapshot {
   readonly lenderVault: ReadonlyMap<Hex, bigint>;
   readonly registeredLenders: readonly Hex[];
   readonly invoiceTreeSize: number;
+  /**
+   * 발급자 Merkle 루트. 공개값이다 (CONTEXT §5).
+   *
+   * 채권이 등록될 때마다 바뀌고, 금융사는 이 값 하나로 "그 채권이 발급
+   * 기관이 인증한 것인가"를 원문 없이 검증한다.
+   */
+  readonly issuerRoot: Hex;
 }

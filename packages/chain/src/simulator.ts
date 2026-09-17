@@ -24,6 +24,11 @@ export interface SimulatorConfig {
 
 type ChargedLedgerState = Parameters<typeof ledger>[0];
 
+/** MerkleTreeDigest는 필드 원소 하나다. 화면에는 32바이트 16진수로 보인다. */
+function digestToHex(digest: { field: bigint }): Hex {
+  return `0x${digest.field.toString(16).padStart(64, '0')}` as Hex;
+}
+
 /**
  * 컴파일된 `once.compact` 회로를 로컬에서 실행하는 시뮬레이터.
  *
@@ -222,6 +227,7 @@ export class OnceContractSimulator {
       lenderVault: vault,
       registeredLenders: lenders,
       invoiceTreeSize: Number(view.invoiceTree.firstFree()),
+      issuerRoot: digestToHex(view.invoiceTree.root()),
     };
   }
 

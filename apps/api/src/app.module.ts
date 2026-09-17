@@ -4,6 +4,9 @@ import { OnceContractSimulator } from '@once/chain';
 import { CHAIN_READER, CHAIN_WRITER } from './application/ports/chain.gateway.js';
 import { PRIVATE_STATE_REPO } from './application/ports/private-state.repository.js';
 import { ISSUER_STRATEGY } from './application/ports/issuer-verification.strategy.js';
+import {
+  APPLICATION_LOG_READER, APPLICATION_LOG_WRITER,
+} from './application/ports/application-log.js';
 
 import { IssueInvoiceUseCase } from './application/issue-invoice.usecase.js';
 import { ListInvoicesUseCase } from './application/list-invoices.usecase.js';
@@ -17,10 +20,12 @@ import { SIMULATOR_SOURCE } from './infrastructure/chain/simulator.source.js';
 import { MerkleIssuerStrategy } from './infrastructure/chain/merkle-issuer.strategy.js';
 import { DemoSeedService } from './infrastructure/chain/demo-seed.service.js';
 import { InMemoryPrivateStateRepository } from './infrastructure/persistence/in-memory-private-state.repository.js';
+import { InMemoryApplicationLog } from './infrastructure/persistence/in-memory-application-log.js';
 
 import { PublicController } from './interface/http/public.controller.js';
 import { SupplierController } from './interface/http/supplier.controller.js';
 import { LenderController } from './interface/http/lender.controller.js';
+import { IssuerController } from './interface/http/issuer.controller.js';
 import { DemoController } from './interface/http/demo.controller.js';
 import { OnceEventsService } from './interface/events/once-events.service.js';
 
@@ -33,17 +38,26 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
  * 유스케이스 코드는 수정하지 않는다 (SPEC §11 G4의 통과 조건).
  */
 @Module({
-  controllers: [PublicController, SupplierController, LenderController, DemoController],
+  controllers: [
+    PublicController,
+    SupplierController,
+    LenderController,
+    IssuerController,
+    DemoController,
+  ],
   providers: [
     { provide: OnceContractSimulator, useFactory: () => SimulatorHolder.build() },
     SimulatorHolder,
     { provide: SIMULATOR_SOURCE, useExisting: SimulatorHolder },
     LocalCircuitChainGateway,
     InMemoryPrivateStateRepository,
+    InMemoryApplicationLog,
 
     { provide: CHAIN_READER, useExisting: LocalCircuitChainGateway },
     { provide: CHAIN_WRITER, useExisting: LocalCircuitChainGateway },
     { provide: PRIVATE_STATE_REPO, useExisting: InMemoryPrivateStateRepository },
+    { provide: APPLICATION_LOG_WRITER, useExisting: InMemoryApplicationLog },
+    { provide: APPLICATION_LOG_READER, useExisting: InMemoryApplicationLog },
     { provide: ISSUER_STRATEGY, useClass: MerkleIssuerStrategy },
 
     IssueInvoiceUseCase,

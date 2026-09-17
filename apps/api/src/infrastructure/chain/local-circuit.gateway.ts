@@ -36,6 +36,14 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
     return this.sim.snapshot().issuerId;
   }
 
+  async getIssuerRoot(): Promise<Hex> {
+    return this.sim.snapshot().issuerRoot;
+  }
+
+  async getInvoiceCount(): Promise<number> {
+    return this.sim.snapshot().invoiceTreeSize;
+  }
+
   async getLtvBps(): Promise<bigint> {
     return this.sim.snapshot().ltvBps;
   }

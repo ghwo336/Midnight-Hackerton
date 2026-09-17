@@ -1,9 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
+  DomainError,
   InvoiceNotFoundError,
   NullifierAlreadyUsedError,
   AmountExceedsLtvError,
   isWithinLtv,
+  reviewChecklist,
+  type CheckVerifier,
+  type DomainErrorCode,
   type FinancingResult,
   type Hex,
   type LenderId,
@@ -15,6 +20,9 @@ import {
 } from './ports/chain.gateway.js';
 import { PRIVATE_STATE_REPO, type PrivateStateRepository } from './ports/private-state.repository.js';
 import { ISSUER_STRATEGY, type IssuerVerificationStrategy } from './ports/issuer-verification.strategy.js';
+import {
+  APPLICATION_LOG_WRITER, type ApplicationLogWriter,
+} from './ports/application-log.js';
 
 export interface RequestFinancingCommand {
   readonly supplierId: string;
@@ -40,11 +48,73 @@ export class RequestFinancingUseCase {
     @Inject(CHAIN_READER) private readonly reader: ChainReader,
     @Inject(CHAIN_WRITER) private readonly writer: ChainWriter,
     @Inject(ISSUER_STRATEGY) private readonly issuer: IssuerVerificationStrategy,
+    @Inject(APPLICATION_LOG_WRITER) private readonly applications: ApplicationLogWriter,
   ) {}
 
   async execute(
     cmd: RequestFinancingCommand,
     reportStage: StageReporter = () => undefined,
+  ): Promise<FinancingResult> {
+    const receivedAt = new Date().toISOString();
+    const startedAt = Date.now();
+    const id = randomUUID();
+
+    /*
+     * 거부가 어디서 났는지 기록한다.
+     *
+     * 아래 사전 검사는 보안 경계가 아니다. 회로가 같은 것을 실행 시점에
+     * 다시 본다. 그런데 사전 검사가 먼저 걸러 버리면 회로는 실행되지 않고,
+     * 그 신청에 대해 "회로가 검증했다"고 말할 근거가 없다. 금융사 화면이
+     * 두 경우를 같게 그리면 검증되지 않은 주장을 하게 된다.
+     */
+    let verifier: CheckVerifier = 'pre-check';
+    let nullifier: Hex | null = null;
+
+    try {
+      const result = await this.run(cmd, reportStage, {
+        setVerifier: (value) => { verifier = value; },
+        setNullifier: (value) => { nullifier = value; },
+      });
+      await this.applications.record({
+        id,
+        lender: cmd.lenderId,
+        amount: result.amount,
+        nullifier: result.nullifier,
+        receivedAt,
+        outcome: 'settled',
+        checks: reviewChecklist(null),
+        reason: null,
+        block: result.block,
+        txHash: result.txHash,
+        elapsedMs: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error: unknown) {
+      const reason = error instanceof DomainError ? (error.code as DomainErrorCode) : null;
+      await this.applications.record({
+        id,
+        lender: cmd.lenderId,
+        amount: cmd.amount.toString(),
+        nullifier,
+        receivedAt,
+        outcome: 'rejected',
+        checks: reviewChecklist(reason, verifier),
+        reason,
+        block: null,
+        txHash: null,
+        elapsedMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  }
+
+  private async run(
+    cmd: RequestFinancingCommand,
+    reportStage: StageReporter,
+    track: {
+      setVerifier: (value: CheckVerifier) => void;
+      setNullifier: (value: Hex) => void;
+    },
   ): Promise<FinancingResult> {
     const invoice = await this.privateState.findInvoice(cmd.supplierId, cmd.invoiceId);
     if (!invoice) throw new InvoiceNotFoundError();
@@ -66,6 +136,7 @@ export class RequestFinancingUseCase {
     // ─────────────────────────────────────────────────────────────
     const issuerId = await this.reader.getIssuerId();
     const nullifier = computeNullifier(issuerId, invoice.invoiceId);
+    track.setNullifier(nullifier);
     if (await this.reader.isNullifierUsed(nullifier)) {
       throw new NullifierAlreadyUsedError();
     }
@@ -74,6 +145,8 @@ export class RequestFinancingUseCase {
     await this.issuer.buildWitness(invoice);
     const ownerSecret = await this.privateState.getOwnerSecret(cmd.supplierId);
 
+    // 여기서부터는 회로가 판정한다. 위 사전 검사와 구분해서 기록한다.
+    track.setVerifier('circuit');
     const result = await this.writer.submitFinancing({
       lender: cmd.lenderId,
       amount: cmd.amount,

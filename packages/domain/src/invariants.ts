@@ -58,3 +58,37 @@ export const SECRET_FIELD_KEYS = [
   'invoiceRaw',
   'detail',
 ] as const;
+
+/**
+ * 여신 심사 화면에 허용되는 신청 필드.
+ *
+ * 금융사가 신청 한 건에 대해 볼 수 있는 전부다. 여기에 채권 원문 필드를
+ * 추가하면 제품 주장이 무너진다 (CONTEXT §4.1).
+ */
+export const APPLICATION_FIELDS = [
+  'id',
+  'lender',
+  // 금액과 중복 확인값은 확정되면 공개 원장에 올라가는 값이다
+  'amount',
+  'nullifier',
+  'receivedAt',
+  'outcome',
+  'checks',
+  'reason',
+  'block',
+  'txHash',
+  'elapsedMs',
+] as const;
+
+/**
+ * 금융사 상태 응답에 허용되는 최상위 필드.
+ * 다른 금융사의 잔액이나 신청을 담는 필드를 추가하지 않는다.
+ */
+export const LENDER_STATE_FIELDS = [
+  'lenderId',
+  'label',
+  'vault',
+  'ltvBps',
+  'loans',
+  'applications',
+] as const;

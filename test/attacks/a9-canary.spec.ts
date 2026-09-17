@@ -7,6 +7,7 @@ import { LocalCircuitChainGateway } from '../../apps/api/src/infrastructure/chai
 import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.source.js';
 import { MerkleIssuerStrategy } from '../../apps/api/src/infrastructure/chain/merkle-issuer.strategy.js';
 import { InMemoryPrivateStateRepository } from '../../apps/api/src/infrastructure/persistence/in-memory-private-state.repository.js';
+import { InMemoryApplicationLog } from '../../apps/api/src/infrastructure/persistence/in-memory-application-log.js';
 import { IssueInvoiceUseCase } from '../../apps/api/src/application/issue-invoice.usecase.js';
 import { ListInvoicesUseCase } from '../../apps/api/src/application/list-invoices.usecase.js';
 import { ListLoansUseCase } from '../../apps/api/src/application/list-loans.usecase.js';
@@ -47,6 +48,7 @@ async function buildStack() {
   repo.setOwnerSecret(SUPPLIER, OWNER_SECRET);
 
   const events = new OnceEventsService();
+  const applications = new InMemoryApplicationLog();
   const captured: OnceEvent[] = [];
   events.asObservable().subscribe((event) => captured.push(event));
 
@@ -59,7 +61,10 @@ async function buildStack() {
     issueInvoice: new IssueInvoiceUseCase(repo, gateway),
     listInvoices: new ListInvoicesUseCase(repo, gateway),
     listLoans: new ListLoansUseCase(gateway),
-    requestFinancing: new RequestFinancingUseCase(repo, gateway, gateway, new MerkleIssuerStrategy()),
+    applications,
+    requestFinancing: new RequestFinancingUseCase(
+      repo, gateway, gateway, new MerkleIssuerStrategy(), applications,
+    ),
   };
 }
 
@@ -101,6 +106,14 @@ describe('A9: 카나리아 전수 검색', () => {
       '납품업체 채권 목록 API': await stack.listInvoices.execute(SUPPLIER),
       'SSE 이벤트': stack.captured,
       '온체인 원장 스냅샷': stack.sim.snapshot(),
+      /*
+       * 금융사 신청 큐. 새로 생긴 공개 경로다.
+       *
+       * 심사 화면이 읽는 유일한 신청 정보이므로, 여기에 원문이 섞이면
+       * "심사하는데 내용을 모른다"가 바로 거짓이 된다. 두 금융사 모두 훑는다.
+       */
+      '금융사 A 신청 큐': await stack.applications.listFor('lender-a'),
+      '금융사 B 신청 큐': await stack.applications.listFor('lender-b'),
       '마스킹된 로그 출력': maskSecrets({
         body: await stack.repo.findInvoice(SUPPLIER, invoiceId),
       }),

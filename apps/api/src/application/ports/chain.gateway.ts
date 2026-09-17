@@ -33,6 +33,13 @@ export interface ChainStatus {
 
 export interface ChainReader {
   getIssuerId(): Promise<Hex>;
+  /**
+   * 발급자 Merkle 루트. 공개값이다 (CONTEXT §5).
+   * 발급 기관 화면이 표시하고, 금융사가 원문 없이 인증을 검증하는 기준이다.
+   */
+  getIssuerRoot(): Promise<Hex>;
+  /** 발급 기관이 지금까지 등록한 채권 건수. 리프 개수일 뿐 내용이 아니다. */
+  getInvoiceCount(): Promise<number>;
   getLtvBps(): Promise<bigint>;
   isNullifierUsed(nullifier: Hex): Promise<boolean>;
   listLoans(): Promise<readonly PublicLoanView[]>;
