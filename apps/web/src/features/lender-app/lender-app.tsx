@@ -30,6 +30,17 @@ function clock(iso: string): string {
     .join(':');
 }
 
+/**
+ * 화면에 쓰는 이름.
+ *
+ * 응답이 오기 전에 lenderId 를 그대로 띄우면 헤더에 'lender-a' 가 번쩍인다.
+ * 어떤 회사도 자기 앱 제목에 내부 식별자를 쓰지 않는다.
+ */
+const LENDER_LABEL: Record<LenderId, string> = {
+  'lender-a': '금융사 A',
+  'lender-b': '금융사 B',
+};
+
 const REASON_TEXT: Record<string, string> = {
   NULLIFIER_ALREADY_USED: '이미 다른 곳에서 사용된 담보',
   AMOUNT_EXCEEDS_LTV: '요청 금액이 담보 한도 초과',
@@ -85,7 +96,7 @@ export function LenderApp({ lenderId }: { lenderId: LenderId }) {
   return (
     <div className="roleapp">
       <RoleHeader
-        role={state.data?.label ?? lenderId}
+        role={state.data?.label ?? LENDER_LABEL[lenderId]}
         product="여신 심사"
         current={`/lender/${lenderId}`}
       />

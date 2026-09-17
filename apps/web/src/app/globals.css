@@ -649,12 +649,16 @@ button { font: inherit; color: inherit; }
  * 같아야 한다. 따로 만들면 콘솔이 연출이 된다.
  */
 
+/*
+ * 상단바는 좌우 14px 안쪽에서 시작한다. 콘솔 본문도 같은 선에 맞춘다.
+ * 패딩이 없으면 첫 화면의 왼쪽 테두리가 창 끝에 붙고 링크 줄이 잘려 보인다.
+ */
 .console-nav {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 8px 0;
+  padding: 8px 14px;
 }
 .console-nav__label { font-size: 12.5px; color: var(--ink-3); margin-right: 4px; }
 
@@ -662,13 +666,14 @@ button { font: inherit; color: inherit; }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  padding: 0 14px;
 }
 .frame {
   border: 1px solid var(--line-hard);
   background: var(--panel);
   min-width: 0;
 }
-.frame--wide { margin-top: 12px; }
+.frame--wide { margin: 12px 14px 0; }
 
 /*
  * 화면이 무엇을 보지 못하는지는 이 래퍼에만 적는다.
@@ -681,7 +686,6 @@ button { font: inherit; color: inherit; }
   flex-direction: column;
   gap: 2px;
 }
-.frame__who { font-size: 13px; font-weight: 600; }
 .frame__note { font-size: 12px; color: var(--ink-3); }
 .frame__view {
   display: block;

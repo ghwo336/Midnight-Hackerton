@@ -199,8 +199,11 @@ export function DemoConsole() {
         <div className="frames">
           {FRAMES.map((frame) => (
             <section className="frame" key={frame.href}>
+              {/*
+                역할 이름은 iframe 안의 역할 표시줄이 이미 보여준다.
+                여기서 또 쓰면 같은 이름이 두 줄로 겹친다. 설명만 얹는다.
+              */}
               <header className="frame__cap">
-                <span className="frame__who">{frame.label}</span>
                 <span className="frame__note">{frame.note}</span>
               </header>
               <iframe
@@ -219,7 +222,6 @@ export function DemoConsole() {
 
         <section className="frame frame--wide">
           <header className="frame__cap">
-            <span className="frame__who">공개 원장</span>
             <span className="frame__note">이 표에 채권 내용은 한 글자도 없다</span>
           </header>
           <iframe
