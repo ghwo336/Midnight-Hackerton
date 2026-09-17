@@ -9,6 +9,12 @@ import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
 import { InvoiceRow } from '@/entities/invoice/invoice-row';
+
+/** 어디서 쓰였는지 사람이 읽는 이름으로. 내부 식별자를 화면에 쓰지 않는다. */
+const LENDER_LABEL: Record<string, string> = {
+  'lender-a': '금융사 A',
+  'lender-b': '금융사 B',
+};
 import { ExecutionLog } from '@/shared/ui/execution-log';
 import {
   IDLE_RUNTIME, applyStage, beginRequest, progressBar, type LenderRuntime,
@@ -69,6 +75,17 @@ export function SupplierApp({ account }: { account?: AccountView }) {
     list.find((invoice) => !invoice.used) ??
     list[0] ??
     null;
+
+  /*
+   * 할 수 없는 행동을 버튼으로 내놓지 않는다.
+   *
+   * 사용된 채권은 회로가 거부한다(중복 확인값이 이미 등록돼 있다). 그걸
+   * 누를 수 있게 두면 화면이 가능하다고 말해 놓고 서버가 거절하는 꼴이
+   * 되고, 보는 사람은 제품이 고장난 것으로 읽는다.
+   */
+  const hasFree = list.some((invoice) => !invoice.used);
+  const selectedUsed = selected !== null && selected.used;
+  const canApply = selected !== null && !selected.used;
 
   const sum = (items: readonly SupplierInvoice[], key: 'faceAmount' | 'maxLoanAmount') =>
     items.reduce((acc, item) => acc + BigInt(item[key]), 0n).toString();
@@ -165,6 +182,13 @@ export function SupplierApp({ account }: { account?: AccountView }) {
             <span className="panel__role">담보인정비율 {ltv} · 컨트랙트 공통</span>
           </header>
           <div className="section__body">
+            {/*
+              미사용 채권이 하나도 없으면 표 자체를 내린다. 신청할 대상이
+              없는데 조건을 비교하게 두는 것은 의미가 없다.
+            */}
+            {!hasFree ? (
+              <p className="ledger__empty">신청 가능한 채권이 없습니다.</p>
+            ) : (
             <table className="terms">
               <colgroup>
                 <col />
@@ -182,21 +206,21 @@ export function SupplierApp({ account }: { account?: AccountView }) {
               </thead>
               <tbody>
                 {(terms.data?.lenders ?? []).map((lender) => {
-                  const amount = selected?.maxLoanAmount ?? '0';
+                  const amount = canApply ? (selected?.maxLoanAmount ?? '0') : '0';
                   const fundable = BigInt(lender.vault) >= BigInt(amount);
                   return (
                     <tr key={lender.lenderId}>
                       <td>{lender.label}</td>
                       <td className="num">{formatAmount(lender.vault)}</td>
-                      <td className="num">{selected ? formatAmount(amount) : EMPTY}</td>
+                      <td className="num">{canApply ? formatAmount(amount) : EMPTY}</td>
                       <td>
                         <button
                           type="button"
                           className="btn btn--inline"
-                          disabled={busy || !selected || !fundable}
+                          disabled={busy || !canApply || !fundable}
                           onClick={() => void request(lender.lenderId)}
                         >
-                          {fundable ? '신청' : '자금 부족'}
+                          {canApply && !fundable ? '자금 부족' : '신청'}
                         </button>
                       </td>
                     </tr>
@@ -204,12 +228,17 @@ export function SupplierApp({ account }: { account?: AccountView }) {
                 })}
               </tbody>
             </table>
-            <p className={`hint ${stalled ? 'hint--error' : ''}`}>
+            )}
+            <p className={`hint ${stalled || selectedUsed ? 'hint--error' : ''}`}>
               {stalled
                 ? '응답이 오지 않는다. 로컬 실행은 1초 안에 끝난다. 서버가 떠 있는지 확인한다'
-                : selected
-                  ? `채권 #${list.findIndex((i) => i.invoiceId === selected.invoiceId) + 1} 선택됨`
-                  : '신청할 채권이 없다'}
+                : selectedUsed
+                  ? `이미 사용된 채권입니다 · ${
+                      LENDER_LABEL[selected?.usedBy ?? ''] ?? '다른 금융사'
+                    }${selected?.usedBlock === null ? '' : ` · 블록 ${selected?.usedBlock}`}`
+                  : selected
+                    ? `채권 #${list.findIndex((i) => i.invoiceId === selected.invoiceId) + 1} 선택됨`
+                    : '신청할 채권이 없다'}
             </p>
           </div>
         </section>
