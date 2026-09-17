@@ -3,12 +3,12 @@ import { LENDER_A_KEY, SUPPLIER_ADDRESS, buildScenario, invoiceAt } from '../fix
 import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
- * A3 — 액면금액을 부풀려 한도를 넘겨 신청한다.
+ * A3: 액면금액을 부풀려 한도를 넘겨 신청한다.
  * 기대: Merkle 리프가 달라져 발급자 인증 검증 실패.
  *
  * faceAmount는 리프 해시의 입력이므로, 부풀리면 트리에 없는 리프가 된다.
  */
-describe('A3 — 액면금액 부풀리기', () => {
+describe('A3: 액면금액 부풀리기', () => {
   it('부풀린 금액은 발급자 트리에 없어 거부된다', async () => {
     const sim = await buildScenario();
     const invoice = invoiceAt(0); // 액면 1억, 한도 8천만

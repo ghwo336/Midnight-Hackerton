@@ -1,7 +1,7 @@
 import type { Hex, LenderId } from '@once/domain';
 
 /**
- * ISP — 읽기와 쓰기를 나눈다 (SPEC §5).
+ * ISP: 읽기와 쓰기를 나눈다 (SPEC §5).
  * 조회만 하는 유스케이스가 지급 메서드에 접근하면 안 된다.
  */
 export interface PublicLoanView {

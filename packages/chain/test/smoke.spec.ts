@@ -45,7 +45,7 @@ describe('회로 스모크: 발급 → 등록 → 자금 → 지급', () => {
     expect(snap.nullifierCount).toBe(1);
     expect(snap.loans).toHaveLength(1);
     expect(snap.loans[0]?.amount).toBe(80_000_000n);
-    // 금융사 잔액이 실제로 줄었다 — 자금이 나갔다는 증거
+    // 금융사 잔액이 실제로 줄었다. 자금이 나갔다는 증거
     expect(snap.lenderVault.get(LENDER_A)).toBe(420_000_000n);
   });
 });

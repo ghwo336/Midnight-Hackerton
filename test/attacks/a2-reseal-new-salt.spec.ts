@@ -6,12 +6,12 @@ import {
 import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
- * A2 — 새 salt로 다시 봉인해 다른 담보처럼 신청한다.
+ * A2: 새 salt로 다시 봉인해 다른 담보처럼 신청한다.
  * 기대: commitment은 다르지만 nullifier가 같아 거부.
  *
  * 이것이 nullifier에 salt를 섞으면 안 되는 이유다 (SPEC §13).
  */
-describe('A2 — 새 salt로 재봉인 후 신청', () => {
+describe('A2: 새 salt로 재봉인 후 신청', () => {
   it('commitment은 달라지지만 nullifier가 같아 거부된다', async () => {
     const sim = await buildScenario();
     const invoice = invoiceAt(0);

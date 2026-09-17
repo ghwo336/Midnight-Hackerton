@@ -78,8 +78,8 @@ export async function buildWallet(seed: string, config: NetworkConfig): Promise<
 
   // 이전 실행의 동기화 지점에서 이어서 시작한다. 없으면 전체 동기화.
   const cached = loadSyncCache(config.name);
-  if (cached) console.log('동기화 캐시 사용 — 마지막 지점부터 이어서 갑니다');
-  else console.log('동기화 캐시 없음 — 전체 동기화 (첫 1회, 오래 걸립니다)');
+  if (cached) console.log('동기화 캐시 사용: 마지막 지점부터 이어서 갑니다');
+  else console.log('동기화 캐시 없음. 전체 동기화 (첫 1회, 오래 걸립니다)');
 
   const cfg = walletConfig(config) as never;
   const wallet = await WalletFacade.init({
@@ -245,7 +245,7 @@ export function checkpointSync(
 
 /**
  * 동기화 지점을 저장한다. 다음 실행이 여기서부터 이어간다.
- * 실패해도 배포를 막지 않는다 — 다음 실행이 느려질 뿐이다.
+ * 실패해도 배포를 막지 않는다. 다음 실행이 느려질 뿐이다.
  */
 export async function persistSync(
   ctx: WalletContext,

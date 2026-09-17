@@ -15,7 +15,7 @@ const OTHER_INVOICE = `0x${'b4'.repeat(32)}` as Hex;
 const OWNER_PK = deriveOwnerPublicKey(`0x${'7c'.repeat(32)}` as Hex);
 const FACE = 100_000_000n;
 
-describe('INV-1 — nullifier는 (issuerId, invoiceId)에만 의존한다', () => {
+describe('INV-1: nullifier는 (issuerId, invoiceId)에만 의존한다', () => {
   it('salt가 달라도 nullifier는 같다', () => {
     // 이것이 A2 공격을 막는 근거다: 새 salt로 재봉인해도 중복이 잡힌다
     const a = computeNullifier(ISSUER_ID, INVOICE_ID);
@@ -48,7 +48,7 @@ describe('INV-1 — nullifier는 (issuerId, invoiceId)에만 의존한다', () =
   });
 });
 
-describe('INV-2 — commitment은 salt를 포함한다', () => {
+describe('INV-2: commitment은 salt를 포함한다', () => {
   it('salt가 다르면 commitment이 다르다', () => {
     const s1 = generateSalt();
     const s2 = generateSalt();
@@ -73,7 +73,7 @@ describe('INV-2 — commitment은 salt를 포함한다', () => {
   });
 });
 
-describe('INV-1 vs INV-2 — 입력이 다르다는 것이 설계의 핵심', () => {
+describe('INV-1 vs INV-2: 입력이 다르다는 것이 설계의 핵심', () => {
   it('salt만 바꾸면 commitment은 변하지만 nullifier는 변하지 않는다', () => {
     const base = { invoiceId: INVOICE_ID, faceAmount: FACE, ownerPk: OWNER_PK };
     const c1 = computeCommitment({ ...base, salt: generateSalt() });
@@ -102,7 +102,7 @@ describe('INV-1 vs INV-2 — 입력이 다르다는 것이 설계의 핵심', ()
   });
 });
 
-describe('담보 한도 — 정수 연산만', () => {
+describe('담보 한도: 정수 연산만', () => {
   it('LTV 80%를 정수로 계산한다', () => {
     expect(maxLoanAmount(100_000_000n, 8000n)).toBe(80_000_000n);
   });

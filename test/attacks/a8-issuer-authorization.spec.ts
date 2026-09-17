@@ -5,13 +5,13 @@ import { ATTACKER_SECRET, buildScenario, invoiceAt } from '../fixtures/scenario.
 import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
- * A8 — 발급자가 아닌 키로 발급자 권한 회로를 호출한다.
+ * A8: 발급자가 아닌 키로 발급자 권한 회로를 호출한다.
  * 기대: 거부.
  *
  * 발급 기관을 신뢰한다는 가정은 남지만(CONTEXT §6), 발급 기관을 사칭하는
  * 것은 막는다.
  */
-describe('A8 — 발급자 아닌 키로 권한 회로 호출', () => {
+describe('A8: 발급자 아닌 키로 권한 회로 호출', () => {
   it('채권 등록이 거부된다', async () => {
     const sim = await buildScenario();
     const before = sim.snapshot().invoiceTreeSize;

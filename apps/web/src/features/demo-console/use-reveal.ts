@@ -72,7 +72,7 @@ export function useReveal(totalLogLines: number) {
 /**
  * 금액 카운트업.
  *
- * CSS만으로는 천 단위 구분(80,000,000)을 유지할 수 없다 — CSS counter에
+ * CSS만으로는 천 단위 구분(80,000,000)을 유지할 수 없다. CSS counter에
  * 자릿수 그룹핑이 없어서 80000000으로 나온다. DESIGN §3.1이 요구하는
  * 자릿수 정렬을 지키려면 값 보간이 필요하므로 rAF로 숫자만 보간하고
  * 표시는 Intl.NumberFormat에 맡긴다. 애니메이션 라이브러리는 쓰지 않는다.

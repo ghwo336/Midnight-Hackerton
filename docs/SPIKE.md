@@ -12,7 +12,7 @@ SPEC §2의 다섯 가지를 본 구현 전에 확인했다. **폴백 A·B·C �
 
 ---
 
-## S1 — 해시 일치
+## S1: 해시 일치
 
 **질문**: 회로 안에서 쓸 수 있는 해시 함수는 무엇이고, 같은 함수의 TS 구현이 있는가.
 
@@ -40,7 +40,7 @@ TS:    persistentHash(new CompactTypeVector(3, new CompactTypeBytes(32)), [a, b,
 
 ---
 
-## S2 — 컨트랙트의 자금 보관과 원자적 지급
+## S2: 컨트랙트의 자금 보관과 원자적 지급
 
 **질문**: 컨트랙트가 토큰을 보관하고 회로 실행과 같은 트랜잭션에서 지급할 수 있는가.
 
@@ -64,7 +64,7 @@ receiveUnshielded(color, amount): []
 
 ---
 
-## S3 — 회로 내 Merkle 멤버십
+## S3: 회로 내 Merkle 멤버십
 
 **질문**: 회로 안에서 Merkle 멤버십 검증이 가능하고 비용이 감당되는가.
 
@@ -84,7 +84,7 @@ TS:    ledger.invoiceTree.findPathForLeaf(leaf)  // MerkleTreePath | undefined
 
 `HistoricMerkleTree`를 고른 이유는 `checkRoot`가 과거 루트도 인정하기
 때문이다. 발급 기관이 새 채권을 등록해도 이미 준비된 신청이 무효화되지
-않는다. 중복 방어에는 영향이 없다 — nullifier 검사는 언제나 현재 상태를 본다.
+않는다. 중복 방어에는 영향이 없다. nullifier 검사는 언제나 현재 상태를 본다.
 
 → **폴백 B를 쓰지 않는다.**
 
@@ -93,7 +93,7 @@ TS:    ledger.invoiceTree.findPathForLeaf(leaf)  // MerkleTreePath | undefined
 
 ---
 
-## S4 — 동시 제출
+## S4: 동시 제출
 
 **질문**: 같은 nullifier로 두 트랜잭션이 거의 동시에 들어오면 하나만 성공하는가.
 
@@ -112,7 +112,7 @@ assert(!usedNullifiers.member(disclose(nf)), "nullifier already used");
 
 ---
 
-## S5 — 백엔드에서 증명 생성·제출
+## S5: 백엔드에서 증명 생성·제출
 
 **질문**: 브라우저 지갑이 아니라 Node 프로세스에서 증명 생성과 제출이 가능한가.
 
@@ -128,7 +128,7 @@ assert(!usedNullifiers.member(disclose(nf)), "nullifier already used");
 
 ---
 
-## 로컬 실행의 한계 — 정직하게
+## 로컬 실행의 한계: 정직하게
 
 `packages/chain`의 시뮬레이터는 **컴파일된 실제 회로 코드**를 실행한다.
 목 구현이 아니다. 따라서 A1~A8의 거부는 애플리케이션 계층이 아니라 회로의

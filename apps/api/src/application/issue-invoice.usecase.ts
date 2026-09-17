@@ -15,7 +15,7 @@ export interface IssueInvoiceCommand {
  * 발급 기관이 채권을 발급한다.
  *
  * 원장에 올라가는 것은 리프 해시뿐이다. 채권 원문은 납품업체 저장소에만
- * 들어간다 (CONTEXT §4.2 — 처음부터 원문이 원장에 닿지 않는 경로).
+ * 들어간다 (CONTEXT §4.2: 처음부터 원문이 원장에 닿지 않는 경로).
  */
 @Injectable()
 export class IssueInvoiceUseCase {

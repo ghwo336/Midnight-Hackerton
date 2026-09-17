@@ -44,7 +44,7 @@ Preprod·Mainnet이 전부 ledger 8(툴체인 0.31.1 / 런타임 0.16.0)에서 �
 curl --proto '=https' --tlsv1.2 -LsSf \
   https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-compact update 0.31   # 라이브 네트워크가 쓰는 버전. 최신(0.34)은 아직 배포 불가 — 아래 참조
+compact update 0.31   # 라이브 네트워크가 쓰는 버전. 최신(0.34)은 아직 배포 불가: 아래 참조
 
 # 2. 의존성 설치
 pnpm install
@@ -63,7 +63,7 @@ pnpm test:attacks
 반드시 3단계를 거쳐야 한다.
 
 
-## 자원 한계 — 지갑 동기화
+## 자원 한계: 지갑 동기화
 
 Preprod는 블록이 250만 개가 넘어서 **새 지갑의 첫 동기화가 무겁다.**
 한 번은 12GB 힙을 허용한 채로 26분을 돌려 CPU 4코어를 물고 발열이 심했다.
@@ -76,7 +76,7 @@ nice -n 15                          다른 작업이 항상 우선권을 갖는�
 
 동기화 지점은 `.data/wallet-sync.json`에 저장된다. 첫 1회만 전체 동기화이고
 그 뒤로는 마지막 지점부터 이어간다. 캐시가 깨졌거나 네트워크가 다르면
-조용히 전체 동기화로 떨어진다 — 틀린 상태를 쓰지 않는다.
+조용히 전체 동기화로 떨어진다. 틀린 상태를 쓰지 않는다.
 
 **작업을 멈출 때는 반드시** `scripts/stop-all.sh`를 쓴다. 래퍼만 죽이면
 실제 작업을 하는 자식 node가 살아남는다. 한 번 그래서 죽인 줄 알았던

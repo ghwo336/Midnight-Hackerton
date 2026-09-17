@@ -1,5 +1,5 @@
 /*
- * ONCE Finance — 여신 단말기
+ * ONCE Finance: 여신 단말기
  *
  * 화면 전체가 조용해야 거부 순간이 폭발한다 (DESIGN §1).
  * 둥근 모서리·그림자·그라데이션·아이콘·이모지 없음. 입체감은 1px 하드 보더로만.
@@ -7,12 +7,12 @@
  */
 
 :root {
-  /* 바탕 — 사무실 전표 용지 */
+  /* 바탕: 사무실 전표 용지 */
   --bg:        #E6E8E3;
   --panel:     #F7F8F4;
   --panel-2:   #EEF0EA;
 
-  /* 선 — 입체감은 전부 여기서 */
+  /* 선: 입체감은 전부 여기서 */
   --line:      #B6BAB0;
   --line-soft: #D3D6CE;
   --line-hard: #1A1D18;
@@ -413,7 +413,7 @@ button { font: inherit; color: inherit; }
 .topbar__title { display: flex; align-items: baseline; gap: 12px; }
 .topbar__tagline { font-size: 14px; color: var(--ink-3); }
 
-/* (a) 진행 단계 가는 바 — 로그가 순차로 뜨는 동안 차오른다 */
+/* (a) 진행 단계 가는 바: 로그가 순차로 뜨는 동안 차오른다 */
 .stages__head { display: flex; align-items: center; gap: 10px; }
 .stages__bar {
   flex: 1;
@@ -428,7 +428,7 @@ button { font: inherit; color: inherit; }
 }
 .stages__fill--rejected { background: var(--seal); }
 
-/* (b) 원장 새 행 — 위에서 내려오고 1초간 좌측 보더 강조 */
+/* (b) 원장 새 행: 위에서 내려오고 1초간 좌측 보더 강조 */
 @keyframes ledger-in {
   from { transform: translateY(-6px); }
   to   { transform: translateY(0); }
@@ -463,7 +463,7 @@ button { font: inherit; color: inherit; }
 .panel--settled  { animation: panel-settle-flash 120ms linear; }
 .panel--rejected { animation: panel-reject-flash 180ms linear, panel-shake 180ms linear; }
 
-/* (e) A5 — 두 도장이 찍히는 순간 나머지를 낮춘다 */
+/* (e) A5: 두 도장이 찍히는 순간 나머지를 낮춘다 */
 .panel--dimmed,
 .section--dimmed {
   opacity: 0.8;
@@ -475,7 +475,7 @@ button { font: inherit; color: inherit; }
   transition: opacity 100ms linear;
 }
 
-/* A5 직후 잔액 대비 — 줄어든 쪽 청색, 그대로인 쪽 적색 */
+/* A5 직후 잔액 대비: 줄어든 쪽 청색, 그대로인 쪽 적색 */
 .vault { border-left: 3px solid transparent; padding-left: 9px; }
 .vault--spent     { border-left-color: var(--settle); }
 .vault--unchanged { border-left-color: var(--seal); }
@@ -494,7 +494,7 @@ button { font: inherit; color: inherit; }
   color: var(--ink);
 }
 
-/* 원장 tx 링크 — 테스트넷에서만. 로컬은 해시만 */
+/* 원장 tx 링크: 테스트넷에서만. 로컬은 해시만 */
 .txlink { color: var(--settle); text-decoration: underline; }
 
 /* ── 모션을 끄기로 한 사용자에게는 전부 끈다 ──────────────── */
@@ -518,7 +518,7 @@ button { font: inherit; color: inherit; }
 
 /* 1600 미만: 컨테이너가 화면 폭을 따라간다 (이미 max-width라 자동) */
 
-/* 1280 이하 — 패널 안쪽 여백과 글자를 줄여 3열을 유지한다.
+/* 1280 이하: 패널 안쪽 여백과 글자를 줄여 3열을 유지한다.
    3열은 데모의 핵심 구도이므로 최대한 지킨다. */
 @media (max-width: 1280px) {
   .panel__body { padding: 11px; }
@@ -528,7 +528,7 @@ button { font: inherit; color: inherit; }
   .attacks { grid-template-columns: repeat(3, 1fr); }
 }
 
-/* 1100 이하 — 상단 설명은 접고, 상태줄은 줄바꿈을 허용한다 */
+/* 1100 이하: 상단 설명은 접고, 상태줄은 줄바꿈을 허용한다 */
 @media (max-width: 1100px) {
   .topbar { height: auto; padding: 8px 14px; flex-wrap: wrap; gap: 6px; }
   .topbar__title { flex-direction: column; gap: 2px; }
@@ -540,7 +540,7 @@ button { font: inherit; color: inherit; }
   .ledger td:nth-child(4) { display: none; }
 }
 
-/* 900 이하 — 3열을 포기한다.
+/* 900 이하: 3열을 포기한다.
    납품업체가 위, 금융사 A·B가 아래 2열. A와 B를 나란히 두는 것이
    "한쪽만 지급됐다"를 보이는 핵심이라 둘은 끝까지 붙여 둔다. */
 @media (max-width: 900px) {
@@ -555,7 +555,7 @@ button { font: inherit; color: inherit; }
   .stamp { width: 84px; height: 84px; font-size: 14px; }
 }
 
-/* 640 이하 — 한 열. 이 폭에서는 발표용이 아니라 확인용이다. */
+/* 640 이하: 한 열. 이 폭에서는 발표용이 아니라 확인용이다. */
 @media (max-width: 640px) {
   .columns { grid-template-columns: 1fr; }
   .columns > .panel { border-right: none; border-bottom: 1px solid var(--line); }
@@ -567,7 +567,7 @@ button { font: inherit; color: inherit; }
   .readout__row, .summary__row { font-size: 13px; }
 }
 
-/* 세로가 짧은 화면 — 로그 영역이 화면을 다 먹지 않게 */
+/* 세로가 짧은 화면: 로그 영역이 화면을 다 먹지 않게 */
 @media (max-height: 800px) {
   .log { height: 96px; }
   .stampwrap { height: 108px; }

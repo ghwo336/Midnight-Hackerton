@@ -10,7 +10,7 @@ import { fixedSource } from '../../apps/api/src/infrastructure/chain/simulator.s
 import { LENDER_FUNDING, LENDER_KEYS } from '../../apps/api/src/config/demo.config.js';
 
 /**
- * LSP — 공유 계약 테스트 (SPEC §5).
+ * LSP: 공유 계약 테스트 (SPEC §5).
  *
  * ChainGateway의 모든 구현이 같은 계약을 지켜야 한다. 특히 중복 nullifier에
  * 대해 어떤 구현이든 NullifierAlreadyUsedError를 던져야 한다. 구현마다 다른

@@ -97,7 +97,7 @@ export const ERROR_HTTP_MAP: Record<DomainErrorCode, number> = {
  *
  * once.compact의 실제 표현식을 그대로 옮긴다 (줄 번호는 주석 참조).
  * 화면 로그에 이걸 함께 보여줘야 "연출이 아니라 회로가 거부했다"가 읽힌다.
- * 회로를 고치면 여기도 같이 고쳐야 한다 — 테스트가 문자열을 대조한다.
+ * 회로를 고치면 여기도 같이 고쳐야 한다. 테스트가 문자열을 대조한다.
  */
 export const CIRCUIT_ASSERT: Record<DomainErrorCode, string | null> = {
   // once.compact:152
@@ -106,7 +106,7 @@ export const CIRCUIT_ASSERT: Record<DomainErrorCode, string | null> = {
   LENDER_NOT_REGISTERED: 'registeredLenders.member(lender)',
   // once.compact:142
   AMOUNT_EXCEEDS_LTV: 'amount * 10000 <= inv.faceAmount * ltvBps',
-  // once.compact:138 — 금액 위조와 타인 채권을 구분하지 않는다 (오라클 방지)
+  // once.compact:138: 금액 위조와 타인 채권을 구분하지 않는다 (오라클 방지)
   ISSUER_ATTESTATION_FAILED: 'path.leaf == leaf',
   // once.compact:138 (소유권도 리프에 포함돼 같은 assert에서 걸린다)
   OWNERSHIP_VERIFY_FAILED: 'path.leaf == leaf',

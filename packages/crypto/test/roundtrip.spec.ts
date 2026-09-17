@@ -11,7 +11,7 @@ import {
 } from '@once/crypto';
 
 /**
- * S1 — 회로와 TS의 해시가 일치하는가 (SPEC §2, §7.1).
+ * S1: 회로와 TS의 해시가 일치하는가 (SPEC §2, §7.1).
  *
  * 비교 대상은 Compact 컴파일러가 once.compact에서 생성한 `pureCircuits`다.
  * 즉 회로 소스가 바뀌면 이 테스트가 즉시 깨진다.

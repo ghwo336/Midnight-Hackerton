@@ -26,7 +26,7 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
 
 
 /**
- * DIP — 유스케이스는 인터페이스에만 의존하고, 구현은 여기서 바인딩한다
+ * DIP: 유스케이스는 인터페이스에만 의존하고, 구현은 여기서 바인딩한다
  * (SPEC §5).
  *
  * 체인 구현을 MidnightChainGateway로 갈아끼울 때 이 파일의 두 줄만 바뀐다.

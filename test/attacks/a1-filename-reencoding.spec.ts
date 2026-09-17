@@ -6,13 +6,13 @@ import {
 import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
- * A1 — 같은 채권 증빙의 파일명·인코딩을 바꿔 재신청한다.
+ * A1: 같은 채권 증빙의 파일명·인코딩을 바꿔 재신청한다.
  * 기대: nullifier 동일 → 거부.
  *
  * nullifier는 (issuerId, invoiceId)에서만 나온다. 증빙 파일의 이름·해시·
  * 인코딩은 애초에 입력이 아니므로 아무리 바꿔도 같은 값이 나온다 (INV-1).
  */
-describe('A1 — 파일명·인코딩 변경 후 재신청', () => {
+describe('A1: 파일명·인코딩 변경 후 재신청', () => {
   it('두 번째 신청이 거부되고 B의 자금이 보존된다', async () => {
     const sim = await buildScenario();
     const invoice = invoiceAt(0);

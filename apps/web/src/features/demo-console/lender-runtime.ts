@@ -165,7 +165,7 @@ export type StampState = 'idle' | 'pending' | 'settled' | 'rejected';
  *
  * 진행 중인 요청이 있으면 그 단계를 보여주고, 그렇지 않으면 공개 원장에
  * 이 금융사 행이 있는지로 판단한다. 새로고침해도, 다른 창에서 신청해도
- * 같은 결과가 나온다 — 로컬 state에만 의존하던 버그를 이렇게 없앤다.
+ * 같은 결과가 나온다. 로컬 state에만 의존하던 버그를 이렇게 없앤다.
  */
 export function resolveStamp(runtime: LenderRuntime, loan: LoanRow | null): StampState {
   if (runtime.phase === 'rejected') return 'rejected';

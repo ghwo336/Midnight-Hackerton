@@ -5,10 +5,10 @@ import {
 import { ASSERT, expectCircuitReject } from '../fixtures/assert-reject.js';
 
 /**
- * A7 — 등록되지 않은 금융사로 신청한다.
+ * A7: 등록되지 않은 금융사로 신청한다.
  * 기대: 거부.
  */
-describe('A7 — 미등록 금융사', () => {
+describe('A7: 미등록 금융사', () => {
   it('등록되지 않은 금융사는 대출을 실행할 수 없다', async () => {
     const sim = await buildScenario();
     const invoice = invoiceAt(0);

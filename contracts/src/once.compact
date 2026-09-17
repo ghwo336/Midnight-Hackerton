@@ -2,7 +2,7 @@ pragma language_version 0.23;
 
 import CompactStandardLibrary;
 
-// ONCE Finance — 매출채권 중복담보 방지 컨트랙트
+// ONCE Finance: 매출채권 중복담보 방지 컨트랙트
 //
 // 불변식 (docs/SPEC.md §1.1)
 //   INV-1  nullifier  = H(TAG_NULLIFIER, issuerId, invoiceId)   ← salt 무관
@@ -141,10 +141,10 @@ export circuit finance(
   // 3. 요청 금액이 담보 한도 이내인가 (정수 연산만)
   assert(amount * 10000 <= inv.faceAmount * ltvBps, "amount exceeds LTV");
 
-  // 4. 중복 확인값 (INV-1) — salt에 의존하지 않는다
+  // 4. 중복 확인값 (INV-1): salt에 의존하지 않는다
   const nf = nullifierOf(issuerId, inv.invoiceId);
 
-  // 5. 봉인값 (INV-2) — salt를 포함한다
+  // 5. 봉인값 (INV-2): salt를 포함한다
   const cm = commitmentOf(inv.invoiceId, inv.faceAmount, ownerPk, inv.salt);
 
   // ── 공개 상태 변경: 실행 시점에 재확인한다 (INV-3) ──

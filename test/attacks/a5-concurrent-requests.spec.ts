@@ -5,14 +5,14 @@ import {
 import { ASSERT } from '../fixtures/assert-reject.js';
 
 /**
- * A5 — 같은 채권으로 두 금융사에 동시 신청한다.
+ * A5: 같은 채권으로 두 금융사에 동시 신청한다.
  * 기대: 하나만 확정되고, 다른 쪽 자금은 보존된다.
  *
  * 이것이 "조회 API로 단순화"가 불가능한 이유다 (CONTEXT §4.3).
  * 두 신청 모두 사전 조회에서는 "미사용"을 보게 된다. 방어는 실행 시점에만
  * 성립한다.
  */
-describe('A5 — 두 금융사에 동시 신청', () => {
+describe('A5: 두 금융사에 동시 신청', () => {
   it('정확히 하나만 성공하고 나머지 자금은 그대로다', async () => {
     const sim = await buildScenario();
     const invoice = invoiceAt(0);

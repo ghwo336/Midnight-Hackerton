@@ -6,7 +6,7 @@ import type { PrivateStateRepository } from '../../application/ports/private-sta
  * 역할별로 분리된 채권 원문 저장소 (SPEC §3.1).
  *
  * 모든 조회가 supplierId를 요구한다. 금융사 세션이 납품업체의 원문에
- * 닿는 메서드는 이 클래스에 존재하지 않는다 — 심사용 상세는
+ * 닿는 메서드는 이 클래스에 존재하지 않는다. 심사용 상세는
  * discloseDetailTo()를 통해 해당 금융사에만, 명시적으로만 나간다.
  */
 @Injectable()

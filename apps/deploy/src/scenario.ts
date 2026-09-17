@@ -17,7 +17,7 @@ import { onceCompiledContract } from './contract.js';
  * A5·A6을 **테스트넷에서** 재현한다.
  *
  * 로컬 시뮬레이터는 제출 큐로 직렬화를 모델링했다. 실제 합의에서도 하나만
- * 확정되는지는 여기서만 증명된다 — 그게 제품의 핵심 주장이다.
+ * 확정되는지는 여기서만 증명된다. 그게 제품의 핵심 주장이다.
  *
  * 각 단계의 tx 해시와 소요 시간을 기록해 docs/TEST_REPORT.md에 옮긴다.
  */
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
   };
 
   // ── A5: 같은 채권으로 두 금융사에 동시 신청 ──
-  console.log('\nA5 — 두 금융사에 동시 신청 (채권 #2)');
+  console.log('\nA5: 두 금융사에 동시 신청 (채권 #2)');
   const a5 = await Promise.all([
     finance('A5 lender-a', 1, 'lender-a'),
     finance('A5 lender-b', 1, 'lender-b'),
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   console.log(`  → 확정 ${settledCount}건 (기대: 1건)`);
 
   // ── A6: 미사용 시점에 준비한 신청을 사용 후에 제출 ──
-  console.log('\nA6 — 지연 제출 (채권 #3)');
+  console.log('\nA6: 지연 제출 (채권 #3)');
   const nf = computeNullifier(deployment.issuerId, deployment.invoices[2]?.invoiceId as Hex);
   console.log(`  대상 nullifier ${nf.slice(0, 18)}…`);
   show(await finance('A6 셋업 (lender-a)', 2, 'lender-a'));

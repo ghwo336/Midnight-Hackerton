@@ -7,7 +7,7 @@ import { OnceEventsService } from '../events/once-events.service.js';
 import { SUPPLIER_ADDRESS, SUPPLIER_ID } from '../../config/demo.config.js';
 
 /**
- * 데모 제어 — 발표용이다. 제품 기능이 아니다.
+ * 데모 제어: 발표용이다. 제품 기능이 아니다.
  */
 @Controller('demo')
 export class DemoController {

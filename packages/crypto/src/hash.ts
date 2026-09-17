@@ -35,7 +35,7 @@ export function hashBytes32Vector(parts: readonly Uint8Array[]): Hex {
   return bytesToHex(persistentHash(vectorType(parts.length), [...parts]));
 }
 
-/** Compact의 `pad(32, "...")` — UTF-8 바이트를 오른쪽 0으로 채운다. */
+/** Compact의 `pad(32, "...")`: UTF-8 바이트를 오른쪽 0으로 채운다. */
 export function padTag(tag: string): Uint8Array {
   const encoded = new TextEncoder().encode(tag);
   if (encoded.length > 32) {

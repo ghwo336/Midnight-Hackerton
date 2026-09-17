@@ -26,7 +26,7 @@ const IDLE_ATTACKS = Object.fromEntries(
 ) as Record<AttackId, AttackStatus>;
 
 /**
- * 데모 콘솔 — 발표의 얼굴 (SPEC §9.3, DESIGN §4).
+ * 데모 콘솔: 발표의 얼굴 (SPEC §9.3, DESIGN §4).
  *
  * 도메인 로직 없음: nullifier 계산도 한도 검증도 하지 않고 백엔드 응답을
  * 표시만 한다. 금융사 패널의 도장은 **공개 원장에서 파생**되므로
@@ -131,7 +131,7 @@ export function DemoConsole() {
   );
 
   /**
-   * A5 — 데모의 클라이맥스.
+   * A5: 데모의 클라이맥스.
    *
    * 서버가 대신 돌려주는 게 아니라 **화면에서 두 요청을 동시에 쏜다.**
    * 두 패널의 증명 카운터가 나란히 돌고, 한쪽에 파란 도장, 다른 쪽에
@@ -249,7 +249,7 @@ export function DemoConsole() {
           <span className="topbar__title">
             <span className="topbar__name">ONCE Finance</span>
             <span className="topbar__tagline">
-              같은 채권으로 두 번 대출받을 수 없다 — 장부를 공유하지 않고
+              같은 채권으로 두 번 대출받을 수 없다. 장부를 공유하지 않고
             </span>
           </span>
           <span className="topbar__status">

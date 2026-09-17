@@ -22,7 +22,7 @@ describe('CIRCUIT_ASSERT ↔ once.compact', () => {
   });
 
   it('회로 assert로 표시되는 표현식은 실제 once.compact에 존재한다', () => {
-    // disclose() 래핑을 벗겨 비교한다 — 화면에는 읽기 쉬운 형태로 보여준다
+    // disclose() 래핑을 벗겨 비교한다. 화면에는 읽기 쉬운 형태로 보여준다
     const normalised = SOURCE.replace(/disclose\(([^()]*)\)/g, '$1');
     for (const [code, expr] of Object.entries(CIRCUIT_ASSERT)) {
       if (expr === null) continue;

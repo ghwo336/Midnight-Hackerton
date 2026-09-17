@@ -14,5 +14,5 @@ export function shortHash(value: string): string {
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
 }
 
-/** 값이 없으면 스켈레톤 로더 대신 —를 표시한다 (DESIGN §6). */
+/** 값이 없으면 스켈레톤 로더 대신 빈 값 표시를 쓴다 (DESIGN §6). */
 export const EMPTY = '—';

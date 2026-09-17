@@ -31,7 +31,7 @@ export interface RequestFinancingCommand {
 export type StageReporter = (stage: 'witness' | 'proving' | 'submitting') => void;
 
 /**
- * SRP — 흐름만 조율한다. 계산도 제출도 직접 하지 않는다 (SPEC §5, §8.2).
+ * SRP: 흐름만 조율한다. 계산도 제출도 직접 하지 않는다 (SPEC §5, §8.2).
  */
 @Injectable()
 export class RequestFinancingUseCase {
@@ -55,7 +55,7 @@ export class RequestFinancingUseCase {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 사전 검사 — 사용자 경험용일 뿐, 보안 경계가 아니다.
+    // 사전 검사: 사용자 경험용일 뿐, 보안 경계가 아니다.
     //
     // 이 조회와 아래 submitFinancing 사이에는 틈이 있다. 그 틈에서 다른
     // 금융사가 같은 채권으로 대출을 확정할 수 있다. 실제 방어는 컨트랙트

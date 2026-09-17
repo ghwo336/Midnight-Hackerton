@@ -19,7 +19,7 @@ import { LENDER_KEYS, lenderIdFromKey } from '../../config/demo.config.js';
 /**
  * 컴파일된 회로를 로컬에서 실행하는 체인 게이트웨이.
  *
- * LSP — 이 구현과 나중에 붙일 MidnightChainGateway는 같은 계약을 지킨다.
+ * LSP: 이 구현과 나중에 붙일 MidnightChainGateway는 같은 계약을 지킨다.
  * 특히 중복 nullifier에 대해 **둘 다 NullifierAlreadyUsedError를 던져야**
  * 한다. 목이 실제와 다른 오류를 던지면 테스트가 거짓말을 한다 (SPEC §5).
  * 공유 계약 테스트가 이를 강제한다.
@@ -105,7 +105,7 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         LENDER_KEYS[tx.lender],
       );
       // 여기서 트랜잭션이 존재한다. 제출과 확정이 로컬에서는 한 동작이라
-      // 두 시각이 거의 같게 찍힌다 — 그게 사실이므로 그대로 보여준다.
+      // 두 시각이 거의 같게 찍힌다. 그게 사실이므로 그대로 보여준다.
       tx.onStage?.('submitting');
       return result;
     } catch (error: unknown) {

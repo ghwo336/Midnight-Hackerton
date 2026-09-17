@@ -36,7 +36,7 @@ const rows = [
   ['컨트랙트 주소', `\`${d.contractAddress}\``],
   ['배포 tx', txOf('deploy') ? `\`${txOf('deploy').txId}\` (블록 ${txOf('deploy').block})` : '—'],
   ['`finance` 성공 tx', financeSettled?.txId ? `\`${financeSettled.txId}\`` : '—'],
-  ['`finance` 중복 거부', financeRejected ? `거부됨 — ${financeRejected.detail.slice(0, 80)}` : '—'],
+  ['`finance` 중복 거부', financeRejected ? `거부됨. ${financeRejected.detail.slice(0, 80)}` : '—'],
   ['A6 지연 제출', a6Rejected ? `${a6Rejected.outcome === 'rejected' ? '거부됨' : '⚠️ 확정됨'}` : '—'],
   ['배포 시각', d.deployedAt ?? '—'],
 ];

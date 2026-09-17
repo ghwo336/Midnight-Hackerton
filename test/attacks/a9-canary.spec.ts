@@ -16,7 +16,7 @@ import { maskSecrets } from '../../apps/api/src/common/logging/mask.js';
 import { LENDER_FUNDING, LENDER_KEYS } from '../../apps/api/src/config/demo.config.js';
 
 /**
- * A9 — 채권 원문에 카나리아를 삽입하고 공개 경로를 전수 검색한다.
+ * A9: 채권 원문에 카나리아를 삽입하고 공개 경로를 전수 검색한다.
  * 기대: 어디에도 나타나지 않음.
  *
  * 주의: 문자열 미검출은 암호학적 비공개성의 증명이 아니다.
@@ -63,7 +63,7 @@ async function buildStack() {
   };
 }
 
-describe('A9 — 카나리아 전수 검색', () => {
+describe('A9: 카나리아 전수 검색', () => {
   it('채권 원문이 공개 경로 어디에도 나타나지 않는다', async () => {
     const stack = await buildStack();
 

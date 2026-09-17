@@ -19,7 +19,7 @@ export function computeCommitment(input: CommitmentInput): Hex {
   ]);
 }
 
-/** 발급자 Merkle 리프. salt를 포함하지 않는다 — 같은 채권이면 같은 리프. */
+/** 발급자 Merkle 리프. salt를 포함하지 않는다. 같은 채권이면 같은 리프. */
 export function computeInvoiceLeaf(input: {
   readonly invoiceId: Hex;
   readonly faceAmount: bigint;
