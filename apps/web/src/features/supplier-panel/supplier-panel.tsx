@@ -81,6 +81,16 @@ export function SupplierPanel({
           </div>
         </div>
 
+        {/*
+          비활성 버튼만 두면 눌러도 아무 일이 없어 고장으로 보인다.
+          왜 못 누르는지 한 줄로 알려준다. 장식이 아니라 상태 설명이다.
+        */}
+        <p className={`hint ${selected ? "hint--ready" : ""}`}>
+          {selected
+            ? `채권 #${invoices.findIndex((i) => i.invoiceId === selectedId) + 1} 선택됨 · 신청 금액 ${formatAmount(selected.maxLoanAmount)}`
+            : '채권을 먼저 선택하세요'}
+        </p>
+
         <div className="btn-row">
           <button
             type="button"
