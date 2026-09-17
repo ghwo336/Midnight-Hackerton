@@ -123,6 +123,9 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
   let last: { applied: number; at: number } | null = null;
   /** 이번 실행의 시작 인덱스. 캐시에서 재개하면 0이 아니다. */
   let baseApplied: number | null = null;
+  /** 최근 표본 창. 누적 평균은 구간 속도 변화를 못 따라간다. */
+  const window: { applied: number; at: number }[] = [];
+  const WINDOW = 8;
 
   /** 진행 정보는 state.shielded.state.progress 에 있다 (구조 덤프로 확인). */
   const readProgress = (state: unknown): { applied: number; highest: number } | null => {
@@ -187,14 +190,22 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
     // 재개분을 이번 실행의 처리량으로 세면 안 된다. 캐시에서 68,804부터
     // 시작했는데 그걸 포함해 평균을 내면 "남은 시간 4분" 같은 값이 나온다.
     if (baseApplied === null) baseApplied = p.applied;
-    const done = p.applied - baseApplied;
+
+    // ETA는 **최근 표본 창**으로 낸다.
+    // 누적 평균은 초반 고속 구간(6000/s)에 끌려가서, 밀집 구간(200/s)에
+    // 들어선 뒤에도 "남은 시간 3분"이라고 거짓말한다. 블록 밀도가 구간마다
+    // 다르므로 최근 속도가 남은 시간을 더 잘 설명한다.
+    window.push({ applied: p.applied, at: now });
+    if (window.length > WINDOW) window.shift();
 
     let eta = '';
-    const elapsedSec = (now - startedAt) / 1000;
-    if (elapsedSec > 10 && done > 0) {
-      const avgRate = done / elapsedSec;
-      const remainMin = (p.highest - p.applied) / avgRate / 60;
-      eta = ` · 남은 시간 약 ${remainMin.toFixed(0)}분 (평균 ${Math.round(avgRate)}/s)`;
+    const first = window[0];
+    if (first && window.length >= 2 && p.applied > first.applied) {
+      const rate = (p.applied - first.applied) / ((now - first.at) / 1000);
+      if (rate > 0) {
+        const remainMin = (p.highest - p.applied) / rate / 60;
+        eta = ` · 남은 시간 약 ${remainMin.toFixed(0)}분 (최근 ${Math.round(rate)}/s)`;
+      }
     }
     console.log(
       `  [${mins}분] ${pct}%  ${p.applied.toLocaleString()} / ${p.highest.toLocaleString()}${eta}`,
