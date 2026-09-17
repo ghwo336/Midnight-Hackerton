@@ -126,7 +126,13 @@ export function LenderPanel({
           <div className="stages__head">
             진행 단계
             <span className="stages__bar" aria-hidden="true">
-              <span className="stages__fill" style={{ width: `${logProgress * 100}%` }} />
+              {/* 거부는 완료가 아니다. 꽉 찬 파란 바로 보이면 안 된다. */}
+              <span
+                className={`stages__fill ${
+                  settledStamp === 'rejected' ? 'stages__fill--rejected' : ''
+                }`}
+                style={{ width: `${logProgress * 100}%` }}
+              />
             </span>
           </div>
           <div className="readout__row">

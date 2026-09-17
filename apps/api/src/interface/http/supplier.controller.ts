@@ -75,6 +75,8 @@ export class SupplierController {
           stage: 'rejected',
           at: new Date().toISOString(),
           elapsedMs: Date.now() - startedAt,
+          reason: error.code as DomainErrorCode,
+          circuitAssert: CIRCUIT_ASSERT[error.code],
         });
         this.events.publish({
           type: 'financing.rejected',

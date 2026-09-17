@@ -14,6 +14,8 @@ export type OnceEvent =
       at: string;
       elapsedMs: number;
       block?: number;
+      reason?: string;
+      circuitAssert?: string | null;
     }
   | {
       type: 'financing.settled';

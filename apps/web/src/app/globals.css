@@ -413,6 +413,7 @@ button { font: inherit; color: inherit; }
   background: var(--settle);
   transition: width 120ms linear;
 }
+.stages__fill--rejected { background: var(--seal); }
 
 /* (b) 원장 새 행 — 위에서 내려오고 1초간 좌측 보더 강조 */
 @keyframes ledger-in {

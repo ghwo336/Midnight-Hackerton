@@ -75,19 +75,8 @@ export function DemoConsole() {
         const lender = event.lender as LenderId;
         setRuntimes((prev) => ({ ...prev, [lender]: applyStage(prev[lender], event) }));
       }
-      if (event.type === 'financing.rejected') {
-        const lender = event.lender as LenderId;
-        setRuntimes((prev) => ({
-          ...prev,
-          [lender]: applyStage(prev[lender], {
-            stage: 'rejected',
-            at: new Date().toISOString(),
-            elapsedMs: 0,
-            reason: event.reason,
-            circuitAssert: event.circuitAssert ?? null,
-          }),
-        }));
-      }
+      // financing.rejected는 로그를 추가하지 않는다. financing.stage(rejected)가
+      // 이미 회로 근거와 함께 한 번 추가하므로, 여기서 또 넣으면 두 번 찍힌다.
       refreshAll();
     },
     [refreshAll],

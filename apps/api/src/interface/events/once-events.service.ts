@@ -24,6 +24,9 @@ export type OnceEvent =
       readonly at: string;
       readonly elapsedMs: number;
       readonly block?: number;
+      /** stage === 'rejected' 일 때만. 로그가 회로 근거를 보여주기 위한 값. */
+      readonly reason?: DomainErrorCode;
+      readonly circuitAssert?: string | null;
     }
   | {
       readonly type: 'financing.settled';
