@@ -128,9 +128,15 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
     const p = inner?.['progress'] as Record<string, unknown> | undefined;
     if (!p) return null;
     const applied = Number(p['appliedIndex'] ?? p['applied'] ?? NaN);
-    const highest = Number(
-      p['highestIndex'] ?? p['highestRelevantIndex'] ?? p['highest'] ?? NaN,
-    );
+    // 목표값은 highestRelevantWalletIndex다. highestIndex는 0으로 남는다
+    // (실측: applied 2974 / relevantWallet 1529726 / highest 0).
+    const candidates = [
+      p['highestRelevantWalletIndex'],
+      p['highestRelevantIndex'],
+      p['highestIndex'],
+      p['highest'],
+    ].map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    const highest = candidates[0] ?? NaN;
     return Number.isFinite(applied) && Number.isFinite(highest) ? { applied, highest } : null;
   };
 
@@ -161,16 +167,27 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
     const mins = ((now - startedAt) / 60_000).toFixed(1);
 
     if (!p || p.highest <= 0) {
-      console.log(`  [${mins}분] 동기화 중... (진행 지표 없음)`);
-      last = { applied: 0, at: now };
+      // 퍼센트를 못 내더라도 원시값은 찍는다. "진행 지표 없음"만 반복하면
+      // 밤새 돌려놓고도 전진하는지 멈춰 있는지 알 수 없다.
+      const inner = (state as { shielded?: { state?: Record<string, unknown> } }).shielded?.state;
+      const raw = inner?.['progress'];
+      console.log(
+        `  [${mins}분] ${JSON.stringify(raw, (_k, v) => (typeof v === 'bigint' ? String(v) : v))}`,
+      );
+      last = { applied: p?.applied ?? 0, at: now };
       return;
     }
 
     const pct = ((p.applied / p.highest) * 100).toFixed(2);
+
+    // ETA는 **누적 평균**으로 낸다. 직전 구간 속도만 쓰면 블록 밀도에 따라
+    // 122분 → 32분 → 263분으로 요동쳐 밤새 지켜볼 지표가 못 된다.
     let eta = '';
-    if (last && p.applied > last.applied) {
-      const rate = (p.applied - last.applied) / ((now - last.at) / 1000);
-      if (rate > 0) eta = ` · 남은 시간 약 ${(((p.highest - p.applied) / rate) / 60).toFixed(0)}분`;
+    const elapsedSec = (now - startedAt) / 1000;
+    if (elapsedSec > 10 && p.applied > 0) {
+      const avgRate = p.applied / elapsedSec;
+      const remainMin = (p.highest - p.applied) / avgRate / 60;
+      eta = ` · 남은 시간 약 ${remainMin.toFixed(0)}분 (평균 ${Math.round(avgRate)}/s)`;
     }
     console.log(
       `  [${mins}분] ${pct}%  ${p.applied.toLocaleString()} / ${p.highest.toLocaleString()}${eta}`,
