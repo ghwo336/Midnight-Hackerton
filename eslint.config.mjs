@@ -57,14 +57,38 @@ export default tseslint.config(
     },
   },
 
-  // web은 chain이나 Midnight SDK를 직접 import하지 않는다
+  /*
+   * web은 chain 패키지와 도메인 로직을 직접 import하지 않는다.
+   *
+   * Midnight SDK 금지는 해제했다. 전제가 바뀌었기 때문이다.
+   * SPEC §9.2의 "모든 체인 접근은 api 경유"는 백엔드가 대신 서명하던
+   * 구조를 전제로 한 규칙이었다. 이제 납품업체가 자기 지갑으로 직접
+   * 서명하므로, 브라우저가 SDK를 쓰는 것이 설계 그 자체다.
+   *
+   * 다만 shared/wallet 밖에서는 여전히 금지한다. SDK 사용을 한 곳에
+   * 가둬야 나머지 화면이 얇은 뷰로 남는다.
+   */
   {
     files: ['apps/web/src/**/*.{ts,tsx}'],
+    ignores: ['apps/web/src/shared/wallet/**', 'apps/web/src/features/wallet-panel/**'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
           { group: ['@once/chain', '@once/contract', '@once/domain', '@once/crypto', '@midnight-ntwrk/*'],
-            message: '모든 체인 접근은 api 경유다. 프론트에 도메인 로직을 두지 않는다 (SPEC §9.2)' },
+            message: '체인 SDK는 shared/wallet 안에서만 쓴다. 화면은 얇은 뷰로 남긴다 (SPEC §9.2)' },
+        ],
+      }],
+    },
+  },
+
+  // 지갑 계층은 SDK를 쓰되, 도메인 패키지는 여전히 직접 쓰지 않는다
+  {
+    files: ['apps/web/src/shared/wallet/**/*.ts', 'apps/web/src/features/wallet-panel/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          { group: ['@once/chain', '@once/contract'],
+            message: '프론트는 Node 전용 패키지를 쓰지 않는다' },
         ],
       }],
     },

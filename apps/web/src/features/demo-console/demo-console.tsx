@@ -12,6 +12,7 @@ import { LenderPanel } from '@/features/lender-panel/lender-panel';
 import {
   AttackPanel, ATTACK_IDS, type AttackId, type AttackStatus,
 } from '@/features/attack-panel/attack-panel';
+import { WalletPanel } from '@/features/wallet-panel/wallet-panel';
 import {
   INITIAL_RUNTIMES, IDLE_RUNTIME, REVEAL, applyStage, beginRequest,
   type LenderRuntimes,
@@ -309,6 +310,8 @@ export function DemoConsole() {
             />
           </div>
         </section>
+
+        <WalletPanel />
 
         {climaxDone ? (
           <p className="climax-note">한 건만 나갔다. B는 A의 장부를 보지 않았다.</p>

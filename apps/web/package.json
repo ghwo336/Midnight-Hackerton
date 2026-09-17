@@ -5,13 +5,25 @@
   "scripts": {
     "dev": "next dev -p 3040",
     "build": "next build",
-    "start": "next start -p 3040"
+    "start": "next start -p 3040",
+    "sync:zk": "rm -rf public/zk && mkdir -p public/zk && cp -R ../../contracts/managed/once/keys public/zk/keys && cp -R ../../contracts/managed/once/zkir public/zk/zkir",
+    "predev": "pnpm run sync:zk",
+    "prebuild": "pnpm run sync:zk"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",
     "next": "^15.1.6",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/midnight-js": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "^4.1.1",
+    "@midnight-ntwrk/compact-js": "2.5.1",
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/ledger-v8": "8.1.2"
   },
   "devDependencies": {
     "@types/react": "^19.0.8",

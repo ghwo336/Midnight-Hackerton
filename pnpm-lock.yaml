@@ -136,6 +136,33 @@ importers:
 
   apps/web:
     dependencies:
+      '@midnight-ntwrk/compact-js':
+        specifier: 2.5.1
+        version: 2.5.1
+      '@midnight-ntwrk/compact-runtime':
+        specifier: 0.16.0
+        version: 0.16.0
+      '@midnight-ntwrk/dapp-connector-api':
+        specifier: 4.0.1
+        version: 4.0.1
+      '@midnight-ntwrk/ledger-v8':
+        specifier: 8.1.2
+        version: 8.1.2
+      '@midnight-ntwrk/midnight-js':
+        specifier: ^4.1.1
+        version: 4.1.1
+      '@midnight-ntwrk/midnight-js-fetch-zk-config-provider':
+        specifier: ^4.1.1
+        version: 4.1.1
+      '@midnight-ntwrk/midnight-js-http-client-proof-provider':
+        specifier: ^4.1.1
+        version: 4.1.1
+      '@midnight-ntwrk/midnight-js-indexer-public-data-provider':
+        specifier: ^4.1.1
+        version: 4.1.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@midnight-ntwrk/midnight-js-types':
+        specifier: ^4.1.1
+        version: 4.1.1
       '@tanstack/react-query':
         specifier: ^5.66.0
         version: 5.103.1(react@19.3.0)
@@ -622,11 +649,17 @@ packages:
   '@midnight-ntwrk/compact-runtime@0.16.0':
     resolution: {integrity: sha512-UR8+MI5zol+gkne17ZZru8xmZNf11xMgQJkiLT9KWsF+QD8Wuz1WONaqQLL0RAZ2aN2XlRsBFd0ViKDVh8prFw==}
 
+  '@midnight-ntwrk/dapp-connector-api@4.0.1':
+    resolution: {integrity: sha512-IstRo8xfmlJlGgUcAJeRzPUmGCp0/xZR3/bfTOk33MHrzbGmB79r/zYziGavcclo1pkkoBHAodX4vz3xgFxczw==}
+
   '@midnight-ntwrk/ledger-v8@8.1.2':
     resolution: {integrity: sha512-H8r5J892bltVtplh1bq947SH/+/jWx07/PaIGSQG8Bd21bObN+sR5eMVTb/RRIRlf2g7MJB4jzgbikMnVZnHqA==}
 
   '@midnight-ntwrk/midnight-js-contracts@4.1.1':
     resolution: {integrity: sha512-vHeKyaj9RXTx+Cep3YpIRgg2EWkzibO4gxI7k/rYpXmGXc3waetrR5sb9FPR7v9SUX00/zf/sYbLp1NZhwZbjg==}
+
+  '@midnight-ntwrk/midnight-js-fetch-zk-config-provider@4.1.1':
+    resolution: {integrity: sha512-d9vPAXjCvbe3KdPDBwp8Cp4HXwdo9jfCjeyJjJPfIDHCctXrIQ7btu+CqY1+bgV05FHVMOBLjJ9TS2tc2xdwrw==}
 
   '@midnight-ntwrk/midnight-js-http-client-proof-provider@4.1.1':
     resolution: {integrity: sha512-Q2VNRTvuWlf3MbjV7C3asuLHeFwtZMdh6t5Z+u8c8RDpejW9GhKaSjlJ2zgJII5ckE8/cocPEDwt3GKBebGHWA==}
@@ -2926,6 +2959,8 @@ snapshots:
       '@types/object-inspect': 1.13.0
       object-inspect: 1.13.4
 
+  '@midnight-ntwrk/dapp-connector-api@4.0.1': {}
+
   '@midnight-ntwrk/ledger-v8@8.1.2': {}
 
   '@midnight-ntwrk/midnight-js-contracts@4.1.1':
@@ -2934,6 +2969,14 @@ snapshots:
       '@midnight-ntwrk/midnight-js-protocol': 4.1.1
       '@midnight-ntwrk/midnight-js-types': 4.1.1
       '@midnight-ntwrk/midnight-js-utils': 4.1.1
+
+  '@midnight-ntwrk/midnight-js-fetch-zk-config-provider@4.1.1':
+    dependencies:
+      '@midnight-ntwrk/midnight-js-types': 4.1.1
+      '@midnight-ntwrk/midnight-js-utils': 4.1.1
+      cross-fetch: 4.1.0
+    transitivePeerDependencies:
+      - encoding
 
   '@midnight-ntwrk/midnight-js-http-client-proof-provider@4.1.1':
     dependencies:
