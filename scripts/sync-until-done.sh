@@ -28,7 +28,24 @@ while [ $i -lt $MAX ]; do
   code=$?
 
   if [ $code -eq 0 ]; then
-    echo "[감독] 회차 $i 정상 종료." | tee -a "$LOG"
+    echo "[감독] 회차 $i 정상 종료. 배포 완료." | tee -a "$LOG"
+
+    # 배포가 끝나면 나머지 파이프라인을 이어서 돌린다.
+    # 사람이 붙어 있지 않아도 A5/A6 재현과 문서 반영까지 끝나야 한다.
+    echo "[감독] 테스트넷 A5/A6 재현 시작" | tee -a "$LOG"
+    (cd apps/deploy && pnpm run scenario) >> "$LOG" 2>&1
+    scode=$?
+    echo "[감독] 시나리오 종료 (code $scode)" | tee -a "$LOG"
+
+    echo "[감독] 문서 반영" | tee -a "$LOG"
+    node scripts/record-deployment.mjs >> "$LOG" 2>&1
+    rcode=$?
+    echo "[감독] 문서 반영 종료 (code $rcode)" | tee -a "$LOG"
+    if [ $rcode -eq 2 ]; then
+      echo "[감독] 경고: A5 확정 건수가 1건이 아니다. 사람이 확인할 것." | tee -a "$LOG"
+    fi
+
+    echo "[감독] 파이프라인 완료." | tee -a "$LOG"
     exit 0
   fi
 
