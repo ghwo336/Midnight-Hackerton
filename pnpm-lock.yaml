@@ -163,6 +163,9 @@ importers:
       '@midnight-ntwrk/midnight-js-types':
         specifier: ^4.1.1
         version: 4.1.1
+      '@once/contract':
+        specifier: workspace:*
+        version: link:../../contracts
       '@tanstack/react-query':
         specifier: ^5.66.0
         version: 5.103.1(react@19.3.0)

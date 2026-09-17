@@ -87,8 +87,13 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
-          { group: ['@once/chain', '@once/contract'],
-            message: '프론트는 Node 전용 패키지를 쓰지 않는다' },
+          /*
+           * @once/contract 는 허용한다. 컴파일러가 생성한 컨트랙트 코드이고
+           * compact-runtime은 브라우저에서도 돈다. 배포하려면 필요하다.
+           * @once/chain 은 여전히 금지 — 시뮬레이터가 Node 전용이다.
+           */
+          { group: ['@once/chain'],
+            message: '@once/chain 은 Node 전용 시뮬레이터다. 프론트에서 쓰지 않는다' },
         ],
       }],
     },

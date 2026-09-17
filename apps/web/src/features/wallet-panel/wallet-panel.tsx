@@ -1,7 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { formatAmount, shortHash } from '@/shared/ui/format';
+import { deployOnce, type DeployResult } from '@/shared/wallet/deploy';
 import { useWallet } from './use-wallet';
+
+/**
+ * 배포 파라미터.
+ *
+ * 발급 기관 비밀키가 브라우저에 있다. 데모에서는 고정값을 쓰지만
+ * 실제라면 발급 기관 본인 기기에서만 존재해야 한다.
+ */
+const DEPLOY_PARAMS = {
+  issuerId: `0x${'11'.repeat(32)}`,
+  issuerPk: '',
+  ltvBps: 8000n,
+  issuerSecret: `0x${'5e'.repeat(32)}`,
+};
 
 /**
  * 지갑 연결 패널.
@@ -14,6 +29,28 @@ import { useWallet } from './use-wallet';
  */
 export function WalletPanel() {
   const { state, connect, disconnect, hasWallet } = useWallet('preprod');
+  const [deploying, setDeploying] = useState(false);
+  const [result, setResult] = useState<DeployResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const deploy = async () => {
+    if (!state.api) return;
+    setDeploying(true);
+    setError(null);
+    try {
+      const { deriveIssuerPublicKey } = await import('@/shared/wallet/issuer-key');
+      setResult(
+        await deployOnce(state.api, {
+          ...DEPLOY_PARAMS,
+          issuerPk: await deriveIssuerPublicKey(DEPLOY_PARAMS.issuerSecret),
+        }),
+      );
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeploying(false);
+    }
+  };
 
   return (
     <section className="section">
@@ -39,8 +76,39 @@ export function WalletPanel() {
               <span className="readout__key">잔액</span>
               <span className="num">{formatAmount(state.balance ?? '0')}</span>
             </div>
+            {result ? (
+              <>
+                <div className="readout__row">
+                  <span className="readout__key">컨트랙트</span>
+                  <span className="num">{shortHash(`0x${result.contractAddress}`)}</span>
+                </div>
+                <div className="readout__row">
+                  <span className="readout__key">배포 tx</span>
+                  <span className="num">{shortHash(`0x${result.txId}`)}</span>
+                </div>
+                <div className="readout__row">
+                  <span className="readout__key">블록</span>
+                  <span className="num">{result.blockHeight}</span>
+                </div>
+                <div className="readout__row">
+                  <span className="readout__key">소요</span>
+                  <span className="num">{(result.elapsedMs / 1000).toFixed(1)}s</span>
+                </div>
+              </>
+            ) : null}
+
+            {error ? <p className="hint hint--error">{error}</p> : null}
+
             <div className="btn-row">
-              <button type="button" className="btn" onClick={disconnect}>
+              <button
+                type="button"
+                className="btn"
+                disabled={deploying || result !== null}
+                onClick={() => void deploy()}
+              >
+                {deploying ? '배포 중 (지갑 승인 필요)' : result ? '배포 완료' : '컨트랙트 배포'}
+              </button>
+              <button type="button" className="btn" onClick={disconnect} disabled={deploying}>
                 연결 해제
               </button>
             </div>
