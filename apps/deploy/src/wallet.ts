@@ -111,6 +111,56 @@ export async function buildWallet(seed: string, config: NetworkConfig): Promise<
   return { wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
 }
 
+/**
+ * 동기화 진행을 주기적으로 찍는다.
+ *
+ * 이게 없으면 동기화가 블랙박스라, 몇 분 남았는지도 모르고 무작정 기다리게
+ * 된다. 실제로 그렇게 26분을 돌리고도 끝을 못 봤다.
+ * 진행률과 남은 시간 추정을 보여준다.
+ */
+export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () => void {
+  const startedAt = Date.now();
+  let last: { applied: number; at: number } | null = null;
+
+  const readProgress = (state: unknown): { applied: number; highest: number } | null => {
+    const shielded = (state as { shielded?: Record<string, unknown> }).shielded;
+    const p = (shielded?.['syncProgress'] ?? shielded?.['progress'] ?? shielded) as
+      | Record<string, unknown>
+      | undefined;
+    if (!p) return null;
+    const applied = Number(p['appliedIndex'] ?? p['applied'] ?? NaN);
+    const highest = Number(p['highestIndex'] ?? p['highest'] ?? NaN);
+    return Number.isFinite(applied) && Number.isFinite(highest) ? { applied, highest } : null;
+  };
+
+  const sub = wallet.state().subscribe((state) => {
+    const now = Date.now();
+    if (last && now - last.at < intervalMs) return;
+
+    const p = readProgress(state);
+    const mins = ((now - startedAt) / 60_000).toFixed(1);
+
+    if (!p || p.highest <= 0) {
+      console.log(`  [${mins}분] 동기화 중... (진행 지표 없음)`);
+      last = { applied: 0, at: now };
+      return;
+    }
+
+    const pct = ((p.applied / p.highest) * 100).toFixed(2);
+    let eta = '';
+    if (last && p.applied > last.applied) {
+      const rate = (p.applied - last.applied) / ((now - last.at) / 1000);
+      if (rate > 0) eta = ` · 남은 시간 약 ${(((p.highest - p.applied) / rate) / 60).toFixed(0)}분`;
+    }
+    console.log(
+      `  [${mins}분] ${pct}%  ${p.applied.toLocaleString()} / ${p.highest.toLocaleString()}${eta}`,
+    );
+    last = { applied: p.applied, at: now };
+  });
+
+  return () => sub.unsubscribe();
+}
+
 export const waitForSync = (wallet: WalletFacade) =>
   Rx.firstValueFrom(wallet.state().pipe(Rx.filter((s) => s.isSynced)));
 

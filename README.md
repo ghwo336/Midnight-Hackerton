@@ -4,6 +4,61 @@
 
 ---
 
+## 바로 실행하기 — 지갑·faucet 불필요
+
+클론하고 두 줄이면 데모가 뜬다. **지갑도, 테스트넷 자금도, Compact 툴체인도
+필요 없다.** 컴파일된 회로와 증명키가 저장소에 들어 있다.
+
+```bash
+pnpm install
+pnpm dev
+```
+
+→ **http://localhost:3040**
+
+| | |
+|---|---|
+| 필요한 것 | Node 20+ , pnpm |
+| 필요 없는 것 | 지갑, faucet, 테스트넷, proof server, Compact 컴파일러 |
+| 걸리는 시간 | `pnpm install` 30초 내외, 기동 2초 |
+
+포트는 API 3011 / 웹 3040이다. 이미 쓰는 포트가 있으면
+`PORT=... pnpm --filter @once/api dev` 로 바꾼다.
+
+### 데모 순서 (2분)
+
+1. 왼쪽 **채권 #1** 클릭 — 왼쪽에 파란 선이 생기면 선택된 것이다
+2. **A에 신청** — 금융사 A에 파란 `지급 완료` 도장, 예치 잔액이 8천만 줄어든다
+3. 채권 #1 다시 클릭 → **B에 신청** — 빨간 `이미 사용` 도장.
+   **지급 금액 0**, 예치 잔액 그대로
+4. 하단 **공개 원장** 확인 — 컬럼이 중복확인값·금융사·금액·봉인값·블록·tx·시각뿐이다.
+   채권 내용이 한 글자도 없다
+5. **A1~A6** 버튼 — 공격 시나리오가 전부 거부된다. **A5**가 클라이맥스다
+   (한 채권에 두 금융사가 동시 신청 → 한쪽만 확정, 다른 쪽 자금 보존)
+
+발표에서 손가락으로 가리킬 세 곳은 3번의 도장, 3번의 금액 `0`, 4번의 원장이다.
+
+### 검증
+
+```bash
+pnpm test          # 48건 — 불변식, 회로 라운드트립, 공격 A1~A9
+pnpm test:attacks  # 공격 시나리오만
+```
+
+이 테스트들은 목 구현이 아니라 **컴파일된 Compact 회로를 실제로 실행한다.**
+거부는 애플리케이션 계층이 아니라 회로의 `assert`가 만든 결과다.
+
+### 로컬 모드가 무엇을 실행하는가
+
+`packages/chain`의 시뮬레이터가 `contracts/managed/`의 컴파일된 회로를
+Node에서 그대로 돌린다. 증명 생성·제출은 로컬에서 일어나고 네트워크를
+타지 않는다. 회로 로직·assert·원장 상태 전이는 전부 진짜다.
+
+로컬 실행이 대신하지 못하는 것은 노드의 증명 트랜스크립트 검증과 합의
+계층의 트랜잭션 순서 결정이다. 그건 테스트넷 배포로 확인한다(아래).
+
+---
+
 ## 1. 문제
 
 납품업체가 대기업에 부품을 납품하고 다음 달에 1억 원을 받기로 돼 있다. 운영비가
@@ -141,9 +196,31 @@ salt만 바꿔 다시 봉인해도 nullifier가 같아서 거부된다.
 
 ---
 
-## 5. 배포 상태
+## 5. 테스트넷 배포 증거
 
-**테스트넷에 배포하지 않았다.** 현재까지 통과한 게이트는 G0~G3, G5다.
+심사위원이 직접 배포할 필요는 없다. 아래는 **우리가 배포한 인스턴스**다.
+
+<!-- DEPLOYMENT:BEGIN -->
+> ⚠️ **아직 배포하지 않았다.** 이 절은 배포 후 주소와 tx 해시로 채운다.
+> 지금 비어 있는 것을 숨기지 않는다.
+>
+> | 항목 | 값 |
+> |---|---|
+> | 네트워크 | Midnight Preprod |
+> | 컨트랙트 주소 | _(미배포)_ |
+> | 배포 tx | _(미배포)_ |
+> | `finance` 성공 tx | _(미배포)_ |
+> | `finance` 중복 거부 | _(미배포)_ |
+<!-- DEPLOYMENT:END -->
+
+배포되면 인덱서에서 직접 확인할 수 있게 링크를 건다.
+
+```
+https://indexer.preprod.midnight.network/api/v3/graphql
+  query { contractActions(address: "<컨트랙트 주소>") { ... } }
+```
+
+### 게이트 진행 상황
 
 | 게이트 | 상태 |
 |---|---|
@@ -151,45 +228,31 @@ salt만 바꿔 다시 봉인해도 nullifier가 같아서 거부된다.
 | G1 스파이크 | ✅ S1 라운드트립 일치, 폴백 A·B·C 모두 불필요 ([SPIKE.md](docs/SPIKE.md)) |
 | G2 도메인 + 목 | ✅ 발급 → 신청 → 중복 거부 흐름 통과 |
 | G3 회로 | ✅ 정상 증명 성공, 실패 경로 확인 |
-| G4 체인 연동 | ⬜ 미완 — 아래 참조 |
+| G4 체인 연동 | ⬜ **미완** — 첫 지갑 동기화가 끝나지 않았다 ([DEPLOY.md](docs/DEPLOY.md)) |
 | G5 프론트 | ✅ 3화면 + 공개 원장 + 공격 패널 |
 | G6 검증 | ✅ A1~A9 전부 기대 결과 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
 
-G4가 남아 있으므로 **배포 주소와 tx 해시가 없다.** 대신 `packages/chain`의
-시뮬레이터가 컴파일된 `once.compact`를 그대로 실행한다. A1~A9의 거부는
-애플리케이션 계층이 아니라 회로의 assert가 만든 결과다. 로컬 실행이 증명하지
-못하는 것은 [SPIKE.md](docs/SPIKE.md) 마지막 절에 적어 두었다.
+G4가 남아 있으므로 **배포 주소와 tx 해시가 아직 없다.** 대신 로컬 모드가
+컴파일된 회로를 그대로 실행하므로, A1~A9의 거부는 애플리케이션 계층이
+아니라 회로의 assert가 만든 결과다. 로컬 실행이 증명하지 못하는 것은
+[SPIKE.md](docs/SPIKE.md) 마지막 절에 적어 두었다.
 
 ---
 
-## 6. 재현 절차
+## 6. 직접 빌드하거나 배포하려면
 
-버전 고정은 [docs/VERSIONS.md](docs/VERSIONS.md)에 있다.
+**심사에는 필요 없다.** 위 "바로 실행하기"로 충분하다.
+
+회로를 고치거나 직접 테스트넷에 올리려면:
+
+- 회로 재컴파일: [docs/VERSIONS.md](docs/VERSIONS.md) — 툴체인 설치와 버전 고정
+- 테스트넷 배포: [docs/DEPLOY.md](docs/DEPLOY.md) — 지갑·faucet·동기화 소요 시간
 
 ```bash
-# 1. Compact 툴체인
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-compact update
-
-# 2. 의존성
-pnpm install
-
-# 3. 회로 컴파일 (증명키 생성 포함, 수 분 소요)
+# 회로를 고쳤을 때만 필요하다. contracts/managed/ 가 저장소에 있으므로
+# 평소에는 실행할 이유가 없다.
 pnpm build:contract
-#    빠른 반복용: pnpm --filter @once/contract build:fast
-
-# 4. 테스트
-pnpm test          # 48건
-pnpm test:attacks  # A1~A9
-
-# 5. 데모 실행
-pnpm --filter @once/api dev    # http://localhost:3011
-pnpm --filter @once/web dev    # http://localhost:3000
 ```
-
-`contracts/managed/`는 빌드 산출물이라 커밋하지 않는다. 3단계를 반드시 거쳐야 한다.
 
 ---
 

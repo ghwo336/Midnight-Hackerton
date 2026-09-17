@@ -9,7 +9,9 @@ import type { Hex } from '@once/domain';
 import {
   ONCE_PRIVATE_STATE_ID, publicValue, requireSecret, requireSeed, useNetwork,
 } from './config.js';
-import { buildWallet, nightBalance, persistSync, unshieldedAddress, waitForSync } from './wallet.js';
+import {
+  buildWallet, logSyncProgress, nightBalance, persistSync, unshieldedAddress, waitForSync,
+} from './wallet.js';
 import { configureProviders } from './providers.js';
 import { onceCompiledContract } from './contract.js';
 import { hexToBytes } from '@once/domain';
@@ -57,7 +59,9 @@ async function main(): Promise<void> {
 
   console.log('지갑 동기화 중...');
   const ctx = await buildWallet(seed, config);
+  const stopProgress = logSyncProgress(ctx.wallet);
   const state = await waitForSync(ctx.wallet);
+  stopProgress();
   await persistSync(ctx, config);
   const balance = nightBalance(state as never);
   console.log(`잔액      ${balance.toString()} tNight\n`);
