@@ -121,6 +121,8 @@ export async function buildWallet(seed: string, config: NetworkConfig): Promise<
 export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () => void {
   const startedAt = Date.now();
   let last: { applied: number; at: number } | null = null;
+  /** 이번 실행의 시작 인덱스. 캐시에서 재개하면 0이 아니다. */
+  let baseApplied: number | null = null;
 
   /** 진행 정보는 state.shielded.state.progress 에 있다 (구조 덤프로 확인). */
   const readProgress = (state: unknown): { applied: number; highest: number } | null => {
@@ -182,10 +184,15 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
 
     // ETA는 **누적 평균**으로 낸다. 직전 구간 속도만 쓰면 블록 밀도에 따라
     // 122분 → 32분 → 263분으로 요동쳐 밤새 지켜볼 지표가 못 된다.
+    // 재개분을 이번 실행의 처리량으로 세면 안 된다. 캐시에서 68,804부터
+    // 시작했는데 그걸 포함해 평균을 내면 "남은 시간 4분" 같은 값이 나온다.
+    if (baseApplied === null) baseApplied = p.applied;
+    const done = p.applied - baseApplied;
+
     let eta = '';
     const elapsedSec = (now - startedAt) / 1000;
-    if (elapsedSec > 10 && p.applied > 0) {
-      const avgRate = p.applied / elapsedSec;
+    if (elapsedSec > 10 && done > 0) {
+      const avgRate = done / elapsedSec;
       const remainMin = (p.highest - p.applied) / avgRate / 60;
       eta = ` · 남은 시간 약 ${remainMin.toFixed(0)}분 (평균 ${Math.round(avgRate)}/s)`;
     }
