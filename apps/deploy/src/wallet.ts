@@ -227,8 +227,17 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
       const dp = (st.dust as { state?: { progress?: Record<string, unknown> } })?.state?.progress;
       if (!dp) return '';
       const a = dp['appliedIndex'] ?? dp['applied'];
-      const h = dp['highestIndex'] ?? dp['highestRelevantWalletIndex'] ?? dp['highest'];
-      return a === undefined ? '' : ` dust ${String(a)}/${String(h ?? '?')}`;
+      // ?? 는 0을 통과시킨다. highestIndex는 0으로 남고 실제 목표는 다른 필드에
+      // 들어온다 (shielded에서 이미 겪은 함정). 양수인 것만 고른다.
+      const h = [
+        dp['highestRelevantWalletIndex'],
+        dp['highestRelevantIndex'],
+        dp['highestIndex'],
+        dp['highest'],
+      ].map(Number).find((n) => Number.isFinite(n) && n > 0);
+      if (a === undefined) return '';
+      const pctDust = h ? ` (${((Number(a) / h) * 100).toFixed(1)}%)` : '';
+      return ` dust ${String(a)}/${h ?? '미확정'}${pctDust}`;
     })();
 
     const others =
