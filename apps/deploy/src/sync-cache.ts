@@ -16,27 +16,42 @@ import { currentDir } from './config.js';
  */
 const CACHE_PATH = resolve(currentDir, '..', '..', '..', '.data', 'wallet-sync.json');
 
-export function loadSyncCache(networkName: string): unknown | null {
+/**
+ * 세 지갑의 직렬화 상태.
+ *
+ * shielded만 저장했더니 dust/unshielded가 매 회차 처음부터 다시 동기화하며
+ * 같은 메모리 벽에 부딪혀 무한 반복했다. 셋 다 저장해야 전진한다.
+ */
+export interface SyncCache {
+  readonly shielded?: unknown;
+  readonly dust?: unknown;
+  readonly unshielded?: unknown;
+}
+
+export function loadSyncCache(networkName: string): SyncCache | null {
   try {
     if (!existsSync(CACHE_PATH)) return null;
     const raw = JSON.parse(readFileSync(CACHE_PATH, 'utf8')) as {
       network?: string;
       state?: unknown;
+      wallets?: SyncCache;
     };
     if (raw.network !== networkName) return null;
-    return raw.state ?? null;
+    // 구버전 캐시(shielded만)도 읽는다
+    if (raw.wallets) return raw.wallets;
+    return raw.state ? { shielded: raw.state } : null;
   } catch {
     // 캐시가 깨졌으면 없는 셈 친다. 전체 동기화로 떨어질 뿐 틀린 상태를 쓰지 않는다.
     return null;
   }
 }
 
-export function saveSyncCache(networkName: string, state: unknown): void {
+export function saveSyncCache(networkName: string, wallets: SyncCache): void {
   try {
     mkdirSync(dirname(CACHE_PATH), { recursive: true });
     writeFileSync(
       CACHE_PATH,
-      `${JSON.stringify({ network: networkName, state, savedAt: new Date().toISOString() })}\n`,
+      `${JSON.stringify({ network: networkName, wallets, savedAt: new Date().toISOString() })}\n`,
     );
   } catch {
     // 캐시 저장 실패가 배포를 막으면 안 된다. 다음 실행이 느려질 뿐이다.

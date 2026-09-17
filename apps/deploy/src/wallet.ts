@@ -78,33 +78,51 @@ export async function buildWallet(seed: string, config: NetworkConfig): Promise<
 
   // 이전 실행의 동기화 지점에서 이어서 시작한다. 없으면 전체 동기화.
   const cached = loadSyncCache(config.name);
-  if (cached) console.log('동기화 캐시 사용: 마지막 지점부터 이어서 갑니다');
-  else console.log('동기화 캐시 없음. 전체 동기화 (첫 1회, 오래 걸립니다)');
+  if (cached) {
+    const has = (['shielded', 'dust', 'unshielded'] as const)
+      .filter((k) => cached[k] != null)
+      .join(', ');
+    console.log(`동기화 캐시 사용: ${has || '(비어 있음)'}`);
+  } else {
+    console.log('동기화 캐시 없음. 전체 동기화 (첫 1회, 오래 걸립니다)');
+  }
 
-  const cfg = walletConfig(config) as never;
-  const wallet = await WalletFacade.init({
-    configuration: cfg,
-    shielded: (c: never) => {
-      const builder = ShieldedWallet(c) as unknown as {
-        restore?: (state: unknown) => unknown;
-        startWithSecretKeys: (k: typeof shieldedSecretKeys) => unknown;
-      };
-      if (cached && typeof builder.restore === 'function') {
+  /**
+   * 캐시가 있으면 restore, 없으면 새로 시작한다.
+   *
+   * shielded만 저장했더니 dust/unshielded가 매 회차 처음부터 다시 동기화하며
+   * 같은 메모리 벽에 부딪혀 OOM을 반복했다(회차 3~5). 셋 다 복원해야 전진한다.
+   */
+  const startOrRestore = <B, R>(builder: B, key: 'shielded' | 'dust' | 'unshielded', fresh: (b: B) => R): R => {
+    const saved = cached?.[key];
+    if (saved != null) {
+      const withRestore = builder as unknown as { restore?: (state: unknown) => R };
+      if (typeof withRestore.restore === 'function') {
         try {
-          return builder.restore(cached) as never;
+          return withRestore.restore(saved);
         } catch {
           // 캐시가 현재 SDK/네트워크와 안 맞으면 전체 동기화로 떨어진다
         }
       }
-      return builder.startWithSecretKeys(shieldedSecretKeys) as never;
-    },
+    }
+    return fresh(builder);
+  };
+
+  const cfg = walletConfig(config) as never;
+  const wallet = await WalletFacade.init({
+    configuration: cfg,
+    shielded: (c: never) =>
+      startOrRestore(ShieldedWallet(c), 'shielded', (b) =>
+        b.startWithSecretKeys(shieldedSecretKeys)) as never,
     unshielded: (c: never) =>
-      UnshieldedWallet(c).startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore)),
+      startOrRestore(UnshieldedWallet(c), 'unshielded', (b) =>
+        b.startWithPublicKey(PublicKey.fromKeyStore(unshieldedKeystore))) as never,
     dust: (c: never) =>
-      DustWallet(c).startWithSecretKey(
-        dustSecretKey,
-        ledger.LedgerParameters.initialParameters().dust,
-      ),
+      startOrRestore(DustWallet(c), 'dust', (b) =>
+        b.startWithSecretKey(
+          dustSecretKey,
+          ledger.LedgerParameters.initialParameters().dust,
+        )) as never,
   });
   await wallet.start(shieldedSecretKeys, dustSecretKey);
 
@@ -266,12 +284,23 @@ export async function persistSync(
   config: NetworkConfig,
   quiet = false,
 ): Promise<void> {
-  const shielded = (ctx.wallet as unknown as {
-    shielded?: { serializeState?: () => Promise<unknown> };
-  }).shielded;
-  if (!shielded?.serializeState) return;
+  const w = ctx.wallet as unknown as Record<
+    'shielded' | 'dust' | 'unshielded',
+    { serializeState?: () => Promise<unknown> } | undefined
+  >;
+  const grab = async (k: 'shielded' | 'dust' | 'unshielded') => {
+    try {
+      return await w[k]?.serializeState?.();
+    } catch {
+      return undefined;
+    }
+  };
   try {
-    saveSyncCache(config.name, await shielded.serializeState());
+    saveSyncCache(config.name, {
+      shielded: await grab('shielded'),
+      dust: await grab('dust'),
+      unshielded: await grab('unshielded'),
+    });
     console.log(
       quiet
         ? `  체크포인트 저장됨 (${new Date().toLocaleTimeString('ko-KR')})`
