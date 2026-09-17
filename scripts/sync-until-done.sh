@@ -26,7 +26,8 @@ while [ $i -lt $MAX ]; do
     try {
       const j = JSON.parse(require("fs").readFileSync(".data/wallet-sync.json","utf8"));
       if (j.wallets) {
-        Object.entries(j.wallets).filter(([,v]) => v != null).map(([k]) => k).join(",") || "(비어 있음)";
+        const off = (k) => { let v = j.wallets[k]; if (typeof v === "string") { try { v = JSON.parse(v) } catch (e) {} } return v?.offset ?? "-" };
+        `shielded ${off("shielded")} / dust ${off("dust")} / unshielded ${off("unshielded")}`;
       } else if (j.state) { "shielded(구형식)"; } else { "없음"; }
     } catch (e) { "없음" }' 2>/dev/null)
   echo "[감독] 회차 $i 시작 (캐시: ${saved:-없음})" | tee -a "$LOG"
