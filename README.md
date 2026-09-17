@@ -41,12 +41,16 @@ pnpm dev
 ### 검증
 
 ```bash
-pnpm test          # 48건 — 불변식, 회로 라운드트립, 공격 A1~A9
+pnpm test          # 50건 — 불변식, 회로 라운드트립, 공격 A1~A9
 pnpm test:attacks  # 공격 시나리오만
 ```
 
 이 테스트들은 목 구현이 아니라 **컴파일된 Compact 회로를 실제로 실행한다.**
 거부는 애플리케이션 계층이 아니라 회로의 `assert`가 만든 결과다.
+
+거부 테스트는 "거부됐다"가 아니라 **"의도한 assert에서 거부됐다"**를 확인한다.
+`.rejects.toThrow()`만 쓰다가 A3·A4가 오래 거짓 통과한 적이 있어서 바꿨다
+([TEST_REPORT.md](docs/TEST_REPORT.md) §1).
 
 ### 로컬 모드가 무엇을 실행하는가
 
@@ -228,9 +232,9 @@ https://indexer.preprod.midnight.network/api/v3/graphql
 | G1 스파이크 | ✅ S1 라운드트립 일치, 폴백 A·B·C 모두 불필요 ([SPIKE.md](docs/SPIKE.md)) |
 | G2 도메인 + 목 | ✅ 발급 → 신청 → 중복 거부 흐름 통과 |
 | G3 회로 | ✅ 정상 증명 성공, 실패 경로 확인 |
-| G4 체인 연동 | ⬜ **미완** — 첫 지갑 동기화가 끝나지 않았다 ([DEPLOY.md](docs/DEPLOY.md)) |
+| G4 체인 연동 | 🔄 **진행 중** — 첫 지갑 동기화 (인덱스 1,529,726개, 약 2시간) ([DEPLOY.md](docs/DEPLOY.md)) |
 | G5 프론트 | ✅ 3화면 + 공개 원장 + 공격 패널 |
-| G6 검증 | ✅ A1~A9 전부 기대 결과 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
+| G6 검증 | ✅ A1~A9 전부 기대 결과, 테스트 50건 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
 
 G4가 남아 있으므로 **배포 주소와 tx 해시가 아직 없다.** 대신 로컬 모드가
 컴파일된 회로를 그대로 실행하므로, A1~A9의 거부는 애플리케이션 계층이
