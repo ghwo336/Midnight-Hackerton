@@ -6,6 +6,7 @@ import {
   initialSteps, runBootstrap, type StepResult,
 } from '@/shared/wallet/bootstrap';
 import type { Recorder } from '@/shared/wallet/measure';
+import { currentNetworkId } from '@/shared/wallet/network';
 import { useWallet } from './use-wallet';
 
 /**
@@ -40,6 +41,7 @@ export function WalletPanel() {
   const [steps, setSteps] = useState<readonly StepResult[]>(initialSteps());
   const [running, setRunning] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
+  const [issuerPk, setIssuerPk] = useState<string | null>(null);
   const [recorder, setRecorder] = useState<Recorder | null>(null);
 
   const run = useCallback(async () => {
@@ -52,6 +54,7 @@ export function WalletPanel() {
         setRecorder(rec);
       });
       setAddress(result.contractAddress);
+      setIssuerPk(result.issuerPublicKey);
       setRecorder(result.recorder);
       setSteps(result.steps);
     } finally {
@@ -101,6 +104,17 @@ export function WalletPanel() {
                 <div className="readout__row">
                   <span className="readout__key">컨트랙트</span>
                   <span className="num">{shortHash(`0x${address}`)}</span>
+                </div>
+              ) : null}
+              <div className="readout__row">
+                {/* SDK 전역 설정값. 비어 있으면 배포가 시작도 못 한다. */}
+                <span className="readout__key">SDK 네트워크</span>
+                <span className="num">{currentNetworkId() ?? '미설정'}</span>
+              </div>
+              {issuerPk ? (
+                <div className="readout__row">
+                  <span className="readout__key">발급 기관 공개키</span>
+                  <span className="num">{shortHash(issuerPk)}</span>
                 </div>
               ) : null}
               <div className="readout__row">
@@ -175,6 +189,10 @@ export function WalletPanel() {
             <p className="hint">
               증명은 브라우저가 아니라 proof server에서 만들어진다. 위 증명 시간은
               증명키 전송과 서버 왕복을 포함한 값이다.
+            </p>
+            <p className="hint">
+              발급 기관 비밀키는 첫 실행 때 이 기기에서 만들어 IndexedDB에만 둔다.
+              저장소에 적힌 더미 키로 배포하면 누구나 채권을 등록할 수 있다.
             </p>
 
             <div className="btn-row">

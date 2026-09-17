@@ -6,6 +6,7 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
 import { buildProviders, ONCE_PRIVATE_STATE_ID } from './providers';
+import { ensureIssuerSecret } from './private-state';
 import { Recorder } from './measure';
 
 /**
@@ -26,10 +27,19 @@ import { Recorder } from './measure';
  * 시간은 "업로드 + 서버 증명 + 다운로드"다. 그 사실을 보고서에 그대로 쓴다.
  */
 
-/** 데모 고정값. apps/api/src/config/demo.config.ts 와 같은 값을 쓴다. */
+/**
+ * 데모 고정값.
+ *
+ * **issuerSecret 은 여기 없다.** 저장소에 적힌 더미값을 테스트넷에 올리면
+ * 누구나 registerInvoice·fundLender 를 부를 수 있다. 배포용 비밀키는
+ * 첫 실행 때 이 기기에서 만들어 IndexedDB 에만 둔다
+ * (`ensureIssuerSecret`). Node 경로의 `requireSecret()` 과 같은 이유다.
+ *
+ * supplierSecret 은 채권 리프를 계산하는 데만 쓰이고, 그 리프의 소유권을
+ * 증명하는 것은 소유자 비밀키를 가진 쪽이다. 데모 값을 그대로 둔다.
+ */
 export const DEMO = {
   issuerId: `0x${'11'.repeat(32)}`,
-  issuerSecret: `0x${'5e'.repeat(32)}`,
   supplierSecret: `0x${'7c'.repeat(32)}`,
   ltvBps: 8000n,
   lenders: [
@@ -75,6 +85,8 @@ export interface StepResult {
 
 export interface BootstrapResult {
   readonly contractAddress: string | null;
+  /** 이 기기에서 만든 발급 기관 공개키. 비밀키는 나가지 않는다. */
+  readonly issuerPublicKey: string | null;
   readonly steps: readonly StepResult[];
   readonly recorder: Recorder;
 }
@@ -184,11 +196,12 @@ export async function runBootstrap(
     new URL('/zk', window.location.origin).toString() as never,
   );
 
-  /** IndexedDB 에 저장될 비공개 상태. 발급 기관 비밀키가 여기 들어간다. */
-  const privateState: OncePrivateState = {
-    issuerSecret: hexToBytes(DEMO.issuerSecret),
-    activeInvoice: null,
-  };
+  /*
+   * IndexedDB 에 저장될 비공개 상태. 발급 기관 비밀키가 여기 들어간다.
+   * 첫 실행이면 이 기기에서 새로 만든다. 저장소의 더미값을 쓰지 않는다.
+   */
+  const issuerSecret = await ensureIssuerSecret();
+  const privateState: OncePrivateState = { issuerSecret, activeInvoice: null };
 
   let contractAddress: string | null = null;
   let deployed: { callTx: Record<string, (...args: unknown[]) => Promise<unknown>> } | null = null;
@@ -228,7 +241,7 @@ export async function runBootstrap(
         initialPrivateState: privateState,
         args: [
           hexToBytes(DEMO.issuerId),
-          pureCircuits.issuerPublicKey(hexToBytes(DEMO.issuerSecret)),
+          pureCircuits.issuerPublicKey(issuerSecret),
           DEMO.ltvBps,
         ],
       } as never);
@@ -268,5 +281,10 @@ export async function runBootstrap(
     // 단계에 이미 기록했다. 여기서는 부분 결과를 그대로 돌려준다.
   }
 
-  return { contractAddress, steps: list, recorder };
+  return {
+    contractAddress,
+    issuerPublicKey: bytesToHex(pureCircuits.issuerPublicKey(issuerSecret)),
+    steps: list,
+    recorder,
+  };
 }

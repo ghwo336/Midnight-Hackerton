@@ -6,6 +6,7 @@ import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-p
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexedDbPrivateStateProvider } from './private-state';
 import type { Recorder } from './measure';
+import { adoptNetworkId } from './network';
 
 /**
  * 지갑이 알려준 설정으로 프로바이더를 구성한다.
@@ -40,6 +41,15 @@ export async function buildProviders(
   recorder?: Recorder,
 ): Promise<OnceProviders> {
   const config = await api.getConfiguration();
+
+  /*
+   * 연결 시점에 이미 설정했지만 여기서 다시 보장한다.
+   *
+   * buildProviders는 모든 컨트랙트 연산 바로 앞에서 불린다. 연결 없이
+   * 이 경로로 들어오거나 페이지가 다시 로드된 경우에도 전역이 비어 있지
+   * 않게 하는 마지막 지점이다. 같은 값이면 아무 일도 하지 않는다.
+   */
+  adoptNetworkId(config.networkId);
 
   const rawZkConfig = new FetchZkConfigProvider<string>(
     new URL(ZK_BASE_URL, window.location.origin).toString(),

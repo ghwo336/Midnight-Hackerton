@@ -1,6 +1,7 @@
 'use client';
 
 import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
+import { adoptNetworkId } from './network';
 
 /**
  * Midnight 지갑 연결.
@@ -85,6 +86,17 @@ export async function connectWallet(networkId: NetworkId): Promise<ConnectResult
 
   try {
     const api = await wallet.api.connect(networkId);
+
+    /*
+     * SDK 전역 네트워크 식별자를 여기서 설정한다.
+     *
+     * 이게 빠지면 배포가 "Network ID has not been configured"로 죽는다.
+     * 연결 성공 지점이 유일하게 확실한 설정 시점이라 여기에 둔다.
+     * 요청한 networkId가 아니라 **지갑이 보고한 값**을 쓴다. 둘이 다르면
+     * 지갑이 맞고, 우리가 고집하면 주소 인코딩이 어긋난다.
+     */
+    adoptNetworkId((await api.getConfiguration()).networkId);
+
     return { ok: true, api, wallet };
   } catch (error: unknown) {
     const failure = classify(error);

@@ -49,6 +49,31 @@ async function withStore<T>(
 }
 
 /**
+ * 배포 인스턴스의 발급 기관 비밀키.
+ *
+ * 로컬 데모는 저장소에 적힌 더미값(0x5e…)을 쓴다. 로컬 회로 실행에는
+ * 실제 자산이 없으므로 무해하다. **그 값을 테스트넷에 올리면 안 된다.**
+ * 공개된 발급자 키로 배포하면 누구나 registerInvoice·fundLender를 부를 수
+ * 있고, A8(발급자 사칭 차단) 주장이 배포된 인스턴스에서 무너진다.
+ * Node 경로는 `requireSecret()`으로 이걸 거부한다.
+ *
+ * 브라우저에는 env가 없으므로 첫 실행 때 만들어서 이 기기에만 둔다.
+ * 기기를 옮기면 같은 컨트랙트의 발급 기관 권한을 쓸 수 없다. 그게 맞다.
+ */
+const ISSUER_SECRET_KEY = 'issuerSecret';
+
+export async function ensureIssuerSecret(): Promise<Uint8Array> {
+  const existing = await withStore<Uint8Array | undefined>(STORE_KEYS, 'readonly', (s) =>
+    s.get(ISSUER_SECRET_KEY),
+  );
+  if (existing instanceof Uint8Array && existing.length === 32) return existing;
+
+  const fresh = crypto.getRandomValues(new Uint8Array(32));
+  await withStore<IDBValidKey>(STORE_KEYS, 'readwrite', (s) => s.put(fresh, ISSUER_SECRET_KEY));
+  return fresh;
+}
+
+/**
  * 13개 메서드 전부를 구현한다.
  *
  * 내보내기/가져오기는 지원하지 않는다. 비공개 상태를 파일로 빼내는 경로를
