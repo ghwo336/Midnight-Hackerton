@@ -21,8 +21,15 @@ while [ $i -lt $MAX ]; do
     exit 0
   fi
 
-  off=$(node -pe 'try{JSON.parse(JSON.parse(require("fs").readFileSync(".data/wallet-sync.json","utf8")).state).offset}catch(e){0}' 2>/dev/null)
-  echo "[감독] 회차 $i 시작 (저장된 offset ${off:-0})" | tee -a "$LOG"
+  # 캐시에 어느 지갑이 저장돼 있는지 보여준다. 신·구 형식을 모두 읽는다.
+  saved=$(node -pe '
+    try {
+      const j = JSON.parse(require("fs").readFileSync(".data/wallet-sync.json","utf8"));
+      if (j.wallets) {
+        Object.entries(j.wallets).filter(([,v]) => v != null).map(([k]) => k).join(",") || "(비어 있음)";
+      } else if (j.state) { "shielded(구형식)"; } else { "없음"; }
+    } catch (e) { "없음" }' 2>/dev/null)
+  echo "[감독] 회차 $i 시작 (캐시: ${saved:-없음})" | tee -a "$LOG"
 
   (cd apps/deploy && pnpm run deploy) >> "$LOG" 2>&1
   code=$?
