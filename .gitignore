@@ -14,3 +14,4 @@ contracts/out/
 # 심사위원이 Compact 툴체인 설치 없이 클론만으로 데모를 돌릴 수 있어야 한다.
 # 증명키 4개 포함 21MB, 최대 파일 9.5MB.
 .DS_Store
+.vscode/

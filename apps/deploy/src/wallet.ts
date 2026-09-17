@@ -122,19 +122,39 @@ export function logSyncProgress(wallet: WalletFacade, intervalMs = 15_000): () =
   const startedAt = Date.now();
   let last: { applied: number; at: number } | null = null;
 
+  /** 진행 정보는 state.shielded.state.progress 에 있다 (구조 덤프로 확인). */
   const readProgress = (state: unknown): { applied: number; highest: number } | null => {
-    const shielded = (state as { shielded?: Record<string, unknown> }).shielded;
-    const p = (shielded?.['syncProgress'] ?? shielded?.['progress'] ?? shielded) as
-      | Record<string, unknown>
-      | undefined;
+    const inner = (state as { shielded?: { state?: Record<string, unknown> } }).shielded?.state;
+    const p = inner?.['progress'] as Record<string, unknown> | undefined;
     if (!p) return null;
     const applied = Number(p['appliedIndex'] ?? p['applied'] ?? NaN);
-    const highest = Number(p['highestIndex'] ?? p['highest'] ?? NaN);
+    const highest = Number(
+      p['highestIndex'] ?? p['highestRelevantIndex'] ?? p['highest'] ?? NaN,
+    );
     return Number.isFinite(applied) && Number.isFinite(highest) ? { applied, highest } : null;
   };
 
+  let dumped = false;
   const sub = wallet.state().subscribe((state) => {
     const now = Date.now();
+
+    // 첫 상태에서 구조를 한 번 찍는다. 진행률 필드명을 추측으로 짚다가
+    // 두 번 틀렸다. 실제 키를 보고 맞춘다.
+    if (!dumped) {
+      dumped = true;
+      const sh = (state as { shielded?: object }).shielded;
+      console.log('  [구조] state keys:', Object.keys(state as object).join(', '));
+      if (sh) {
+        console.log('  [구조] shielded keys:', Object.keys(sh).join(', '));
+        const inner = (sh as { state?: Record<string, unknown> }).state;
+        const prog = inner?.['progress'];
+        if (prog && typeof prog === 'object') {
+          console.log('  [구조] progress:', JSON.stringify(prog, (_k, v) =>
+            typeof v === 'bigint' ? String(v) : v));
+        }
+      }
+    }
+
     if (last && now - last.at < intervalMs) return;
 
     const p = readProgress(state);
@@ -165,12 +185,37 @@ export const waitForSync = (wallet: WalletFacade) =>
   Rx.firstValueFrom(wallet.state().pipe(Rx.filter((s) => s.isSynced)));
 
 /**
+ * 동기화 지점을 **주기적으로** 저장한다.
+ *
+ * 완료 후에만 저장하면 밤새 돌리다 끊겼을 때 전부 날아간다. 실제로 네 번
+ * 시도해서 한 번도 완료하지 못했으므로, 중간 저장이 없으면 진전이 0이다.
+ *
+ * 반환값을 호출해 멈춘다.
+ */
+export function checkpointSync(
+  ctx: WalletContext,
+  config: NetworkConfig,
+  intervalMs = 5 * 60_000,
+): () => void {
+  let stopped = false;
+  const timer = setInterval(() => {
+    if (stopped) return;
+    void persistSync(ctx, config, true);
+  }, intervalMs);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+/**
  * 동기화 지점을 저장한다. 다음 실행이 여기서부터 이어간다.
  * 실패해도 배포를 막지 않는다 — 다음 실행이 느려질 뿐이다.
  */
 export async function persistSync(
   ctx: WalletContext,
   config: NetworkConfig,
+  quiet = false,
 ): Promise<void> {
   const shielded = (ctx.wallet as unknown as {
     shielded?: { serializeState?: () => Promise<unknown> };
@@ -178,9 +223,13 @@ export async function persistSync(
   if (!shielded?.serializeState) return;
   try {
     saveSyncCache(config.name, await shielded.serializeState());
-    console.log('동기화 지점을 저장했다. 다음 실행은 증분 동기화다.');
+    console.log(
+      quiet
+        ? `  체크포인트 저장됨 (${new Date().toLocaleTimeString('ko-KR')})`
+        : '동기화 지점을 저장했다. 다음 실행은 증분 동기화다.',
+    );
   } catch {
-    // 무시
+    // 저장 실패가 동기화를 막으면 안 된다
   }
 }
 

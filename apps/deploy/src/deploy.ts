@@ -10,7 +10,8 @@ import {
   ONCE_PRIVATE_STATE_ID, publicValue, requireSecret, requireSeed, useNetwork,
 } from './config.js';
 import {
-  buildWallet, logSyncProgress, nightBalance, persistSync, unshieldedAddress, waitForSync,
+  buildWallet, checkpointSync, logSyncProgress, nightBalance, persistSync,
+  unshieldedAddress, waitForSync,
 } from './wallet.js';
 import { configureProviders } from './providers.js';
 import { onceCompiledContract } from './contract.js';
@@ -60,8 +61,19 @@ async function main(): Promise<void> {
   console.log('지갑 동기화 중...');
   const ctx = await buildWallet(seed, config);
   const stopProgress = logSyncProgress(ctx.wallet);
+  // 5분마다 체크포인트. 중간에 끊겨도 진전이 남는다.
+  const stopCheckpoint = checkpointSync(ctx, config);
+
+  // 강제 종료(ctrl-c, stop-all.sh)에도 마지막 지점을 남긴다
+  const onExit = () => {
+    void persistSync(ctx, config, true).finally(() => process.exit(0));
+  };
+  process.once('SIGINT', onExit);
+  process.once('SIGTERM', onExit);
+
   const state = await waitForSync(ctx.wallet);
   stopProgress();
+  stopCheckpoint();
   await persistSync(ctx, config);
   const balance = nightBalance(state as never);
   console.log(`잔액      ${balance.toString()} tNight\n`);
