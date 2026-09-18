@@ -64,7 +64,6 @@ export function WalletPanel() {
 
   const failed = steps.find((step) => step.state === 'failed') ?? null;
   const done = steps.filter((step) => step.state === 'done').length;
-  /** 증명 시간은 회로를 부른 단계에서만 의미가 있다. */
   const proved = steps.filter((step) => step.provable && step.proveMs !== undefined);
   const avgProve =
     proved.length === 0
@@ -150,7 +149,11 @@ export function WalletPanel() {
                       {STATE_MARK[step.state]}
                     </td>
                     <td>{step.label}</td>
-                    <td className="num">{step.provable ? ms(step.proveMs) : '회로 없음'}</td>
+                    {/*
+                      배포도 proveTx 를 거친다. "회로 없음" 으로 덮어 두면
+                      31초가 어디서 갔는지 볼 수 없다. 측정값을 그대로 쓴다.
+                    */}
+                    <td className="num">{ms(step.proveMs)}</td>
                     <td className="num">{ms(step.ms)}</td>
                   </tr>
                 ))}

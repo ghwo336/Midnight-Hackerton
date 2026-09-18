@@ -81,48 +81,66 @@ export function bytesToHex(bytes: Uint8Array): string {
 function describeOne(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
+  if (typeof value !== 'object') return String(value);
 
-  if (typeof value === 'object') {
-    const obj = value as Record<string, unknown>;
-    const bits: string[] = [];
+  const obj = value as Record<string, unknown>;
+  const bits: string[] = [];
 
-    const name = typeof obj['name'] === 'string' ? obj['name'] : value.constructor?.name;
-    const tag = typeof obj['_tag'] === 'string' ? obj['_tag'] : undefined;
-    const message = typeof obj['message'] === 'string' ? obj['message'] : undefined;
+  const name = typeof obj['name'] === 'string' ? obj['name'] : value.constructor?.name;
+  const tag = typeof obj['_tag'] === 'string' ? obj['_tag'] : undefined;
+  const message = typeof obj['message'] === 'string' ? obj['message'] : undefined;
 
-    if (tag && tag !== name) bits.push(tag);
-    else if (name && name !== 'Error' && name !== 'Object') bits.push(name);
-    if (message) bits.push(message);
+  if (tag) bits.push(tag);
+  else if (name && name !== 'Object') bits.push(name);
+  if (message !== undefined && message !== '') bits.push(message);
 
-    // 위 어느 것도 없으면 객체 자체를 보여준다. 침묵하는 것보다 낫다.
-    if (bits.length === 0) {
-      const text = String(value);
-      if (text !== '[object Object]') return text;
-      try {
-        return JSON.stringify(value, Object.getOwnPropertyNames(value)).slice(0, 400);
-      } catch {
-        return '(설명할 수 없는 오류 객체)';
-      }
+  /*
+   * 이름과 태그만 있고 내용이 없으면 속성을 훑는다.
+   *
+   * Effect 의 Cause 는 message 를 갖지 않고 실제 페이로드를 error·defect·
+   * failure 안에 넣는다. 이름만 찍으면 "Error ← Fail" 같은 쓸모없는 줄이
+   * 나온다. 실제로 겪었다.
+   */
+  if (message === undefined || message === '') {
+    for (const key of ['error', 'defect', 'failure', 'reason', 'code', 'status']) {
+      const nested = obj[key];
+      if (nested === undefined || nested === null) continue;
+      const text = typeof nested === 'object' ? describeOne(nested) : String(nested);
+      if (text !== '') bits.push(`${key}=${text}`);
     }
-    return bits.join(': ');
   }
 
-  return String(value);
+  if (bits.length === 0) {
+    const text = String(value);
+    if (text !== '[object Object]') return text;
+    try {
+      return JSON.stringify(value, Object.getOwnPropertyNames(value)).slice(0, 300);
+    } catch {
+      return '(설명할 수 없는 오류 객체)';
+    }
+  }
+  return bits.join(': ');
 }
 
 function describeFailure(error: unknown, recorder: Recorder): string {
   const parts: string[] = [];
   const seen = new Set<unknown>();
-  let current: unknown = error;
 
-  for (let depth = 0; depth < 6 && current != null && !seen.has(current); depth += 1) {
+  // cause 뿐 아니라 Effect 가 쓰는 자리도 따라간다.
+  const nextOf = (value: unknown): unknown => {
+    const obj = value as Record<string, unknown> | null;
+    if (!obj) return undefined;
+    return obj['cause'] ?? obj['error'] ?? obj['defect'] ?? obj['failure'];
+  };
+
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current != null && !seen.has(current); depth += 1) {
     seen.add(current);
     const text = describeOne(current);
     if (text !== '' && !parts.includes(text)) parts.push(text);
-    current = (current as { cause?: unknown }).cause;
+    current = nextOf(current);
   }
 
-  // 첫 줄의 스택도 한 조각 붙인다. 어느 모듈에서 났는지가 좁혀진다.
   if (error instanceof Error && typeof error.stack === 'string') {
     const frame = error.stack.split('\n').find((line) => line.includes('at '));
     if (frame) parts.push(frame.trim().slice(0, 160));
@@ -132,9 +150,22 @@ function describeFailure(error: unknown, recorder: Recorder): string {
     parts.push(`요청 실패: ${failure.url} — ${failure.reason}`);
   }
 
-  // ZK 자산을 몇 번 받아왔는지. 0 이면 네트워크 이전 단계에서 죽은 것이다.
-  const zk = recorder.phases.filter((phase) => phase.phase === 'zkConfig').length;
-  parts.push(`zk 자산 요청 ${zk}건`);
+  /*
+   * 구간별 소요 시간.
+   *
+   * 어디서 시간이 갔는지가 가장 좁은 단서다. balance 에서 30초면 지갑을
+   * 기다린 것이고, submit 이면 제출이 안 끝난 것이며, 아무 구간도 없으면
+   * 그 이전에 죽은 것이다.
+   */
+  const byPhase = new Map<string, { count: number; ms: number }>();
+  for (const phase of recorder.phases) {
+    const acc = byPhase.get(phase.phase) ?? { count: 0, ms: 0 };
+    byPhase.set(phase.phase, { count: acc.count + 1, ms: acc.ms + phase.ms });
+  }
+  const timings = [...byPhase.entries()]
+    .map(([phase, acc]) => `${phase} ${acc.count}회 ${(acc.ms / 1000).toFixed(1)}s`)
+    .join(' · ');
+  parts.push(timings === '' ? '구간 기록 없음' : `구간: ${timings}`);
 
   return parts.length === 0 ? '알 수 없는 오류' : parts.join(' ← ');
 }
