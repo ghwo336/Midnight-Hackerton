@@ -7,6 +7,7 @@ import {
 } from '@/shared/wallet/bootstrap';
 import type { Recorder } from '@/shared/wallet/measure';
 import { currentNetworkId } from '@/shared/wallet/network';
+import { registerForDust, type RegistrationResult } from '@/shared/wallet/dust-registration';
 import { useWallet } from './use-wallet';
 
 /**
@@ -43,6 +44,24 @@ export function WalletPanel() {
   const [address, setAddress] = useState<string | null>(null);
   const [issuerPk, setIssuerPk] = useState<string | null>(null);
   const [recorder, setRecorder] = useState<Recorder | null>(null);
+  const [registering, setRegistering] = useState(false);
+  const [registration, setRegistration] = useState<RegistrationResult | null>(null);
+
+  /*
+   * DUST 생성 등록.
+   *
+   * NIGHT 을 들고만 있으면 DUST 가 생기지 않는다. night 키를 dust 주소에
+   * 잇는 등록이 원장에 있어야 한다. Lace 에 그 UI 가 없어서 직접 만든다.
+   */
+  const register = useCallback(async () => {
+    if (!state.api) return;
+    setRegistering(true);
+    try {
+      setRegistration(await registerForDust(state.api));
+    } finally {
+      setRegistering(false);
+    }
+  }, [state.api]);
 
   const run = useCallback(async () => {
     if (!state.api) return;
@@ -179,11 +198,47 @@ export function WalletPanel() {
             </table>
 
             {noDust ? (
-              <p className="hint hint--error">
-                수수료 자원(DUST)이 0이다. 트랜잭션 수수료는 tNIGHT이 아니라
-                DUST로 낸다. DUST는 보유한 tNIGHT에서 시간이 지나며 생성되므로
-                잠시 뒤 다시 연결하면 값이 오른다.
-              </p>
+              <>
+                <p className="hint hint--error">
+                  수수료 자원(DUST)이 0이다. 수수료는 tNIGHT이 아니라 DUST로 낸다.
+                  DUST는 보유한 NIGHT을 생성에 등록해야 쌓이기 시작한다.
+                </p>
+                <div className="btn-row">
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={registering}
+                    onClick={() => void register()}
+                  >
+                    {registering ? '등록 중 (지갑 승인 2회)' : 'DUST 생성 등록'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {registration ? (
+              <>
+                <div className="stages__head">
+                  등록 {registration.ok ? '성공' : '실패'}
+                </div>
+                <div className="log">
+                  {registration.steps.map((step, index) => (
+                    <div key={`${step.label}-${index}`} className="log__line">
+                      <span className="log__at">{String(index + 1).padStart(2, '0')}</span>
+                      <span>
+                        {step.label}
+                        {step.detail === undefined ? '' : ` · ${step.detail}`}
+                      </span>
+                    </div>
+                  ))}
+                  {registration.error ? (
+                    <div className="log__line log__line--seal">
+                      <span className="log__at">!!</span>
+                      <span>{registration.error}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </>
             ) : null}
 
             {failed ? (

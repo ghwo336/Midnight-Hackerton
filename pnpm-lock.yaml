@@ -164,6 +164,9 @@ importers:
       '@midnight-ntwrk/midnight-js-types':
         specifier: ^4.1.1
         version: 4.1.1
+      '@midnight-ntwrk/wallet-sdk-address-format':
+        specifier: ^3.1.0
+        version: 3.1.2
       '@once/contract':
         specifier: workspace:*
         version: link:../../contracts
