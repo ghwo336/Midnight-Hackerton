@@ -68,26 +68,75 @@ export function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
- * 오류를 원인까지 펼친다.
+ * 오류를 사람이 읽을 수 있는 한 줄로 만든다.
  *
- * SDK 는 근본 원인을 `cause` 에 넣고 겉면에는 "Failed to read verifier key"
- * 같은 요약만 남긴다. 그 요약만 보면 경로가 틀렸는지, 서버가 안 뜬 건지,
- * 브라우저가 요청을 막은 건지 구분할 수 없다. 추적 가능한 형태로 바꾼다.
+ * 앞선 시도에서 이 함수가 **빈 문자열**을 돌려줘 화면에 "중단:" 만 찍혔다.
+ * 메시지가 비어 있는 Error 를 그대로 담았기 때문이다. 오류 객체의 모양을
+ * 가정하지 않는다. Effect 계열은 Error 가 아닐 수도 있고, message 대신
+ * _tag 만 갖기도 하며, cause 가 Error 가 아닌 Cause 객체일 수도 있다.
+ *
+ * 무엇이 오든 빈 문자열만은 돌려주지 않는다. 화면이 침묵하면 원인을
+ * 좁힐 방법이 없다.
  */
+function describeOne(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const bits: string[] = [];
+
+    const name = typeof obj['name'] === 'string' ? obj['name'] : value.constructor?.name;
+    const tag = typeof obj['_tag'] === 'string' ? obj['_tag'] : undefined;
+    const message = typeof obj['message'] === 'string' ? obj['message'] : undefined;
+
+    if (tag && tag !== name) bits.push(tag);
+    else if (name && name !== 'Error' && name !== 'Object') bits.push(name);
+    if (message) bits.push(message);
+
+    // 위 어느 것도 없으면 객체 자체를 보여준다. 침묵하는 것보다 낫다.
+    if (bits.length === 0) {
+      const text = String(value);
+      if (text !== '[object Object]') return text;
+      try {
+        return JSON.stringify(value, Object.getOwnPropertyNames(value)).slice(0, 400);
+      } catch {
+        return '(설명할 수 없는 오류 객체)';
+      }
+    }
+    return bits.join(': ');
+  }
+
+  return String(value);
+}
+
 function describeFailure(error: unknown, recorder: Recorder): string {
   const parts: string[] = [];
+  const seen = new Set<unknown>();
   let current: unknown = error;
-  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
-    parts.push(current.message);
+
+  for (let depth = 0; depth < 6 && current != null && !seen.has(current); depth += 1) {
+    seen.add(current);
+    const text = describeOne(current);
+    if (text !== '' && !parts.includes(text)) parts.push(text);
     current = (current as { cause?: unknown }).cause;
   }
-  if (parts.length === 0) parts.push(String(error));
 
-  // 실제로 어떤 요청이 실패했는지가 가장 좁은 단서다.
+  // 첫 줄의 스택도 한 조각 붙인다. 어느 모듈에서 났는지가 좁혀진다.
+  if (error instanceof Error && typeof error.stack === 'string') {
+    const frame = error.stack.split('\n').find((line) => line.includes('at '));
+    if (frame) parts.push(frame.trim().slice(0, 160));
+  }
+
   for (const failure of recorder.fetchFailures) {
     parts.push(`요청 실패: ${failure.url} — ${failure.reason}`);
   }
-  return parts.join(' ← ');
+
+  // ZK 자산을 몇 번 받아왔는지. 0 이면 네트워크 이전 단계에서 죽은 것이다.
+  const zk = recorder.phases.filter((phase) => phase.phase === 'zkConfig').length;
+  parts.push(`zk 자산 요청 ${zk}건`);
+
+  return parts.length === 0 ? '알 수 없는 오류' : parts.join(' ← ');
 }
 
 export type StepState = 'pending' | 'running' | 'done' | 'failed';
@@ -240,6 +289,13 @@ export async function runBootstrap(
       step.blockHeight = out.block;
       step.state = 'done';
     } catch (error: unknown) {
+      /*
+       * 원본을 콘솔에 그대로 남긴다.
+       *
+       * 화면 문구는 한 줄로 줄이는 과정에서 무언가를 잃는다. 개발자 도구를
+       * 열 수 있는 상황이라면 객체 원본이 가장 확실한 단서다.
+       */
+      console.error(`[once] ${step.id} 실패`, error);
       step.ms = performance.now() - started;
       step.error = describeFailure(error, recorder);
       step.state = 'failed';
