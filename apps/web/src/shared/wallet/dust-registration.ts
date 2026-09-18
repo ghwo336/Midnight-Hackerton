@@ -2,8 +2,8 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import {
-  DustActions, DustRegistration, SignatureEnabled, Transaction,
-  type PreBinding, type PreProof, type Signature, type SignatureVerifyingKey,
+  CostModel, DustActions, DustRegistration, Intent, SignatureEnabled, Transaction,
+  type PreProof, type Signature, type SignatureVerifyingKey,
 } from '@midnight-ntwrk/ledger-v8';
 import { DustAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
@@ -120,27 +120,20 @@ export async function registerForDust(api: ConnectedAPI): Promise<RegistrationRe
     note('night 검증키 확보', `${nightKey.slice(0, 20)}…`);
 
     /*
-     * NIGHT 을 자기 자신에게 보내는 intent 를 지갑에 만들게 한다.
-     * 우리는 어떤 UTXO 가 있는지 모르고, 지갑은 안다.
+     * 트랜잭션을 직접 조립한다.
+     *
+     * 처음엔 makeIntent() 로 지갑에 만들게 하고 거기에 dust 항목을 붙이려
+     * 했는데, makeIntent 는 이미 proof 와 binding 이 붙은 sealed 트랜잭션을
+     * 돌려준다. 실패 메시지가 그걸 정확히 알려줬다:
+     *
+     *   기대 signature, proof-preimage, embedded-fr
+     *   실제 signature, proof,          pedersen-schnorr
+     *
+     * sealed 트랜잭션은 내용을 바꿀 수 없다. 바꾸면 binding 이 깨진다.
+     * 그래서 등록만 담은 intent 를 새로 만들고 잔액 조정을 지갑에 맡긴다.
      */
-    const { tx: intentHex } = await api.makeIntent(
-      [{ kind: 'unshielded', type: NIGHT, value: night }],
-      [{ kind: 'unshielded', type: NIGHT, value: night, recipient: unshieldedAddress }],
-      { intentId: SEGMENT, payFees: false },
-    );
-    note('intent 생성', `${intentHex.length / 2} bytes`);
-
-    const tx = Transaction.deserialize<SignatureEnabled, PreProof, PreBinding>(
-      'signature', 'pre-proof', 'pre-binding', fromHex(intentHex),
-    );
-
-    const intent = tx.intents?.get(SEGMENT);
-    if (!intent) {
-      return {
-        ok: false, steps,
-        error: `세그먼트 ${SEGMENT} 의 intent 를 찾지 못했다 (있는 것: ${[...(tx.intents?.keys() ?? [])].join(',') || '없음'})`,
-      };
-    }
+    const ttl = new Date(Date.now() + 30 * 60 * 1000);
+    const intent = Intent.new(ttl);
 
     // bech32m 문자열을 DustPublicKey(bigint)로 되돌린다.
     const dustPublicKey = DustAddress.codec.decode(
@@ -165,7 +158,22 @@ export async function registerForDust(api: ConnectedAPI): Promise<RegistrationRe
     registration.signature = new SignatureEnabled(signed.signature as Signature);
     note('서명 완료');
 
-    const { tx: balanced } = await api.balanceUnsealedTransaction(toHex(tx.serialize()));
+    const unproven = Transaction.fromParts(config.networkId, undefined, undefined, intent);
+    note('트랜잭션 조립');
+
+    /*
+     * 증명 단계. 이 트랜잭션에는 회로 호출이 없으므로 키를 물어볼 일이
+     * 없다. 그래도 물어보면 그 사실 자체가 단서이므로 그대로 던진다.
+     */
+    const provingProvider = await api.getProvingProvider({
+      getZKIR: (loc) => Promise.reject(new Error(`예상치 못한 ZKIR 요청: ${loc}`)),
+      getProverKey: (loc) => Promise.reject(new Error(`예상치 못한 증명키 요청: ${loc}`)),
+      getVerifierKey: (loc) => Promise.reject(new Error(`예상치 못한 검증키 요청: ${loc}`)),
+    });
+    const proven = await unproven.prove(provingProvider, CostModel.initialCostModel());
+    note('증명 완료');
+
+    const { tx: balanced } = await api.balanceUnsealedTransaction(toHex(proven.serialize()));
     note('잔액 조정 완료');
 
     await api.submitTransaction(balanced);

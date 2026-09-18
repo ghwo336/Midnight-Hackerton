@@ -221,6 +221,32 @@ export function WalletPanel() {
                 <div className="stages__head">
                   등록 {registration.ok ? '성공' : '실패'}
                 </div>
+                {/*
+                  스크린샷이 아니라 텍스트로 옮길 수 있어야 한다.
+                  로그를 눈으로 옮겨 적는 것은 오타가 나고, 이미지는
+                  전달 과정에서 깨진다.
+                */}
+                <div className="btn-row">
+                  <button
+                    type="button"
+                    className="btn btn--inline"
+                    onClick={() => {
+                      const text = [
+                        `등록 ${registration.ok ? '성공' : '실패'}`,
+                        ...registration.steps.map(
+                          (step, index) =>
+                            `${String(index + 1).padStart(2, '0')} ${step.label}${
+                              step.detail === undefined ? '' : ` · ${step.detail}`
+                            }`,
+                        ),
+                        ...(registration.error ? [`!! ${registration.error}`] : []),
+                      ].join('\n');
+                      void navigator.clipboard.writeText(text);
+                    }}
+                  >
+                    로그 복사
+                  </button>
+                </div>
                 <div className="log">
                   {registration.steps.map((step, index) => (
                     <div key={`${step.label}-${index}`} className="log__line">
