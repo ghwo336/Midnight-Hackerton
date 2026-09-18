@@ -20,7 +20,7 @@ pnpm dev
 |---|---|
 | 필요한 것 | Node 20+ , pnpm 10+ |
 | 필요 없는 것 | 지갑, faucet, 테스트넷, proof server, Compact 컴파일러 |
-| 걸리는 시간 | `pnpm install` 8초, 기동 4초 (아래 클린 환경 실측) |
+| 걸리는 시간 | `pnpm install` 8초, 기동 10초 내외 (아래 클린 환경 실측) |
 
 포트는 API 3011 / 웹 3040이다. 이미 쓰는 포트가 있으면
 `PORT=... pnpm --filter @once/api dev` 로 바꾼다.
@@ -74,7 +74,7 @@ Node에서 그대로 돌린다. 증명 생성·제출은 로컬에서 일어나�
 |---|---|
 | `git clone` | 220개 파일 · 60MB (증명키 21MB 포함) |
 | `pnpm install` (콜드 스토어) | 456개 패키지 전부 새로 내려받아 **7.8초**, 락파일 변경 없음 |
-| `pnpm dev` | API·웹 **4초** 내 기동. `/`, `/supplier`, `/console`, `/ledger` 전부 200 |
+| `pnpm dev` | API·웹 **4~10초** 기동. `/`, `/supplier`, `/console`, `/ledger`, `/lender/[id]`, `/issuer` 전부 200 |
 | 증명키 | `predev` 가 `contracts/managed/` 에서 `public/zk` 로 복사 (10개, 20MB) |
 | 데모 1~3 | 금융사 A 확정 → 같은 채권으로 B 신청 시 `NULLIFIER_ALREADY_USED` · `!usedNullifiers.member(nf)`, B 예치 잔액 그대로 |
 | 공격 A1~A6 | 전부 거부. 나간 자금 0 (A5 만 정상 대출 1건분) |
