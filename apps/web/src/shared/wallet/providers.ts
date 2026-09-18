@@ -5,6 +5,7 @@ import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-conf
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexedDbPrivateStateProvider } from './private-state';
+import { createWalletBridge } from './wallet-bridge';
 import type { Recorder } from './measure';
 import { adoptNetworkId } from './network';
 
@@ -31,8 +32,8 @@ export interface OnceProviders {
   readonly publicDataProvider: ReturnType<typeof indexerPublicDataProvider>;
   readonly zkConfigProvider: FetchZkConfigProvider<string>;
   readonly proofProvider: ReturnType<typeof httpClientProofProvider>;
-  readonly walletProvider: unknown;
-  readonly midnightProvider: unknown;
+  readonly walletProvider: Awaited<ReturnType<typeof createWalletBridge>>;
+  readonly midnightProvider: Awaited<ReturnType<typeof createWalletBridge>>;
 }
 
 export async function buildProviders(
@@ -80,25 +81,11 @@ export async function buildProviders(
   // 없으면 지갑에 증명을 위임한다 (getProvingProvider).
   const proverUri = config.proverServerUri;
 
-  /**
-   * 잔액 조정과 제출은 지갑이 한다.
-   *
-   * 이것이 S6-d의 결론이고, 우리가 하루 종일 막혀 있던 지갑 동기화가
-   * 브라우저 경로에 없는 이유다. 지갑이 자기 동기화 상태로 밸런싱한다.
+  /*
+   * 지갑이 잔액 조정·서명·제출을 한다. 이것이 브라우저 경로가 지갑
+   * 동기화를 기다리지 않는 이유다 (S6-d).
    */
-  const walletAndMidnight = {
-    getCoinPublicKey: async () => (await api.getShieldedAddresses()).shieldedCoinPublicKey,
-    getEncryptionPublicKey: async () =>
-      (await api.getShieldedAddresses()).shieldedEncryptionPublicKey,
-    balanceTx: async (tx: unknown) => {
-      const { tx: balanced } = await api.balanceUnsealedTransaction(tx as never);
-      return balanced as never;
-    },
-    submitTx: async (tx: unknown) => {
-      await api.submitTransaction(tx as never);
-      return undefined as never;
-    },
-  };
+  const bridge = await createWalletBridge(api);
 
   return {
     privateStateProvider: indexedDbPrivateStateProvider(recorder),
@@ -108,7 +95,7 @@ export async function buildProviders(
       proverUri ?? 'https://proof-server.preprod.midnight.network',
       zkConfigProvider as never,
     ),
-    walletProvider: walletAndMidnight,
-    midnightProvider: walletAndMidnight,
+    walletProvider: bridge,
+    midnightProvider: bridge,
   };
 }

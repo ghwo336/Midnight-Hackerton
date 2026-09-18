@@ -5,7 +5,7 @@ import { deployContract } from '@midnight-ntwrk/midnight-js/contracts';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
-import { buildProviders, ONCE_PRIVATE_STATE_ID } from './providers';
+import { buildProviders, ONCE_PRIVATE_STATE_ID, type OnceProviders } from './providers';
 import { ensureIssuerSecret, writeIssuerPublicKey } from './private-state';
 import { Recorder } from './measure';
 
@@ -97,30 +97,25 @@ export interface BootstrapResult {
  * proveTx·balanceTx·submitTx 를 각각 따로 잰다. 합계만 재면 느린 게
  * 증명인지 네트워크인지 지갑인지 구분할 수 없다.
  */
-function instrument(providers: Record<string, unknown>, recorder: Recorder) {
-  const proof = providers['proofProvider'] as {
-    proveTx: (...args: unknown[]) => Promise<unknown>;
-  };
-  const wallet = providers['walletProvider'] as {
-    balanceTx: (...args: unknown[]) => Promise<unknown>;
-  };
-  const midnight = providers['midnightProvider'] as {
-    submitTx: (...args: unknown[]) => Promise<unknown>;
-  };
+function instrument(providers: OnceProviders, recorder: Recorder): OnceProviders {
+  const { proofProvider, walletProvider, midnightProvider } = providers;
 
   return {
     ...providers,
     proofProvider: {
-      ...proof,
-      proveTx: (...args: unknown[]) => recorder.time('prove', () => proof.proveTx(...args)),
+      ...proofProvider,
+      proveTx: (...args: Parameters<typeof proofProvider.proveTx>) =>
+        recorder.time('prove', () => proofProvider.proveTx(...args)),
     },
     walletProvider: {
-      ...wallet,
-      balanceTx: (...args: unknown[]) => recorder.time('balance', () => wallet.balanceTx(...args)),
+      ...walletProvider,
+      balanceTx: (...args: Parameters<typeof walletProvider.balanceTx>) =>
+        recorder.time('balance', () => walletProvider.balanceTx(...args)),
     },
     midnightProvider: {
-      ...midnight,
-      submitTx: (...args: unknown[]) => recorder.time('submit', () => midnight.submitTx(...args)),
+      ...midnightProvider,
+      submitTx: (...args: Parameters<typeof midnightProvider.submitTx>) =>
+        recorder.time('submit', () => midnightProvider.submitTx(...args)),
     },
   };
 }
@@ -185,8 +180,7 @@ export async function runBootstrap(
   const list = steps();
   const report = () => onProgress([...list], recorder);
 
-  const base = await buildProviders(api, recorder);
-  const providers = instrument(base as unknown as Record<string, unknown>, recorder);
+  const providers = instrument(await buildProviders(api, recorder), recorder);
 
   const compiled = CompiledContract.withCompiledFileAssets(
     CompiledContract.withWitnesses(
