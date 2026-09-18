@@ -39,3 +39,23 @@ export const ClaimRoleSchema = z.object({
 });
 
 export type ClaimRoleDto = z.infer<typeof ClaimRoleSchema>;
+
+/** 상환. 금액은 원장에서 읽으므로 받지 않는다. */
+export const RepayLoanSchema = z.object({ nullifier: hex32Schema });
+export type RepayLoanDto = z.infer<typeof RepayLoanSchema>;
+
+/** 채권 등록 요청. 발급 기관이 승인해야 리프가 들어간다. */
+export const RequestInvoiceSchema = z.object({
+  faceAmount: z.string().regex(/^\d+$/),
+  counterparty: z.string().min(1).max(120),
+  dueDate: z.string().min(1).max(40),
+  approvalNumber: z.string().min(1).max(60),
+  memo: z.string().max(200).default(''),
+  creditGrade: z.string().min(1).max(8).default('BBB'),
+  dueWindow: z.string().min(1).max(20).default('60~90일'),
+  industry: z.string().min(1).max(40).default('기타'),
+});
+export type RequestInvoiceDto = z.infer<typeof RequestInvoiceSchema>;
+
+export const ApproveInvoiceSchema = z.object({ requestId: z.string().min(8).max(64) });
+export type ApproveInvoiceDto = z.infer<typeof ApproveInvoiceSchema>;

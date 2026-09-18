@@ -1,7 +1,7 @@
 import type {
   AttackOutcome, ChainStatus, CheckDescriptor, ClaimResult, FinancingSettled, Identity,
-  DisclosureField, IssueInvoiceBody, IssueResult, IssuerState, LenderId, LenderState,
-  LenderTermsList, LoanRow, SupplierInvoice,
+  DisclosureField, InvoiceRequest, IssueInvoiceBody, IssueResult, IssuerState, LenderId,
+  LenderState, LenderTermsList, LoanRow, RequestInvoiceBody, SupplierFunds, SupplierInvoice,
 } from './types.js';
 
 /**
@@ -75,6 +75,26 @@ export const api = {
   chain: () => request<ChainStatus>('/public/chain'),
   loans: () => request<{ loans: LoanRow[] }>('/public/loans').then((r) => r.loans),
   invoices: () => request<{ invoices: SupplierInvoice[] }>('/supplier/invoices').then((r) => r.invoices),
+  funds: () => request<SupplierFunds>('/supplier/funds'),
+  repay: (nullifier: string) =>
+    request<{ nullifier: string; amount: string; block: number }>('/supplier/repay', {
+      method: 'POST',
+      body: JSON.stringify({ nullifier }),
+    }),
+  myRequests: () =>
+    request<{ requests: InvoiceRequest[] }>('/supplier/requests').then((r) => r.requests),
+  requestInvoice: (body: RequestInvoiceBody) =>
+    request<InvoiceRequest>('/supplier/requests', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  pendingRequests: () =>
+    request<{ requests: InvoiceRequest[] }>('/issuer/requests').then((r) => r.requests),
+  approveRequest: (requestId: string) =>
+    request<IssueResult & { requestId: string }>('/issuer/requests/approve', {
+      method: 'POST',
+      body: JSON.stringify({ requestId }),
+    }),
   identity: (address: string) =>
     request<Identity>(`/identity/${encodeURIComponent(address)}`),
   claimRole: (address: string, role: 'lender' | 'supplier') =>

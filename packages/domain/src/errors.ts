@@ -11,6 +11,9 @@ export const DOMAIN_ERROR_CODES = [
   'INSUFFICIENT_LENDER_FUNDING',
   'PROOF_GENERATION_FAILED',
   'CHAIN_SUBMIT_FAILED',
+  'LOAN_NOT_FOUND',
+  'LOAN_ALREADY_REPAID',
+  'REPAYMENT_BELOW_PRINCIPAL',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
@@ -74,6 +77,24 @@ export class ProofGenerationFailedError extends DomainError {
   }
 }
 
+export class LoanNotFoundError extends DomainError {
+  constructor() {
+    super('LOAN_NOT_FOUND', 'loan not found');
+  }
+}
+
+export class LoanAlreadyRepaidError extends DomainError {
+  constructor() {
+    super('LOAN_ALREADY_REPAID', 'loan already repaid');
+  }
+}
+
+export class RepaymentBelowPrincipalError extends DomainError {
+  constructor() {
+    super('REPAYMENT_BELOW_PRINCIPAL', 'repayment is below the principal');
+  }
+}
+
 export class ChainSubmitFailedError extends DomainError {
   constructor() {
     super('CHAIN_SUBMIT_FAILED', 'chain submission failed');
@@ -90,6 +111,9 @@ export const ERROR_HTTP_MAP: Record<DomainErrorCode, number> = {
   INSUFFICIENT_LENDER_FUNDING: 409,
   PROOF_GENERATION_FAILED: 500,
   CHAIN_SUBMIT_FAILED: 502,
+  LOAN_NOT_FOUND: 404,
+  LOAN_ALREADY_REPAID: 409,
+  REPAYMENT_BELOW_PRINCIPAL: 422,
 };
 
 /**
@@ -112,6 +136,10 @@ export const CIRCUIT_ASSERT: Record<DomainErrorCode, string | null> = {
   OWNERSHIP_VERIFY_FAILED: 'path.leaf == leaf',
   // once.compact:153,155
   INSUFFICIENT_LENDER_FUNDING: 'balance >= amount',
+  // once.compact 의 repay 회로
+  LOAN_NOT_FOUND: 'loans.member(nf)',
+  LOAN_ALREADY_REPAID: '!loan.repaid',
+  REPAYMENT_BELOW_PRINCIPAL: 'amount >= loan.amount',
   // 회로 밖에서 발생하는 오류들
   INVOICE_NOT_FOUND: null,
   PROOF_GENERATION_FAILED: null,

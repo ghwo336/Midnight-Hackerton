@@ -9,11 +9,14 @@ import {
   LenderNotRegisteredError,
   NullifierAlreadyUsedError,
   AmountExceedsLtvError,
+  LoanAlreadyRepaidError,
+  LoanNotFoundError,
+  RepaymentBelowPrincipalError,
   type Hex,
   type LenderId,
 } from '@once/domain';
 import type {
-  ChainReader, ChainStatus, ChainWriter, FinancingTx, PublicLoanView, TxResult,
+  ChainReader, ChainStatus, ChainWriter, FinancingTx, PublicLoanView, RepaymentTx, TxResult,
 } from '../../application/ports/chain.gateway.js';
 import { LENDER_KEYS, lenderIdFromKey } from '../../config/demo.config.js';
 
@@ -78,6 +81,10 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
     };
   }
 
+  async getBorrowerBalance(address: Hex): Promise<bigint> {
+    return this.sim.snapshot().borrowerBalance.get(address) ?? 0n;
+  }
+
   async getLenderVault(lender: LenderId): Promise<bigint> {
     return this.sim.snapshot().lenderVault.get(LENDER_KEYS[lender]) ?? 0n;
   }
@@ -95,11 +102,22 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         amount: loan.amount.toString(),
         commitment: loan.commitment,
         block: loan.block,
+        borrower: loan.borrower,
+        repaid: loan.repaid,
+        repaidBlock: loan.repaidBlock,
         txHash: loan.txHash ?? (`0x${'0'.repeat(64)}` as Hex),
         settledAt: loan.settledAt,
       });
     }
     return out;
+  }
+
+  async submitRepayment(tx: RepaymentTx): Promise<TxResult> {
+    try {
+      return await this.sim.repay({ nullifier: tx.nullifier, amount: tx.amount });
+    } catch (error: unknown) {
+      throw translateCircuitFailure(error);
+    }
   }
 
   async registerInvoiceLeaf(leaf: Hex): Promise<void> {
@@ -148,6 +166,12 @@ export function translateCircuitFailure(error: unknown): Error {
   // 구분해서 알려주면 공격자가 어느 필드를 틀렸는지 알아내는 오라클이 된다.
   if (raw.includes('invoice leaf mismatch')) return new IssuerAttestationFailedError();
   if (raw.includes('invoice not attested by issuer')) return new IssuerAttestationFailedError();
+
+  // 상환 회로
+  if (raw.includes('loan not found')) return new LoanNotFoundError();
+  if (raw.includes('loan already repaid')) return new LoanAlreadyRepaidError();
+  if (raw.includes('repayment below principal')) return new RepaymentBelowPrincipalError();
+  if (raw.includes('insufficient borrower balance')) return new RepaymentBelowPrincipalError();
 
   return new ChainSubmitFailedError();
 }

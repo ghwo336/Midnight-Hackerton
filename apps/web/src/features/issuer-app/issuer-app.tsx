@@ -34,7 +34,24 @@ export function IssuerApp({ account }: { account?: AccountView }) {
   const [error, setError] = useState<string | null>(null);
 
   const state = useQuery({ queryKey: ['issuer'], queryFn: api.issuer });
+  const pending = useQuery({ queryKey: ['pendingRequests'], queryFn: api.pendingRequests });
+  const [approving, setApproving] = useState<string | null>(null);
   useLive('standalone');
+
+  const approve = useCallback(
+    async (requestId: string) => {
+      setApproving(requestId);
+      try {
+        setResult(await api.approveRequest(requestId));
+      } catch (caught: unknown) {
+        setError(caught instanceof ApiError ? caught.code : '승인하지 못했다');
+      } finally {
+        setApproving(null);
+        void queryClient.invalidateQueries();
+      }
+    },
+    [queryClient],
+  );
 
   const set = (key: keyof typeof EMPTY_FORM) => (event: { target: { value: string } }) =>
     setForm((prev) => ({ ...prev, [key]: event.target.value }));
@@ -102,6 +119,48 @@ export function IssuerApp({ account }: { account?: AccountView }) {
                 </span>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="section">
+          <header className="section__head">
+            <span>승인 대기</span>
+            <span className="panel__role">{pending.data?.length ?? 0}건</span>
+          </header>
+          <div className="section__body">
+            {(pending.data?.length ?? 0) === 0 ? (
+              <p className="ledger__empty">대기 중인 요청이 없다.</p>
+            ) : (
+              <table className="terms">
+                <thead>
+                  <tr>
+                    <th className="num">액면</th>
+                    <th>등급</th>
+                    <th>업종</th>
+                    <th>승인</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(pending.data ?? []).map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="num">{formatAmount(entry.faceAmount)}</td>
+                      <td className="num">{entry.risk.creditGrade}</td>
+                      <td>{entry.risk.industry}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn--inline"
+                          disabled={approving !== null}
+                          onClick={() => void approve(entry.id)}
+                        >
+                          {approving === entry.id ? '승인 중' : '승인'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
 

@@ -17,6 +17,8 @@ export type FinancingStage = 'witness' | 'proving' | 'submitting' | 'settled' | 
 
 export type OnceEvent =
   | { readonly type: 'invoice.issued'; readonly invoiceId: Hex }
+  | { readonly type: 'invoice.requested'; readonly requestId: string }
+  | { readonly type: 'loan.repaid'; readonly nullifier: Hex }
   | {
       readonly type: 'financing.stage';
       readonly lender: LenderId;

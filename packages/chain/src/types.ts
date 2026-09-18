@@ -10,6 +10,11 @@ export interface FinancingRequest {
   readonly witness: FinancingWitnessInput;
 }
 
+export interface RepayRequest {
+  readonly nullifier: Hex;
+  readonly amount: bigint;
+}
+
 export interface SubmitResult {
   readonly nullifier: Hex;
   readonly commitment: Hex;
@@ -23,6 +28,12 @@ export interface OnChainLoan {
   readonly lender: Hex;
   readonly amount: bigint;
   readonly commitment: Hex;
+  /** 차주 주소. 공개값이다. */
+  readonly borrower: Hex;
+  /** 상환 완료 여부. 상환해도 nullifier 는 usedNullifiers 에 남는다. */
+  readonly repaid: boolean;
+  /** 상환 블록. 회로에는 블록 개념이 없어 시뮬레이터가 붙인다. */
+  readonly repaidBlock: number | null;
   /** 확정 트랜잭션. 로컬 실행에서는 시뮬레이터가 발급한다. */
   readonly txHash: Hex | null;
   readonly block: number;
@@ -38,6 +49,8 @@ export interface LedgerSnapshot {
   readonly nullifierCount: number;
   readonly loans: readonly OnChainLoan[];
   readonly lenderVault: ReadonlyMap<Hex, bigint>;
+  /** 차주별 가용 자금. 대출로 늘고 상환으로 준다. */
+  readonly borrowerBalance: ReadonlyMap<Hex, bigint>;
   readonly registeredLenders: readonly Hex[];
   readonly invoiceTreeSize: number;
   /**

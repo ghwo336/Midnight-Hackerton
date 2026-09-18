@@ -2,7 +2,9 @@ import type * as __compactRuntime from '@midnight-ntwrk/compact-runtime';
 
 export type LoanRecord = { lender: Uint8Array;
                            amount: bigint;
-                           commitment: Uint8Array
+                           commitment: Uint8Array;
+                           borrower: Uint8Array;
+                           repaid: boolean
                          };
 
 export type PrivateInvoice = { invoiceId: Uint8Array;
@@ -34,6 +36,9 @@ export type ImpureCircuits<PS> = {
           lender_0: Uint8Array,
           amount_0: bigint,
           recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
+  repay(context: __compactRuntime.CircuitContext<PS>,
+        nf_0: Uint8Array,
+        amount_0: bigint): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type ProvableCircuits<PS> = {
@@ -48,6 +53,9 @@ export type ProvableCircuits<PS> = {
           lender_0: Uint8Array,
           amount_0: bigint,
           recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
+  repay(context: __compactRuntime.CircuitContext<PS>,
+        nf_0: Uint8Array,
+        amount_0: bigint): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type PureCircuits = {
@@ -89,6 +97,9 @@ export type Circuits<PS> = {
           lender_0: Uint8Array,
           amount_0: bigint,
           recipient_0: { bytes: Uint8Array }): __compactRuntime.CircuitResults<PS, []>;
+  repay(context: __compactRuntime.CircuitContext<PS>,
+        nf_0: Uint8Array,
+        amount_0: bigint): __compactRuntime.CircuitResults<PS, []>;
 }
 
 export type Ledger = {
@@ -125,6 +136,13 @@ export type Ledger = {
     [Symbol.iterator](): Iterator<Uint8Array>
   };
   lenderVault: {
+    isEmpty(): boolean;
+    size(): bigint;
+    member(key_0: Uint8Array): boolean;
+    lookup(key_0: Uint8Array): bigint;
+    [Symbol.iterator](): Iterator<[Uint8Array, bigint]>
+  };
+  borrowerBalance: {
     isEmpty(): boolean;
     size(): bigint;
     member(key_0: Uint8Array): boolean;

@@ -13,6 +13,10 @@ export struct LoanRecord {
   lender: Bytes<32>;
   amount: Uint<64>;
   commitment: Bytes<32>;
+  // 누가 빌렸는지. 상환 때 이 차주의 잔액에서 빠진다.
+  borrower: Bytes<32>;
+  // 상환 완료 여부. **상환해도 usedNullifiers 에서는 빠지지 않는다.**
+  repaid: Boolean;
 }
 
 // 납품업체가 비공개로 보유하는 채권 원문. 원장에 닿지 않는다.
@@ -35,6 +39,7 @@ export ledger usedNullifiers: Set<Bytes<32>>;                  // 사용된 중�
 export ledger loans: Map<Bytes<32>, LoanRecord>;               // nullifier → 대출 기록
 export ledger registeredLenders: Set<Bytes<32>>;               // 등록된 금융사
 export ledger lenderVault: Map<Bytes<32>, Uint<64>>;           // 금융사별 예치 잔액
+export ledger borrowerBalance: Map<Bytes<32>, Uint<64>>;       // 차주별 가용 자금
 
 // ── 비공개 입력 ──────────────────────────────────────────────
 witness privateInvoice(): PrivateInvoice;
@@ -158,10 +163,49 @@ export circuit finance(
   loans.insert(disclose(nf), LoanRecord {
     lender: disclose(lender),
     amount: disclose(amount),
-    commitment: disclose(cm)
+    commitment: disclose(cm),
+    borrower: disclose(recipient.bytes),
+    repaid: false
   });
   lenderVault.insert(disclose(lender), (balance - disclose(amount)) as Uint<64>);
 
-  // 같은 트랜잭션에서 자금이 나간다
-  sendUnshielded(fundingColor, disclose(amount) as Uint<128>, right<ContractAddress, UserAddress>(disclose(recipient)));
+  // 같은 트랜잭션에서 자금이 차주에게 넘어간다 (INV-3)
+  const borrowerKey = disclose(recipient.bytes);
+  const held = borrowerBalance.member(borrowerKey) ? borrowerBalance.lookup(borrowerKey) : 0 as Uint<64>;
+  borrowerBalance.insert(borrowerKey, (held + disclose(amount)) as Uint<64>);
+}
+
+// ── 상환 ────────────────────────────────────────────────────
+//
+// **상환은 담보를 되살리지 않는다.**
+//
+// 매출채권은 한 번 쓰면 소멸하는 자산이다. 상환은 자금 관계를 정리하는
+// 것이지 담보를 복구하는 것이 아니다. 그래서 usedNullifiers 에서 nf 를
+// 빼지 않는다. 뺐다면 상환 후 같은 채권으로 다시 대출받을 수 있고, 그건
+// 이 제품이 막으려는 바로 그 사기다.
+//
+// 이자는 다루지 않는다. 원금만 오간다.
+export circuit repay(nf: Bytes<32>, amount: Uint<64>): [] {
+  assert(loans.member(disclose(nf)), "loan not found");
+  const loan = loans.lookup(disclose(nf));
+  assert(!loan.repaid, "loan already repaid");
+  assert(amount >= loan.amount, "repayment below principal");
+
+  // 차주의 가용 자금에서 빠진다
+  const held = borrowerBalance.member(loan.borrower) ? borrowerBalance.lookup(loan.borrower) : 0 as Uint<64>;
+  assert(held >= amount, "insufficient borrower balance");
+  borrowerBalance.insert(loan.borrower, (held - disclose(amount)) as Uint<64>);
+
+  // 금융사 금고로 되돌아간다
+  const vault = lenderVault.member(loan.lender) ? lenderVault.lookup(loan.lender) : 0 as Uint<64>;
+  lenderVault.insert(loan.lender, (vault + disclose(amount)) as Uint<64>);
+
+  loans.insert(disclose(nf), LoanRecord {
+    lender: loan.lender,
+    amount: loan.amount,
+    commitment: loan.commitment,
+    borrower: loan.borrower,
+    repaid: true
+  });
+  // usedNullifiers 는 건드리지 않는다. 위 주석 참조.
 }

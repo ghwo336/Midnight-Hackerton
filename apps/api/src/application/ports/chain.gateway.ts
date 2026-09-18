@@ -13,6 +13,9 @@ export interface PublicLoanView {
   readonly txHash: Hex;
   /** 확정 시각 (ISO). 원장 화면의 시각 컬럼. */
   readonly settledAt: string | null;
+  readonly borrower: Hex;
+  readonly repaid: boolean;
+  readonly repaidBlock: number | null;
 }
 
 /** 상단 상태줄용. 체인 연결 상태를 화면이 표시만 한다. */
@@ -49,6 +52,8 @@ export interface ChainReader {
   isNullifierUsed(nullifier: Hex): Promise<boolean>;
   listLoans(): Promise<readonly PublicLoanView[]>;
   getLenderVault(lender: LenderId): Promise<bigint>;
+  /** 차주의 가용 자금. 원장에서 읽는다. 화면이 합산하지 않는다. */
+  getBorrowerBalance(address: Hex): Promise<bigint>;
   getBlockHeight(): Promise<number>;
   getStatus(): Promise<ChainStatus>;
 }
@@ -76,8 +81,18 @@ export interface TxResult {
   readonly block: number;
 }
 
+export interface RepaymentTx {
+  readonly nullifier: Hex;
+  readonly amount: bigint;
+}
+
 export interface ChainWriter {
   submitFinancing(tx: FinancingTx): Promise<TxResult>;
+  /**
+   * 상환. 담보를 되살리지 않는다.
+   * 회로가 usedNullifiers 를 건드리지 않으므로 같은 채권은 여전히 막혀 있다.
+   */
+  submitRepayment(tx: RepaymentTx): Promise<TxResult>;
   registerInvoiceLeaf(leaf: Hex): Promise<void>;
 }
 

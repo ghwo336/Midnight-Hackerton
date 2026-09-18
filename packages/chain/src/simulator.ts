@@ -13,7 +13,9 @@ import {
   withActiveInvoice,
   type OncePrivateState,
 } from '@once/witness';
-import type { FinancingRequest, LedgerSnapshot, OnChainLoan, SubmitResult } from './types.js';
+import type {
+  FinancingRequest, LedgerSnapshot, OnChainLoan, RepayRequest, SubmitResult,
+} from './types.js';
 
 export interface SimulatorConfig {
   readonly issuerId: Hex;
@@ -51,6 +53,8 @@ export class OnceContractSimulator {
   private queue: Promise<unknown> = Promise.resolve();
   /** nullifier → 확정 영수증. 패널과 원장이 같은 tx를 보여야 한다. */
   private readonly receipts = new Map<Hex, { txHash: Hex; block: number; settledAt: string }>();
+  /** nullifier → 상환 영수증. 회로에는 블록 개념이 없어 여기서 붙인다. */
+  private readonly repayReceipts = new Map<Hex, { txHash: Hex; block: number; at: string }>();
 
   private constructor(
     contract: Contract<OncePrivateState>,
@@ -189,6 +193,40 @@ export class OnceContractSimulator {
     };
   }
 
+  /**
+   * 상환. 자금 관계를 정리하되 담보를 되살리지 않는다.
+   *
+   * 회로가 usedNullifiers 를 건드리지 않으므로, 상환 뒤에 같은 채권으로
+   * 다시 신청해도 거부된다. A10 이 그걸 검증한다.
+   */
+  async repay(request: RepayRequest): Promise<SubmitResult> {
+    return this.enqueue(() => this.executeRepay(request));
+  }
+
+  private async executeRepay(request: RepayRequest): Promise<SubmitResult> {
+    const result = this.contract.impureCircuits.repay(
+      this.context(emptyPrivateState()),
+      hexToBytes(request.nullifier),
+      request.amount,
+    );
+    this.advance(result.context);
+
+    const receipt = {
+      txHash: this.nextTxHash(),
+      block: this.blockHeight,
+      at: new Date().toISOString(),
+    };
+    this.repayReceipts.set(request.nullifier, receipt);
+
+    const record = ledger(this.state).loans.lookup(hexToBytes(request.nullifier));
+    return {
+      nullifier: request.nullifier,
+      commitment: bytesToHex(record.commitment),
+      txHash: receipt.txHash,
+      block: receipt.block,
+    };
+  }
+
   // ── 읽기 ───────────────────────────────────────────────────
 
   isNullifierUsed(nullifier: Hex): boolean {
@@ -206,6 +244,9 @@ export class OnceContractSimulator {
         lender: bytesToHex(record.lender),
         amount: record.amount,
         commitment: bytesToHex(record.commitment),
+        borrower: bytesToHex(record.borrower),
+        repaid: record.repaid,
+        repaidBlock: this.repayReceipts.get(key)?.block ?? null,
         txHash: receipt?.txHash ?? null,
         block: receipt?.block ?? this.blockHeight,
         settledAt: receipt?.settledAt ?? null,
@@ -217,6 +258,8 @@ export class OnceContractSimulator {
     }
     const lenders: Hex[] = [];
     for (const lender of view.registeredLenders) lenders.push(bytesToHex(lender));
+    const borrowers = new Map<Hex, bigint>();
+    for (const [addr, held] of view.borrowerBalance) borrowers.set(bytesToHex(addr), held);
 
     return {
       contractAddress: this.address,
@@ -225,6 +268,7 @@ export class OnceContractSimulator {
       nullifierCount: Number(view.usedNullifiers.size()),
       loans,
       lenderVault: vault,
+      borrowerBalance: borrowers,
       registeredLenders: lenders,
       invoiceTreeSize: Number(view.invoiceTree.firstFree()),
       issuerRoot: digestToHex(view.invoiceTree.root()),

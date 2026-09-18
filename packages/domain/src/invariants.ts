@@ -27,6 +27,13 @@ export const PUBLIC_LOAN_FIELDS = [
   'txHash',
   // 확정 시각. 블록 번호가 이미 공개이므로 같은 수준의 정보다.
   'settledAt',
+  /*
+   * 차주 주소와 상환 상태. 자금이 오간 사실은 원장에 보인다 (CONTEXT §6
+   * "인정하는 노출"). 채권 내용은 여전히 없다.
+   */
+  'borrower',
+  'repaid',
+  'repaidBlock',
 ] as const;
 
 /**

@@ -8,11 +8,13 @@ import {
   APPLICATION_LOG_READER, APPLICATION_LOG_WRITER,
 } from './application/ports/application-log.js';
 import { IDENTITY_REGISTRY } from './application/ports/identity.registry.js';
+import { INVOICE_REQUESTS } from './application/ports/invoice-requests.js';
 
 import { IssueInvoiceUseCase } from './application/issue-invoice.usecase.js';
 import { ListInvoicesUseCase } from './application/list-invoices.usecase.js';
 import { ListLoansUseCase } from './application/list-loans.usecase.js';
 import { RequestFinancingUseCase } from './application/request-financing.usecase.js';
+import { RepayLoanUseCase } from './application/repay-loan.usecase.js';
 import { RunAttackUseCase } from './application/run-attack.usecase.js';
 
 import { LocalCircuitChainGateway } from './infrastructure/chain/local-circuit.gateway.js';
@@ -23,6 +25,7 @@ import { DemoSeedService } from './infrastructure/chain/demo-seed.service.js';
 import { InMemoryPrivateStateRepository } from './infrastructure/persistence/in-memory-private-state.repository.js';
 import { InMemoryApplicationLog } from './infrastructure/persistence/in-memory-application-log.js';
 import { InMemoryIdentityRegistry } from './infrastructure/persistence/in-memory-identity.registry.js';
+import { InMemoryInvoiceRequests } from './infrastructure/persistence/in-memory-invoice-requests.js';
 
 import { PublicController } from './interface/http/public.controller.js';
 import { SupplierController } from './interface/http/supplier.controller.js';
@@ -57,6 +60,7 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     InMemoryPrivateStateRepository,
     InMemoryApplicationLog,
     InMemoryIdentityRegistry,
+    InMemoryInvoiceRequests,
 
     { provide: CHAIN_READER, useExisting: LocalCircuitChainGateway },
     { provide: CHAIN_WRITER, useExisting: LocalCircuitChainGateway },
@@ -64,12 +68,14 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     { provide: APPLICATION_LOG_WRITER, useExisting: InMemoryApplicationLog },
     { provide: APPLICATION_LOG_READER, useExisting: InMemoryApplicationLog },
     { provide: IDENTITY_REGISTRY, useExisting: InMemoryIdentityRegistry },
+    { provide: INVOICE_REQUESTS, useExisting: InMemoryInvoiceRequests },
     { provide: ISSUER_STRATEGY, useClass: MerkleIssuerStrategy },
 
     IssueInvoiceUseCase,
     ListInvoicesUseCase,
     ListLoansUseCase,
     RequestFinancingUseCase,
+    RepayLoanUseCase,
     RunAttackUseCase,
     OnceEventsService,
     DemoSeedService,

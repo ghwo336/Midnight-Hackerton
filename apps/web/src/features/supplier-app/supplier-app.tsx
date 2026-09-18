@@ -12,6 +12,8 @@ import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
 import { InvoiceRow } from '@/entities/invoice/invoice-row';
+import { FundsPanel } from './funds-panel';
+import { InvoiceRequestPanel } from './invoice-request';
 
 /** 어디서 쓰였는지 사람이 읽는 이름으로. 내부 식별자를 화면에 쓰지 않는다. */
 const LENDER_LABEL: Record<string, string> = {
@@ -51,6 +53,21 @@ export function SupplierApp({ account }: { account?: AccountView }) {
   const [tick, setTick] = useState(0);
 
   const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
+  const funds = useQuery({ queryKey: ['funds'], queryFn: api.funds });
+  const [repaying, setRepaying] = useState<string | null>(null);
+
+  const repay = useCallback(
+    async (loan: { nullifier: string }) => {
+      setRepaying(loan.nullifier);
+      try {
+        await api.repay(loan.nullifier);
+      } finally {
+        setRepaying(null);
+        void queryClient.invalidateQueries();
+      }
+    },
+    [queryClient],
+  );
   const terms = useQuery({ queryKey: ['lenderTerms'], queryFn: api.lenderTerms });
 
   /*
@@ -140,9 +157,11 @@ export function SupplierApp({ account }: { account?: AccountView }) {
       <RoleHeader role="납품업체" product="자금 조달" account={account} />
 
       <div className="roleapp__body">
+        <FundsPanel funds={funds.data} busy={repaying} onRepay={repay} />
+
         <section className="section">
           <header className="section__head">
-            <span>보유 채권</span>
+            <span>담보 가능한 채권</span>
             <span className="panel__role">{list.length}건</span>
           </header>
           <div className="section__body">
@@ -336,6 +355,8 @@ export function SupplierApp({ account }: { account?: AccountView }) {
             <ExecutionLog lines={runtime.log} />
           </div>
         </section>
+
+        <InvoiceRequestPanel />
       </div>
     </div>
   );

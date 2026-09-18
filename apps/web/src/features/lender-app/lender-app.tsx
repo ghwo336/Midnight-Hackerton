@@ -99,6 +99,14 @@ export function LenderApp({
         ? 'settled'
         : 'rejected';
 
+  /*
+   * 회수 완료를 따로 센다. 예치 잔액은 상환으로 복구되므로 잔액만 보면
+   * 대출을 실행한 적 없는 것과 구분되지 않는다.
+   */
+  const loans = state.data?.loans ?? [];
+  const open = loans.filter((loan) => !loan.repaid);
+  const repaid = loans.filter((loan) => loan.repaid);
+
   const simulated = status.data?.simulated ?? true;
   const ltv = state.data ? `${Number(state.data.ltvBps) / 100}%` : EMPTY;
 
@@ -126,16 +134,18 @@ export function LenderApp({
                 </span>
               </div>
               <div className="readout__row">
-                <span className="readout__key">실행한 대출</span>
-                <span className="num">{state.data?.loans.length ?? 0}건</span>
+                <span className="readout__key">진행 중</span>
+                <span className="num">
+                  {open.length}건 · {formatAmount(
+                    open.reduce((acc, loan) => acc + BigInt(loan.amount), 0n).toString(),
+                  )}
+                </span>
               </div>
               <div className="readout__row">
-                <span className="readout__key">지급 합계</span>
+                <span className="readout__key">회수 완료</span>
                 <span className="num">
-                  {formatAmount(
-                    (state.data?.loans ?? [])
-                      .reduce((acc, loan) => acc + BigInt(loan.amount), 0n)
-                      .toString(),
+                  {repaid.length}건 · {formatAmount(
+                    repaid.reduce((acc, loan) => acc + BigInt(loan.amount), 0n).toString(),
                   )}
                 </span>
               </div>

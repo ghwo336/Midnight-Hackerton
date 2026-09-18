@@ -970,3 +970,56 @@ button { font: inherit; color: inherit; }
 }
 .risk__key { font-size: 12.5px; color: var(--ink-3); margin: 0; }
 .risk__val { margin: 0; font-weight: 500; }
+
+/* ── 자금 상태와 포지션 ──────────────────────────────────── */
+/*
+ * 금융 앱의 첫 화면은 거래 기록이 아니라 지금 얼마가 있고 무엇이
+ * 걸려 있는지다. 그래서 가용 자금이 맨 위에 있다.
+ */
+
+.funds__amount {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.position {
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-left-color: var(--settle);
+  background: var(--panel-2);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+/* 상환된 건은 끝난 일이다. 앞으로 나오지 않게 한다. */
+.position--repaid { border-left-color: var(--line); background: var(--panel); }
+.position--repaid .position__amount { color: var(--ink-3); }
+
+.position__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.position__lender { font-weight: 600; }
+.position__amount { font-weight: 600; }
+.position__head .status { margin-left: auto; }
+
+.position__meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.position__cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.position__cell .num { font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .position__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .funds__amount { font-size: 26px; }
+  .position__meta { grid-template-columns: minmax(0, 1fr); }
+}

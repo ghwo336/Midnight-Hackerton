@@ -14,6 +14,45 @@ export interface LoanRow {
   readonly block: number;
   readonly txHash: string;
   readonly settledAt: string | null;
+  readonly borrower: string;
+  /** 상환해도 담보는 풀리지 않는다. 같은 채권은 여전히 막혀 있다. */
+  readonly repaid: boolean;
+  readonly repaidBlock: number | null;
+}
+
+/**
+ * 자금 상태.
+ *
+ * available 은 원장의 borrowerBalance 를 그대로 읽은 값이다. 화면이
+ * 대출을 합산해 만든 값이 아니다.
+ */
+export interface SupplierFunds {
+  readonly available: string;
+  readonly positions: readonly LoanRow[];
+  readonly outstandingCount: number;
+  readonly outstandingTotal: string;
+}
+
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface InvoiceRequest {
+  readonly id: string;
+  readonly faceAmount: string;
+  readonly requestedAt: string;
+  readonly status: RequestStatus;
+  readonly invoiceId: string | null;
+  readonly risk: RiskProfile;
+}
+
+export interface RequestInvoiceBody {
+  readonly faceAmount: string;
+  readonly counterparty: string;
+  readonly dueDate: string;
+  readonly approvalNumber: string;
+  readonly memo: string;
+  readonly creditGrade: string;
+  readonly dueWindow: string;
+  readonly industry: string;
 }
 
 export interface ChainStatus {

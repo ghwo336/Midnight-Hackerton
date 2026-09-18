@@ -1,9 +1,17 @@
-import { Body, Controller, Get, Inject, Post, UsePipes } from '@nestjs/common';
+import {
+  BadRequestException, Body, Controller, Get, Inject, NotFoundException, Post, UsePipes,
+} from '@nestjs/common';
 import { IssueInvoiceUseCase } from '../../application/issue-invoice.usecase.js';
 import { CHAIN_READER, type ChainReader } from '../../application/ports/chain.gateway.js';
 import { OnceEventsService } from '../events/once-events.service.js';
 import { SUPPLIER_ID } from '../../config/demo.config.js';
-import { IssueInvoiceSchema, type IssueInvoiceDto } from './dto/schemas.js';
+import {
+  ApproveInvoiceSchema, IssueInvoiceSchema,
+  type ApproveInvoiceDto, type IssueInvoiceDto,
+} from './dto/schemas.js';
+import {
+  INVOICE_REQUESTS, type InvoiceRequestQueue,
+} from '../../application/ports/invoice-requests.js';
 import { ZodValidationPipe } from './zod-validation.pipe.js';
 
 /**
@@ -20,7 +28,50 @@ export class IssuerController {
     @Inject(IssueInvoiceUseCase) private readonly issueInvoice: IssueInvoiceUseCase,
     @Inject(CHAIN_READER) private readonly reader: ChainReader,
     @Inject(OnceEventsService) private readonly events: OnceEventsService,
+    @Inject(INVOICE_REQUESTS) private readonly requests: InvoiceRequestQueue,
   ) {}
+
+  /** 승인 대기 중인 등록 요청. */
+  @Get('requests')
+  async pending() {
+    return { requests: await this.requests.listPending() };
+  }
+
+  /**
+   * 등록 요청 승인.
+   *
+   * 승인해야 Merkle 리프가 들어가고 루트가 바뀐다. 승인 전에는 회로의
+   * checkRoot 가 그 채권을 거부한다 (A4 가 검증하는 지점).
+   */
+  @Post('requests/approve')
+  @UsePipes(new ZodValidationPipe(ApproveInvoiceSchema))
+  async approve(@Body() dto: ApproveInvoiceDto) {
+    const request = await this.requests.find(dto.requestId);
+    if (!request) throw new NotFoundException({ code: 'REQUEST_NOT_FOUND' });
+    if (request.status !== 'pending') {
+      throw new BadRequestException({ code: 'REQUEST_ALREADY_HANDLED' });
+    }
+
+    const rootBefore = await this.reader.getIssuerRoot();
+    const { invoiceId } = await this.issueInvoice.execute({
+      supplierId: request.supplierId,
+      faceAmount: BigInt(request.faceAmount),
+      detail: request.detail,
+      risk: request.risk,
+    });
+    request.status = 'approved';
+    request.invoiceId = invoiceId;
+
+    this.events.publish({ type: 'invoice.issued', invoiceId });
+
+    return {
+      requestId: request.id,
+      invoiceId,
+      rootBefore,
+      rootAfter: await this.reader.getIssuerRoot(),
+      invoiceCount: await this.reader.getInvoiceCount(),
+    };
+  }
 
   /** 발급 기관 콘솔 상태. 전부 공개값이다. */
   @Get('state')

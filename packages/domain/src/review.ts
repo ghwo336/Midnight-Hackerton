@@ -156,7 +156,11 @@ export function reviewChecklist(
     case 'INSUFFICIENT_LENDER_FUNDING':
       return all({ state: 'pass', by: 'circuit' });
     default:
-      // 회로 밖 오류 (증명 실패, 제출 실패, 채권 없음)
+      /*
+       * 네 검사 밖에서 난 오류. 증명 실패·제출 실패·채권 없음, 그리고
+       * 상환 회로의 오류들이 여기 온다. 상환은 신청 심사가 아니므로
+       * 체크리스트를 채우지 않는다.
+       */
       return all(SKIPPED);
   }
 }
