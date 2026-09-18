@@ -67,6 +67,29 @@ export function bytesToHex(bytes: Uint8Array): string {
   return `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
+/**
+ * 오류를 원인까지 펼친다.
+ *
+ * SDK 는 근본 원인을 `cause` 에 넣고 겉면에는 "Failed to read verifier key"
+ * 같은 요약만 남긴다. 그 요약만 보면 경로가 틀렸는지, 서버가 안 뜬 건지,
+ * 브라우저가 요청을 막은 건지 구분할 수 없다. 추적 가능한 형태로 바꾼다.
+ */
+function describeFailure(error: unknown, recorder: Recorder): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    parts.push(current.message);
+    current = (current as { cause?: unknown }).cause;
+  }
+  if (parts.length === 0) parts.push(String(error));
+
+  // 실제로 어떤 요청이 실패했는지가 가장 좁은 단서다.
+  for (const failure of recorder.fetchFailures) {
+    parts.push(`요청 실패: ${failure.url} — ${failure.reason}`);
+  }
+  return parts.join(' ← ');
+}
+
 export type StepState = 'pending' | 'running' | 'done' | 'failed';
 
 export interface StepResult {
@@ -218,7 +241,7 @@ export async function runBootstrap(
       step.state = 'done';
     } catch (error: unknown) {
       step.ms = performance.now() - started;
-      step.error = error instanceof Error ? error.message : String(error);
+      step.error = describeFailure(error, recorder);
       step.state = 'failed';
       report();
       throw error;

@@ -52,30 +52,31 @@ export async function buildProviders(
    */
   adoptNetworkId(config.networkId);
 
-  const rawZkConfig = new FetchZkConfigProvider<string>(
-    new URL(ZK_BASE_URL, window.location.origin).toString(),
-  );
-
   /*
-   * 증명키 내려받기를 따로 잰다.
+   * 증명키 내려받기를 직접 계측한다.
    *
-   * 증명은 브라우저가 아니라 proof server 에서 일어난다. 클라이언트는
-   * prover key 를 payload 에 실어 /prove 로 보낸다. finance 는 그 키가
-   * 9.99MB 다. 그래서 "증명이 느리다"가 서버 탓인지 키 전송 탓인지를
-   * 나누려면 이 구간이 따로 있어야 한다.
+   * Proxy 로 감싸면 프로바이더가 클래스 메서드를 `this` 로 호출하는 경로가
+   * 얽혀 원인을 좁히기 어려워진다. 대신 fetch 자체를 갈아끼운다. 요청 URL 과
+   * 응답 상태가 남으므로 실패했을 때 무엇이 안 됐는지가 바로 보인다.
    */
-  const zkConfigProvider = recorder
-    ? (new Proxy(rawZkConfig, {
-        get(target, prop, receiver) {
-          const value = Reflect.get(target, prop, receiver) as unknown;
-          if (prop !== 'get' || typeof value !== 'function') return value;
-          return (...args: unknown[]) =>
-            recorder.time('zkConfig', () =>
-              (value as (...a: unknown[]) => Promise<unknown>).apply(target, args),
-            );
-        },
-      }) as FetchZkConfigProvider<string>)
-    : rawZkConfig;
+  const zkConfigProvider = new FetchZkConfigProvider<string>(
+    new URL(ZK_BASE_URL, window.location.origin).toString(),
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      const started = performance.now();
+      try {
+        const response = await fetch(input, init);
+        recorder?.note('zkConfig', performance.now() - started);
+        if (!response.ok) {
+          recorder?.fetchFailed(url, `HTTP ${response.status}`);
+        }
+        return response;
+      } catch (cause: unknown) {
+        recorder?.fetchFailed(url, cause instanceof Error ? cause.message : String(cause));
+        throw cause;
+      }
+    },
+  );
 
   // proverServerUri는 deprecated로 표시돼 있고 없을 수도 있다.
   // 없으면 지갑에 증명을 위임한다 (getProvingProvider).

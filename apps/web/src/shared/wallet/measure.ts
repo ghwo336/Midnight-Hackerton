@@ -46,6 +46,13 @@ export class Recorder {
     this.phases.push({ step: this.step, phase, ms, ...(bytes === undefined ? {} : { bytes }) });
   }
 
+  /** 실패한 ZK 자산 요청. 무엇이 안 됐는지 화면에 그대로 적기 위해 남긴다. */
+  readonly fetchFailures: { url: string; reason: string }[] = [];
+
+  fetchFailed(url: string, reason: string): void {
+    this.fetchFailures.push({ url, reason });
+  }
+
   witnessFired(witness: string): void {
     this.witnessCalls.push({ step: this.step, witness, at: performance.now() });
   }
@@ -63,6 +70,9 @@ export class Recorder {
       lines.push(`${p.step}\t${p.phase}\t${p.ms.toFixed(1)}\t${p.bytes ?? ''}`);
     }
     lines.push('', `privateStateReads\t${this.privateStateReads}`);
+    for (const failure of this.fetchFailures) {
+      lines.push(`fetchFailed\t${failure.url}\t${failure.reason}`);
+    }
     for (const call of this.witnessCalls) {
       lines.push(`witness\t${call.step}\t${call.witness}`);
     }
