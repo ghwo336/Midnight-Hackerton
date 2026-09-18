@@ -42,18 +42,27 @@ importers:
       '@once/chain':
         specifier: workspace:*
         version: link:../../packages/chain
+      '@once/contract':
+        specifier: workspace:*
+        version: link:../../contracts
       '@once/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
       '@once/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@once/indexer':
+        specifier: workspace:*
+        version: link:../../packages/indexer
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      ws:
+        specifier: ^8.18.0
+        version: 8.21.3
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -61,6 +70,9 @@ importers:
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.6
+      '@types/ws':
+        specifier: ^8.5.12
+        version: 8.18.1
       tsx:
         specifier: ^4.19.2
         version: 4.23.13
@@ -121,6 +133,9 @@ importers:
       '@once/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@once/indexer':
+        specifier: workspace:*
+        version: link:../../packages/indexer
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
@@ -230,6 +245,18 @@ importers:
         version: link:../domain
 
   packages/domain: {}
+
+  packages/indexer:
+    dependencies:
+      '@midnight-ntwrk/compact-runtime':
+        specifier: 0.16.0
+        version: 0.16.0
+      '@once/contract':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@once/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/witness:
     dependencies:

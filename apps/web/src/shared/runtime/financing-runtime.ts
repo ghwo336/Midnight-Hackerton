@@ -2,6 +2,7 @@
 
 import type { LenderId, LoanRow } from '@/shared/api/types';
 import type { FinancingStage } from '@/shared/sse/use-once-events';
+import { TX_PHASE_LABEL, type TxPhase } from './tx-phase';
 
 export interface LogLine {
   readonly at: string;
@@ -59,6 +60,15 @@ export interface LenderRuntime {
   readonly reason: string | null;
   readonly circuitAssert: string | null;
   readonly log: readonly LogLine[];
+  /**
+   * 실제 체인에서 지금 어느 구간인가. 시뮬레이터 경로에서는 null 이다.
+   *
+   * 한 건에 30~45초가 걸리고 그중 대부분이 지갑 승인과 블록 확정이다.
+   * 무엇을 기다리는 중인지 말하지 않으면 멈춘 것으로 읽힌다.
+   */
+  readonly chainPhase: TxPhase | null;
+  /** 그 구간에 들어간 시각. 구간별 경과를 보여주는 데 쓴다. */
+  readonly phaseStartedAt: number | null;
 }
 
 export const IDLE_RUNTIME: LenderRuntime = {
@@ -69,6 +79,8 @@ export const IDLE_RUNTIME: LenderRuntime = {
   reason: null,
   circuitAssert: null,
   log: [],
+  chainPhase: null,
+  phaseStartedAt: null,
 };
 
 export type LenderRuntimes = Record<LenderId, LenderRuntime>;
@@ -102,6 +114,59 @@ export function beginRequest(at: string): LenderRuntime {
     reason: null,
     circuitAssert: null,
     log: [{ at: clock(at), text: '대출 신청 접수', tone: 'normal' }],
+    chainPhase: null,
+    phaseStartedAt: null,
+  };
+}
+
+/**
+ * 실제 체인 구간이 바뀌었다.
+ *
+ * 앞 구간이 실제로 얼마나 걸렸는지 로그에 남긴다. 추정하지 않는다 —
+ * 구간에 들어간 시각과 나온 시각의 차이다.
+ */
+export function applyChainPhase(current: LenderRuntime, phase: TxPhase): LenderRuntime {
+  if (current.chainPhase === phase) return current;
+
+  const now = Date.now();
+  const log = [...current.log];
+  if (current.chainPhase !== null && current.phaseStartedAt !== null) {
+    const seconds = ((now - current.phaseStartedAt) / 1000).toFixed(1);
+    log.push({
+      at: clock(new Date(now).toISOString()),
+      text: `${TX_PHASE_LABEL[current.chainPhase]} 완료 · ${seconds}s`,
+      tone: 'normal',
+    });
+  }
+  if (phase !== 'done') {
+    log.push({
+      at: clock(new Date(now).toISOString()),
+      text: TX_PHASE_LABEL[phase],
+      tone: 'normal',
+    });
+  }
+
+  return {
+    ...current,
+    startedAt: current.startedAt ?? now,
+    chainPhase: phase,
+    phaseStartedAt: now,
+    log,
+  };
+}
+
+/** 실패로 끝났다. 어느 구간에서였는지 남긴다. */
+export function applyChainFailure(current: LenderRuntime, text: string): LenderRuntime {
+  const now = Date.now();
+  const where = current.chainPhase === null ? '' : ` (${TX_PHASE_LABEL[current.chainPhase]})`;
+  return {
+    ...current,
+    phase: 'rejected',
+    chainPhase: null,
+    log: [
+      ...current.log,
+      { at: clock(new Date(now).toISOString()), text: `중단${where} · ${text}`, tone: 'seal' },
+    ],
   };
 }
 

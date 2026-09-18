@@ -54,3 +54,17 @@ export function lenderIdFromKey(key: Hex): LenderId | null {
 }
 
 export const LENDER_FUNDING = 1_000_000_000n;
+
+/**
+ * 데모 채권의 고정 식별자.
+ *
+ * **브라우저 배포 경로(apps/web/src/shared/wallet/bootstrap.ts)의 DEMO.invoices
+ * 와 같은 값이어야 한다.** 온체인 Merkle 리프는 (invoiceId, faceAmount,
+ * ownerPk) 로 계산되므로, 다르면 회로의 발급 기관 인증 검사에서 걸린다.
+ * 두 곳이 갈라지면 테스트가 잡는다 (test/contract-tests/demo-fixtures.spec.ts).
+ */
+export const DEMO_INVOICE_IDS: readonly Hex[] = [
+  `0x${'a1'.repeat(32)}` as Hex,
+  `0x${'a2'.repeat(32)}` as Hex,
+  `0x${'a3'.repeat(32)}` as Hex,
+];

@@ -28,7 +28,8 @@
     "@once/chain": "workspace:*",
     "rxjs": "^7.8.1",
     "ws": "^8.18.0",
-    "@midnight-ntwrk/compact-js": "2.5.1"
+    "@midnight-ntwrk/compact-js": "2.5.1",
+    "@once/indexer": "workspace:*"
   },
   "devDependencies": {
     "@types/ws": "^8.5.14",

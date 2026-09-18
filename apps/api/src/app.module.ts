@@ -15,9 +15,15 @@ import { ListInvoicesUseCase } from './application/list-invoices.usecase.js';
 import { ListLoansUseCase } from './application/list-loans.usecase.js';
 import { RequestFinancingUseCase } from './application/request-financing.usecase.js';
 import { RepayLoanUseCase } from './application/repay-loan.usecase.js';
+import { PrepareFinancingUseCase } from './application/prepare-financing.usecase.js';
+import { ConfirmFinancingUseCase } from './application/confirm-financing.usecase.js';
 import { RunAttackUseCase } from './application/run-attack.usecase.js';
 
 import { LocalCircuitChainGateway } from './infrastructure/chain/local-circuit.gateway.js';
+import { MidnightChainGateway } from './infrastructure/chain/midnight.gateway.js';
+import {
+  NETWORK_CONFIG, isPreprodMode, loadPreprodConfig,
+} from './infrastructure/chain/network.config.js';
 import { SimulatorHolder } from './infrastructure/chain/simulator.holder.js';
 import { SIMULATOR_SOURCE } from './infrastructure/chain/simulator.source.js';
 import { MerkleIssuerStrategy } from './infrastructure/chain/merkle-issuer.strategy.js';
@@ -57,13 +63,44 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     SimulatorHolder,
     { provide: SIMULATOR_SOURCE, useExisting: SimulatorHolder },
     LocalCircuitChainGateway,
+
+    /*
+     * 체인 모드.
+     *
+     * preprod 면 인덱서로 실제 체인을 읽고, 아니면 프로세스 안의 회로를
+     * 실행한다. 기본값은 local-circuit 이다 — 심사위원이 클론하고 아무
+     * 설정 없이 돌릴 수 있어야 한다 (README §1).
+     *
+     * 두 모드가 섞이지 않는다. preprod 인데 설정이 모자라면 기본값으로
+     * 때우지 않고 기동을 멈춘다. 빈 원장에 붙어 "대출 0건" 을 보여주는
+     * 것이 틀린 정보가 조용히 맞아 보이는 경우다.
+     */
+    {
+      provide: NETWORK_CONFIG,
+      useFactory: async () => {
+        if (!isPreprodMode()) return null;
+        const { default: WebSocketImpl } = await import('ws');
+        return { ...loadPreprodConfig(), webSocket: WebSocketImpl as never };
+      },
+    },
+    MidnightChainGateway,
     InMemoryPrivateStateRepository,
     InMemoryApplicationLog,
     InMemoryIdentityRegistry,
     InMemoryInvoiceRequests,
 
-    { provide: CHAIN_READER, useExisting: LocalCircuitChainGateway },
-    { provide: CHAIN_WRITER, useExisting: LocalCircuitChainGateway },
+    {
+      provide: CHAIN_READER,
+      inject: [LocalCircuitChainGateway, MidnightChainGateway],
+      useFactory: (local: LocalCircuitChainGateway, chain: MidnightChainGateway) =>
+        isPreprodMode() ? chain : local,
+    },
+    {
+      provide: CHAIN_WRITER,
+      inject: [LocalCircuitChainGateway, MidnightChainGateway],
+      useFactory: (local: LocalCircuitChainGateway, chain: MidnightChainGateway) =>
+        isPreprodMode() ? chain : local,
+    },
     { provide: PRIVATE_STATE_REPO, useExisting: InMemoryPrivateStateRepository },
     { provide: APPLICATION_LOG_WRITER, useExisting: InMemoryApplicationLog },
     { provide: APPLICATION_LOG_READER, useExisting: InMemoryApplicationLog },
@@ -76,6 +113,8 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     ListLoansUseCase,
     RequestFinancingUseCase,
     RepayLoanUseCase,
+    PrepareFinancingUseCase,
+    ConfirmFinancingUseCase,
     RunAttackUseCase,
     OnceEventsService,
     DemoSeedService,

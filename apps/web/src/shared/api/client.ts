@@ -2,6 +2,7 @@ import type {
   AttackOutcome, ChainStatus, CheckDescriptor, ClaimResult, FinancingSettled, Identity,
   DisclosureField, InvoiceRequest, IssueInvoiceBody, IssueResult, IssuerState, LenderId,
   LenderState, LenderTermsList, LoanRow, RequestInvoiceBody, SupplierFunds, SupplierInvoice,
+  ConfirmFinancingBody, FinancingPlanResponse,
 } from './types.js';
 
 /**
@@ -27,6 +28,15 @@ const BASE = process.env['NEXT_PUBLIC_API_URL'] ?? '';
  */
 const TIMEOUT_MS = 8000;
 
+/**
+ * 체인을 읽어 대조하는 요청은 더 오래 걸린다.
+ *
+ * 브라우저가 서명한 결과를 기록하기 전에 서버가 원장을 다시 읽는다.
+ * 인덱서가 방금 블록을 아직 노출하지 않았으면 기다렸다 한 번 더 본다.
+ * 8초로 끊으면 정상 동작이 타임아웃으로 보인다.
+ */
+const CHAIN_TIMEOUT_MS = 20_000;
+
 export class ApiError extends Error {
   constructor(
     readonly code: string,
@@ -39,21 +49,25 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${BASE}/api${path}`, {
       ...init,
       headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
       cache: 'no-store',
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (cause: unknown) {
     const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
     throw new ApiError(
       timedOut ? 'API_TIMEOUT' : 'API_UNREACHABLE',
       timedOut
-        ? `백엔드가 ${TIMEOUT_MS / 1000}초 안에 응답하지 않았다`
+        ? `백엔드가 ${timeoutMs / 1000}초 안에 응답하지 않았다`
         : '백엔드에 연결하지 못했다',
     );
   }
@@ -120,6 +134,40 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ invoiceId, lenderId, amount, disclose }),
     }),
+  /**
+   * 신청 준비. 실제 체인 경로의 첫 단계다.
+   *
+   * 서버가 사전 검사를 하고 회로에 넣을 재료를 돌려준다. 서명·증명·제출은
+   * 브라우저가 한다. 돌아오는 채권 원문은 **납품업체 본인 것**이고, 이
+   * 응답에서 금융사 화면으로 이어지는 길은 없다.
+   */
+  prepareFinancing: (
+    invoiceId: string,
+    lenderId: LenderId,
+    amount: string,
+    disclose: readonly DisclosureField[] = [],
+  ) =>
+    request<FinancingPlanResponse>('/supplier/financing/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ invoiceId, lenderId, amount, disclose }),
+    }),
+
+  /** 브라우저가 낸 결과 보고. 서버가 원장과 대조한 뒤에만 기록된다. */
+  confirmFinancing: (body: ConfirmFinancingBody) =>
+    request<{ recorded: true }>(
+      '/supplier/financing/confirm',
+      { method: 'POST', body: JSON.stringify(body) },
+      CHAIN_TIMEOUT_MS,
+    ),
+
+  /** 상환 보고. 원장에서 repaid 를 확인한 뒤에만 이벤트가 나간다. */
+  confirmRepay: (nullifier: string, txHash: string | null, block: number | null) =>
+    request<{ nullifier: string; amount: string }>(
+      '/supplier/repay/confirm',
+      { method: 'POST', body: JSON.stringify({ nullifier, txHash, block }) },
+      CHAIN_TIMEOUT_MS,
+    ),
+
   attack: (id: string) => request<AttackOutcome>(`/demo/attack/${id}`, { method: 'POST' }),
   reset: () => request<{ ok: boolean }>('/demo/reset', { method: 'POST' }),
   eventsUrl: () => `${BASE}/api/public/events`,

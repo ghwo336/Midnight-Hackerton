@@ -14,6 +14,8 @@ export const DOMAIN_ERROR_CODES = [
   'LOAN_NOT_FOUND',
   'LOAN_ALREADY_REPAID',
   'REPAYMENT_BELOW_PRINCIPAL',
+  'CLAIM_NOT_ON_CHAIN',
+  'SERVER_CANNOT_SIGN',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
@@ -101,6 +103,19 @@ export class ChainSubmitFailedError extends DomainError {
   }
 }
 
+/**
+ * 실제 체인에서는 서버가 서명하지 않는다.
+ *
+ * 개인키는 사용자 지갑에만 있다. 서버가 대신 서명할 수 있다면 사용자
+ * 자산을 서버가 움직일 수 있다는 뜻이고, 그건 이 제품이 주장하는 구조가
+ * 아니다. 시뮬레이터 전용 경로를 실제 체인에서 부르면 이 오류가 난다.
+ */
+export class ServerCannotSignError extends DomainError {
+  constructor() {
+    super('SERVER_CANNOT_SIGN', 'server holds no signing key on a real network');
+  }
+}
+
 export const ERROR_HTTP_MAP: Record<DomainErrorCode, number> = {
   INVOICE_NOT_FOUND: 404,
   NULLIFIER_ALREADY_USED: 409,
@@ -114,6 +129,10 @@ export const ERROR_HTTP_MAP: Record<DomainErrorCode, number> = {
   LOAN_NOT_FOUND: 404,
   LOAN_ALREADY_REPAID: 409,
   REPAYMENT_BELOW_PRINCIPAL: 422,
+  // 보고와 원장이 어긋났다. 보낸 쪽 잘못이다.
+  CLAIM_NOT_ON_CHAIN: 409,
+  // 서버에 키가 없다. 다른 경로로 가야 한다는 뜻이지 실패가 아니다.
+  SERVER_CANNOT_SIGN: 501,
 };
 
 /**
@@ -144,4 +163,19 @@ export const CIRCUIT_ASSERT: Record<DomainErrorCode, string | null> = {
   INVOICE_NOT_FOUND: null,
   PROOF_GENERATION_FAILED: null,
   CHAIN_SUBMIT_FAILED: null,
+  CLAIM_NOT_ON_CHAIN: null,
+  SERVER_CANNOT_SIGN: null,
 };
+
+/**
+ * 브라우저가 "체인에서 이렇게 됐다"고 보고한 결과가 원장과 어긋난다.
+ *
+ * 서명이 사용자 지갑으로 넘어간 뒤에는 서버가 결과를 목격하지 못한다.
+ * 보고를 그대로 적으면 원장에 없는 대출을 금융사 화면에 띄울 수 있으므로,
+ * 적기 전에 원장을 읽어 대조한다. 이 오류는 그 대조가 실패했다는 뜻이다.
+ */
+export class ClaimNotOnChainError extends DomainError {
+  constructor() {
+    super('CLAIM_NOT_ON_CHAIN', 'reported result does not match the ledger');
+  }
+}

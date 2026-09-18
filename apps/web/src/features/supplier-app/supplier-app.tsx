@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { WalletSession } from '@/shared/wallet/session';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import {
@@ -22,8 +23,10 @@ const LENDER_LABEL: Record<string, string> = {
 };
 import { ExecutionLog } from '@/shared/ui/execution-log';
 import {
-  IDLE_RUNTIME, applyStage, beginRequest, progressBar, type LenderRuntime,
+  IDLE_RUNTIME, applyChainFailure, applyChainPhase, applyStage, beginRequest,
+  progressBar, type LenderRuntime,
 } from '@/shared/runtime/financing-runtime';
+import { TX_PHASE_LABEL, phaseBar, type TxPhase } from '@/shared/runtime/tx-phase';
 
 /**
  * 납품업체의 자금 조달 앱.
@@ -36,7 +39,16 @@ import {
  * 납품업체뿐이고, 증명은 그 값들로 만들어진다. 금융사 화면에서 "증명 생성
  * 0.01초"를 보여주면 금융사가 증명을 만든 것처럼 읽힌다.
  */
-export function SupplierApp({ account }: { account?: AccountView }) {
+export function SupplierApp({
+  account,
+  /**
+   * 연결된 지갑.
+   *
+   * 실제 체인에서는 이것이 있어야 신청할 수 있다. 서버는 서명하지 않는다.
+   * 지갑 없이 도는 심사용 경로(시뮬레이터)에서는 없어도 된다.
+   */
+  wallet,
+}: { account?: AccountView; wallet?: WalletSession | null }) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,19 +66,41 @@ export function SupplierApp({ account }: { account?: AccountView }) {
 
   const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
   const funds = useQuery({ queryKey: ['funds'], queryFn: api.funds });
+  const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
   const [repaying, setRepaying] = useState<string | null>(null);
+  const [repayPhase, setRepayPhase] = useState<TxPhase | null>(null);
+
+  /*
+   * 실제 체인인가.
+   *
+   * 체인이 대답할 때까지는 아무 경로도 고르지 않는다. 모르는 동안
+   * 시뮬레이터로 가정하면, 실제 체인에서 서버가 서명하려 들고 그 신청은
+   * 회로를 거치지 않은 채 거부된다.
+   */
+  const onChain = chain.data ? !chain.data.simulated : null;
+  const contractAddress = chain.data?.contractAddress ?? null;
+  const needsWallet = onChain === true && !wallet;
 
   const repay = useCallback(
-    async (loan: { nullifier: string }) => {
+    async (loan: { nullifier: string; amount: string }) => {
       setRepaying(loan.nullifier);
       try {
-        await api.repay(loan.nullifier);
+        if (onChain && wallet && contractAddress) {
+          const { repayOnChain } = await import('@/shared/wallet/circuit-calls');
+          const result = await repayOnChain(
+            wallet, contractAddress, loan, (phase) => setRepayPhase(phase),
+          );
+          await api.confirmRepay(loan.nullifier, result.txHash, result.block);
+        } else {
+          await api.repay(loan.nullifier);
+        }
       } finally {
         setRepaying(null);
+        setRepayPhase(null);
         void queryClient.invalidateQueries();
       }
     },
-    [queryClient],
+    [queryClient, onChain, wallet, contractAddress],
   );
   const terms = useQuery({ queryKey: ['lenderTerms'], queryFn: api.lenderTerms });
 
@@ -127,30 +161,104 @@ export function SupplierApp({ account }: { account?: AccountView }) {
   const sum = (items: readonly SupplierInvoice[], key: 'faceAmount' | 'maxLoanAmount') =>
     items.reduce((acc, item) => acc + BigInt(item[key]), 0n).toString();
 
+  /**
+   * 실제 체인에서 신청한다.
+   *
+   * 서버는 사전 검사와 재료 전달까지만 한다. 증명·서명·제출은 이 브라우저가
+   * 하고, 결과를 서버에 알린다. 서버는 그 보고를 그대로 믿지 않고 원장을
+   * 읽어 대조한 뒤에야 기록한다.
+   */
+  const requestOnChain = useCallback(
+    async (lender: LenderId, invoice: SupplierInvoice) => {
+      if (!wallet || !contractAddress) throw new Error('지갑이 연결되지 않았다');
+      const startedAt = Date.now();
+      const plan = await api.prepareFinancing(
+        invoice.invoiceId, lender, invoice.maxLoanAmount, disclose,
+      );
+
+      const { classifyCircuitError, describe, financeOnChain } =
+        await import('@/shared/wallet/circuit-calls');
+
+      const report = async (
+        outcome: 'settled' | 'rejected',
+        txHash: string | null,
+        block: number | null,
+        reason: string | null,
+      ) => {
+        await api.confirmFinancing({
+          applicationId: plan.applicationId,
+          invoiceId: invoice.invoiceId,
+          lenderId: lender,
+          amount: plan.amount,
+          nullifier: plan.nullifier,
+          receivedAt: plan.receivedAt,
+          elapsedMs: Date.now() - startedAt,
+          disclose,
+          outcome,
+          txHash,
+          block,
+          reason,
+        });
+      };
+
+      try {
+        const result = await financeOnChain(wallet, contractAddress, plan, (phase) =>
+          setRuntime((prev) => applyChainPhase(prev, phase)),
+        );
+        await report('settled', result.txHash, result.block, null);
+        setRuntime((prev) => ({ ...prev, phase: 'settled', block: result.block }));
+      } catch (error: unknown) {
+        /*
+         * 회로가 거부한 것과 그 전에 죽은 것을 구분한다.
+         *
+         * assert 문자열이 잡히면 회로가 판정한 것이다. 안 잡히면 사유를
+         * 지어내지 않고 회로 밖 실패로 보고한다.
+         */
+        const code = classifyCircuitError(error);
+        await report('rejected', null, null, code).catch(() => undefined);
+        setRuntime((prev) =>
+          code === null
+            ? applyChainFailure(prev, describe(error))
+            : { ...prev, phase: 'rejected', reason: code, circuitAssert: null, chainPhase: null },
+        );
+        throw error;
+      }
+    },
+    [wallet, contractAddress, disclose],
+  );
+
   const request = useCallback(
     async (lender: LenderId) => {
-      if (!selected) return;
+      if (!selected || onChain === null) return;
       setBusy(true);
       setTarget(lender);
       setRuntime(beginRequest(new Date().toISOString()));
       try {
-        await api.finance(selected.invoiceId, lender, selected.maxLoanAmount, disclose);
+        if (onChain) {
+          await requestOnChain(lender, selected);
+        } else {
+          await api.finance(selected.invoiceId, lender, selected.maxLoanAmount, disclose);
+        }
         // 이 채권은 소진됐다. 선택을 놓아 다음 미사용 채권으로 넘어가게 한다.
         setSelectedId(null);
         // 제공 항목도 초기 상태로 돌린다. 켜는 것이 매번 의식적인 행동이어야 한다.
         setDisclose([]);
       } catch (error: unknown) {
-        const code = error instanceof ApiError ? error.code : 'UNKNOWN';
-        const assertExpr = error instanceof ApiError ? error.circuitAssert : null;
-        setRuntime((prev) => ({
-          ...prev, phase: 'rejected', reason: code, circuitAssert: assertExpr,
-        }));
+        /*
+         * 브라우저 경로는 이미 로그에 남겼다. 여기서 덮어쓰면 어느
+         * 구간에서 무엇이 걸렸는지가 사라진다.
+         */
+        if (error instanceof ApiError) {
+          setRuntime((prev) => ({
+            ...prev, phase: 'rejected', reason: error.code, circuitAssert: error.circuitAssert,
+          }));
+        }
       } finally {
         setBusy(false);
         void queryClient.invalidateQueries();
       }
     },
-    [selected, disclose, queryClient],
+    [selected, disclose, queryClient, onChain, requestOnChain],
   );
 
   const ltv = terms.data ? `${Number(terms.data.ltvBps) / 100}%` : EMPTY;
@@ -158,19 +266,22 @@ export function SupplierApp({ account }: { account?: AccountView }) {
   /*
    * 응답이 오래 걸리면 화면이 그렇다고 말한다.
    *
-   * 로컬 회로 실행은 수십 밀리초에 끝난다. 10초가 넘었다면 증명이 느린 게
-   * 아니라 요청이 아예 못 나간 것이다. 아무 설명 없이 경과 시간만 올라가면
-   * 발표 중에 고장인지 원래 느린 건지 구분할 방법이 없다.
+   * 기준이 경로마다 다르다. 로컬 회로 실행은 수십 밀리초에 끝나므로
+   * 10초면 요청이 아예 못 나간 것이다. 실제 체인은 실측 30~45초가
+   * 정상이고 대부분이 지갑 승인과 블록 확정이다. 같은 기준을 쓰면
+   * 정상 동작을 고장이라고 말하게 된다.
    */
   const elapsedMs = runtime.startedAt === null ? 0 : Date.now() - runtime.startedAt;
-  const stalled = inFlight && elapsedMs > 10_000;
+  const stalled = inFlight && elapsedMs > (onChain ? 180_000 : 10_000);
+  const phaseMs =
+    runtime.phaseStartedAt === null ? 0 : Date.now() - runtime.phaseStartedAt;
 
   return (
     <div className="roleapp">
       <RoleHeader role="납품업체" product="자금 조달" account={account} />
 
       <div className="roleapp__body">
-        <FundsPanel funds={funds.data} busy={repaying} onRepay={repay} />
+        <FundsPanel funds={funds.data} busy={repaying} phase={repayPhase} onRepay={repay} />
 
         <section className="section">
           <header className="section__head">
@@ -296,7 +407,7 @@ export function SupplierApp({ account }: { account?: AccountView }) {
                         <button
                           type="button"
                           className="btn btn--inline"
-                          disabled={busy || !canApply || !fundable}
+                          disabled={busy || !canApply || !fundable || needsWallet}
                           onClick={() => void request(lender.lenderId)}
                         >
                           {canApply && !fundable ? '자금 부족' : '신청'}
@@ -309,9 +420,17 @@ export function SupplierApp({ account }: { account?: AccountView }) {
             </table>
             </>
             )}
-            <p className={`hint ${stalled || selectedUsed ? 'hint--error' : ''}`}>
-              {stalled
-                ? '응답이 오지 않는다. 로컬 실행은 1초 안에 끝난다. 서버가 떠 있는지 확인한다'
+            <p className={`hint ${stalled || selectedUsed || needsWallet ? 'hint--error' : ''}`}>
+              {/*
+                지갑이 있어야 서명할 수 있다는 사실을 버튼을 누른 뒤가
+                아니라 누르기 전에 말한다.
+              */}
+              {needsWallet
+                ? '신청하려면 지갑을 연결해야 합니다'
+                : stalled
+                ? onChain
+                  ? '3분이 넘었다. 지갑 승인 창이 열려 있는지 확인한다'
+                  : '응답이 오지 않는다. 로컬 실행은 1초 안에 끝난다. 서버가 떠 있는지 확인한다'
                 : selectedUsed
                   ? `이미 사용된 채권입니다 · ${
                       LENDER_LABEL[selected?.usedBy ?? ''] ?? '다른 금융사'
@@ -342,7 +461,9 @@ export function SupplierApp({ account }: { account?: AccountView }) {
                 <span className="num">
                   {inFlight ? (
                     <>
-                      <span className="bar">{progressBar(runtime.phase)}</span>{' '}
+                      <span className="bar">
+                        {onChain ? phaseBar(runtime.chainPhase) : progressBar(runtime.phase)}
+                      </span>{' '}
                       {runtime.startedAt === null
                         ? EMPTY
                         : `${((Date.now() - runtime.startedAt) / 1000).toFixed(1)}s`}
@@ -356,6 +477,23 @@ export function SupplierApp({ account }: { account?: AccountView }) {
                   )}
                 </span>
               </div>
+              {/*
+                무엇을 기다리는 중인지 말한다.
+
+                한 건에 30~45초가 걸리고 그 대부분은 지갑 승인과 블록
+                확정이다. "증명 생성 중"과 "지갑 승인 대기"는 사용자가
+                할 일이 다르다 — 하나는 기다리는 것이고 하나는 지갑
+                창을 눌러야 하는 것이다.
+              */}
+              {inFlight && runtime.chainPhase !== null ? (
+                <div className="readout__row">
+                  <span className="readout__key">현재 구간</span>
+                  <span>
+                    {TX_PHASE_LABEL[runtime.chainPhase]}
+                    <span className="num"> · {(phaseMs / 1000).toFixed(1)}s</span>
+                  </span>
+                </div>
+              ) : null}
               {selected ? (
                 <div className="readout__row">
                   <span className="readout__key">채권 식별자</span>

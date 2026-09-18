@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/shared/api/client';
+import { OnChainAttacks } from '@/features/attack-panel/onchain-attacks';
 import { formatAmount, shortHash, EMPTY } from '@/shared/ui/format';
 import {
   initialSteps, runBootstrap, type StepResult,
@@ -39,6 +42,15 @@ function ms(value: number | undefined): string {
 
 export function WalletPanel() {
   const { state, connect, disconnect, hasWallet } = useWallet('preprod');
+  const queryClient = useQueryClient();
+
+  /*
+   * 실제 체인일 때만 공격 재현이 의미가 있다. 시뮬레이터에서는 서버가
+   * 서명하는 기존 러너가 같은 시나리오를 훨씬 빨리 돌린다.
+   */
+  const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
+  const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
+  const onChain = chain.data ? !chain.data.simulated : false;
   const [steps, setSteps] = useState<readonly StepResult[]>(initialSteps());
   const [running, setRunning] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -343,6 +355,14 @@ export function WalletPanel() {
           </>
         )}
       </div>
+      {onChain ? (
+        <OnChainAttacks
+          wallet={state.api}
+          contractAddress={chain.data?.contractAddress ?? null}
+          invoices={invoices.data ?? []}
+          onDone={() => void queryClient.invalidateQueries()}
+        />
+      ) : null}
     </section>
   );
 }

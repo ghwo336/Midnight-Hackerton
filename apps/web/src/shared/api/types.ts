@@ -243,3 +243,42 @@ export interface AttackOutcome {
   readonly fundsMoved: string;
   readonly note: string;
 }
+
+/**
+ * `/supplier/financing/prepare` 의 응답.
+ *
+ * 브라우저가 finance 회로를 부르는 데 필요한 것 전부다. `witness` 는
+ * 납품업체 본인의 채권 원문이고 회로 입력으로만 쓰인다. 트랜잭션에는
+ * nullifier 와 commitment 만 남는다.
+ */
+export interface FinancingPlanResponse {
+  readonly applicationId: string;
+  readonly receivedAt: string;
+  readonly lenderKey: string;
+  readonly recipient: string;
+  readonly amount: string;
+  readonly nullifier: string;
+  readonly witness: {
+    readonly invoiceId: string;
+    readonly faceAmount: string;
+    readonly salt: string;
+    readonly ownerSecret: string;
+  };
+  readonly disclosed: Record<string, string>;
+}
+
+/** 브라우저가 체인에 무엇을 했는지 보고한다. 서버가 원장과 대조한다. */
+export interface ConfirmFinancingBody {
+  readonly applicationId: string;
+  readonly invoiceId: string;
+  readonly lenderId: LenderId;
+  readonly amount: string;
+  readonly nullifier: string;
+  readonly receivedAt: string;
+  readonly elapsedMs: number;
+  readonly disclose: readonly DisclosureField[];
+  readonly outcome: 'settled' | 'rejected';
+  readonly txHash: string | null;
+  readonly block: number | null;
+  readonly reason: string | null;
+}

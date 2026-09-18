@@ -2,6 +2,7 @@
 
 import type { LoanRow, SupplierFunds } from '@/shared/api/types';
 import { EMPTY, formatAmount, shortHash } from '@/shared/ui/format';
+import { TX_PHASE_LABEL, type TxPhase } from '@/shared/runtime/tx-phase';
 
 const LENDER_LABEL: Record<string, string> = {
   'lender-a': '금융사 A',
@@ -23,10 +24,18 @@ function clock(iso: string | null): string {
 export function FundsPanel({
   funds,
   busy,
+  phase,
   onRepay,
 }: {
   funds: SupplierFunds | undefined;
   busy: string | null;
+  /**
+   * 실제 체인에서 상환 중일 때 지금 어느 구간인가.
+   *
+   * 지갑 승인과 블록 확정이 대부분의 시간을 먹는다. "상환 중" 한 마디만
+   * 두면 30초 동안 멈춘 것처럼 보인다.
+   */
+  phase?: TxPhase | null;
   onRepay: (loan: LoanRow) => void;
 }) {
   const positions = funds?.positions ?? [];
@@ -104,6 +113,9 @@ export function FundsPanel({
                     >
                       {busy === loan.nullifier ? '상환 중' : '상환'}
                     </button>
+                    {busy === loan.nullifier && phase ? (
+                      <span className="hint">{TX_PHASE_LABEL[phase]}</span>
+                    ) : null}
                   </div>
                 )}
               </article>

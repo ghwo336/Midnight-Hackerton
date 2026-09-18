@@ -12,6 +12,13 @@ export interface IssueInvoiceCommand {
   readonly faceAmount: bigint;
   readonly detail: InvoiceDetail;
   readonly risk: RiskProfile;
+  /**
+   * 식별자를 지정한다. 실제 체인에 이미 등록된 채권의 비공개 상태를
+   * 되살릴 때 쓴다. 생략하면 새로 만든다.
+   */
+  readonly invoiceId?: Hex;
+  /** 온체인 리프 등록을 건너뛴다. 체인에 이미 있는 경우. */
+  readonly skipChainWrite?: boolean;
 }
 
 /**
@@ -33,7 +40,7 @@ export class IssueInvoiceUseCase {
 
     // 실사용 시 국세청 승인번호에서 유도한다. 데모에서는 목업이지만
     // 구조는 "발급 기관이 부여하고 복사해도 바뀌지 않는 값"을 전제한다.
-    const invoiceId = bytesToHex(webcrypto.getRandomValues(new Uint8Array(32)));
+    const invoiceId = cmd.invoiceId ?? bytesToHex(webcrypto.getRandomValues(new Uint8Array(32)));
     const salt = generateSalt();
 
     const invoice: PrivateInvoice = {
@@ -47,9 +54,11 @@ export class IssueInvoiceUseCase {
     };
 
     await this.privateState.saveInvoice(cmd.supplierId, invoice);
-    await this.writer.registerInvoiceLeaf(
-      computeInvoiceLeaf({ invoiceId, faceAmount: cmd.faceAmount, ownerPk }),
-    );
+    if (!cmd.skipChainWrite) {
+      await this.writer.registerInvoiceLeaf(
+        computeInvoiceLeaf({ invoiceId, faceAmount: cmd.faceAmount, ownerPk }),
+      );
+    }
 
     return { invoiceId };
   }

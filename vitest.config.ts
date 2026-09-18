@@ -8,6 +8,7 @@ export default defineConfig({
       '@once/crypto': resolve(__dirname, 'packages/crypto/src/index.ts'),
       '@once/chain': resolve(__dirname, 'packages/chain/src/index.ts'),
       '@once/witness': resolve(__dirname, 'packages/witness/src/index.ts'),
+      '@once/indexer': resolve(__dirname, 'packages/indexer/src/index.ts'),
       '@once/contract': resolve(__dirname, 'contracts/managed/once/contract/index.js'),
     },
   },

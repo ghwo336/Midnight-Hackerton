@@ -19,6 +19,37 @@ export const RequestFinancingSchema = z.object({
 
 export type RequestFinancingDto = z.infer<typeof RequestFinancingSchema>;
 
+/**
+ * 브라우저가 회로를 돌린 결과 보고.
+ *
+ * 서버는 이 값을 그대로 믿지 않는다. 기록하기 전에 원장을 읽어 대조한다
+ * (ConfirmFinancingUseCase). 그래서 여기서는 형식만 본다.
+ */
+export const ConfirmFinancingSchema = z.object({
+  applicationId: z.string().min(8).max(64),
+  invoiceId: hex32Schema,
+  lenderId: z.enum(['lender-a', 'lender-b']),
+  amount: z.string().regex(/^\d+$/).transform(BigInt),
+  nullifier: hex32Schema,
+  receivedAt: z.string().min(8).max(40),
+  elapsedMs: z.number().int().nonnegative().max(3_600_000),
+  disclose: z.array(z.enum(['creditGrade', 'dueWindow', 'industry'])).default([]),
+  outcome: z.enum(['settled', 'rejected']),
+  txHash: hex32Schema.nullable().default(null),
+  block: z.number().int().nonnegative().nullable().default(null),
+  reason: z.string().max(60).nullable().default(null),
+});
+
+export type ConfirmFinancingDto = z.infer<typeof ConfirmFinancingSchema>;
+
+/** 상환 보고. 원장에서 repaid 로 확인한다. */
+export const ConfirmRepaySchema = z.object({
+  nullifier: hex32Schema,
+  txHash: hex32Schema.nullable().default(null),
+  block: z.number().int().nonnegative().nullable().default(null),
+});
+export type ConfirmRepayDto = z.infer<typeof ConfirmRepaySchema>;
+
 export const IssueInvoiceSchema = z.object({
   faceAmount: z.string().regex(/^\d+$/).transform(BigInt),
   counterparty: z.string().min(1).max(120),

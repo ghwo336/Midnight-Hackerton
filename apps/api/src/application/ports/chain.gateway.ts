@@ -48,6 +48,18 @@ export interface ChainReader {
   getIssuerRoot(): Promise<Hex>;
   /** 발급 기관이 지금까지 등록한 채권 건수. 리프 개수일 뿐 내용이 아니다. */
   getInvoiceCount(): Promise<number>;
+  /**
+   * 이 리프가 발급자 트리에 있는가.
+   *
+   * 리프는 (invoiceId, faceAmount, ownerPk) 의 해시다. 원문이 아니므로
+   * 물어보는 쪽이 이미 답을 아는 경우에만 의미가 있다 — 여기서 채권
+   * 내용이 새지 않는다.
+   *
+   * 비공개 상태의 소유자 키가 체인에 올라간 것과 다르면 회로가
+   * "invoice leaf mismatch" 로 거부한다. 신청할 때가 아니라 기동할 때
+   * 그걸 알아채기 위한 것이다.
+   */
+  hasInvoiceLeaf(leaf: Hex): Promise<boolean>;
   getLtvBps(): Promise<bigint>;
   isNullifierUsed(nullifier: Hex): Promise<boolean>;
   listLoans(): Promise<readonly PublicLoanView[]>;
@@ -56,6 +68,16 @@ export interface ChainReader {
   getBorrowerBalance(address: Hex): Promise<bigint>;
   getBlockHeight(): Promise<number>;
   getStatus(): Promise<ChainStatus>;
+  /**
+   * 캐시된 원장 뷰를 버린다.
+   *
+   * 방금 확정된 트랜잭션을 곧바로 읽어야 할 때만 쓴다. 브라우저가 서명한
+   * 결과를 원장과 대조하는 경로가 그렇다 — 캐시가 몇 초 낡았다는 이유로
+   * "체인에 없다" 고 판정하면 안 된다.
+   *
+   * 캐시가 없는 구현은 아무것도 하지 않으면 된다.
+   */
+  invalidate(): Promise<void>;
 }
 
 /** 증명 생성·제출 전이 시점. 실제로 그 지점을 지날 때만 호출된다. */

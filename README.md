@@ -213,8 +213,8 @@ salt만 바꿔 다시 봉인해도 nullifier가 같아서 거부된다.
 > | 컨트랙트 주소 | [`52a72d93142c…ce5596`](https://preprod.midnightexplorer.com/contracts/52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596) |
 > | 배포 tx | [`8f3e02c49cb8…`](https://preprod.midnightexplorer.com/transactions/8f3e02c49cb8e8c73698a19762040508168dc5e077ab5db84e6e682e665545f9) · 블록 2605881 |
 > | 발급 기관 공개키 | `0xcc56…5e72` (비밀키는 배포한 브라우저의 IndexedDB 에만 있음) |
-> | `finance` 성공 tx | _(테스트넷 재현 예정 — 로컬 A1~A10 은 통과)_ |
-> | `finance` 중복 거부 | _(테스트넷 재현 예정)_ |
+> | `finance` · `repay` | 브라우저에서 지갑이 서명한다. 서버는 이 네트워크에서 서명하지 않는다 (아래 §5.1) |
+> | 읽기 경로 검증 | 시뮬레이터가 통과하는 `ChainReader` 계약 스위트를 **이 컨트랙트에 그대로 돌려** 통과 (`test/contract-tests/live-chain.spec.ts`, 19건) |
 >
 > 초기 설정 트랜잭션 8건 (각각 지갑 승인 1회):
 >
@@ -246,14 +246,52 @@ GraphQL 로 직접 보려면 `https://indexer.preprod.midnight.network/api/v3/gr
 | G1 스파이크 | ✅ S1 라운드트립 일치, 폴백 A·B·C 모두 불필요 ([SPIKE.md](docs/SPIKE.md)) |
 | G2 도메인 + 목 | ✅ 발급 → 신청 → 중복 거부 흐름 통과 |
 | G3 회로 | ✅ 정상 증명 성공, 실패 경로 확인 |
-| G4 체인 연동 | 🔄 **진행 중**: 첫 지갑 동기화 (인덱스 1,529,726개, 약 2시간) ([DEPLOY.md](docs/DEPLOY.md)) |
+| G4 체인 연동 | ✅ Preprod 배포 완료, 앱 전체가 실제 체인을 읽는다 (§5.1) |
 | G5 프론트 | ✅ 3화면 + 공개 원장 + 공격 패널 |
-| G6 검증 | ✅ A1~A9 전부 기대 결과, 테스트 50건 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
+| G6 검증 | ✅ A1~A10 전부 기대 결과, 테스트 101건 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
 
-G4가 남아 있으므로 **배포 주소와 tx 해시가 아직 없다.** 대신 로컬 모드가
-컴파일된 회로를 그대로 실행하므로, A1~A9의 거부는 애플리케이션 계층이
-아니라 회로의 assert가 만든 결과다. 로컬 실행이 증명하지 못하는 것은
+로컬 모드도 컴파일된 회로를 그대로 실행한다. A1~A10의 거부는 애플리케이션
+계층이 아니라 회로의 assert가 만든 결과다. 로컬 실행이 증명하지 못하는 것은
 [SPIKE.md](docs/SPIKE.md) 마지막 절에 적어 두었다.
+
+### 5.1 두 모드, 그리고 누가 서명하는가
+
+`CHAIN_MODE` 하나로 갈린다. 기본값은 `local-circuit` 이므로 **클론하고
+바로 실행하면 지갑도 자금도 필요 없다.**
+
+| | `local-circuit` (기본) | `preprod` |
+|---|---|---|
+| 원장 | 프로세스 안의 컴파일된 회로 | Midnight Preprod, 인덱서로 읽는다 |
+| 서명 | 서버가 한다 (실제 자산 없음) | **사용자 지갑이 한다. 서버는 키가 없다** |
+| tx 해시·블록 | 시뮬레이터가 붙인 번호 | 진짜 값, 탐색기 링크가 열린다 |
+| 화면 표시 | "모의" 라고 적는다 | 그대로 적는다 |
+
+`preprod` 에서 서버가 할 수 있는 일은 신청 전 검사와 회로 입력 전달까지다
+(`POST /api/supplier/financing/prepare`). 증명·서명·제출은 브라우저가 하고,
+결과를 서버에 알린다 (`.../confirm`). 서버는 그 보고를 **그대로 믿지 않고
+원장을 읽어 대조한 뒤에만** 기록한다 — 대조에 실패하면 `CLAIM_NOT_ON_CHAIN`
+으로 거절한다.
+
+서버가 서명하는 경로들(`POST /supplier/financing`, `/supplier/repay`,
+`/demo/attack/:id`, `/demo/reset`)은 `preprod` 에서 `SERVER_CANNOT_SIGN` 으로
+막힌다. 막지 않으면 공격 러너의 모든 제출이 "서버가 서명 못 함" 으로 죽고,
+러너는 그걸 "막혔다" 로 세어 **여섯 칸 전부 초록불이 뜬다. 아무것도
+시험하지 않은 채로.**
+
+### 5.2 실제 체인에서의 A5·A6
+
+두 시나리오는 트랜잭션을 실제로 내야 하고, 그 서명은 지갑만 할 수 있다.
+`/console` 의 지갑 패널에 **실제 체인 공격 재현** 섹션이 있다. A5 는 승인
+2회, A6 도 2회가 필요하고 한 건당 30~45초가 걸린다.
+
+판정은 세 갈래다 (`apps/web/src/shared/runtime/onchain-verdict.ts`):
+
+- **통과** — 한 건만 확정되고, 진 쪽을 회로가 중복 확인값으로 막았다
+- **실패** — 두 건 다 확정됐다 (이중 담보가 뚫렸다)
+- **판정 불가** — 진 쪽이 회로에 닿기 전에 죽었다 (지갑 승인 거부, 잔액 조정 실패 등)
+
+지갑 문제로 죽은 것을 통과로 세지 않는다. 그 구분이 없으면 아무것도
+시험하지 않고 초록불을 켜게 된다 (`test/contract-tests/onchain-verdict.spec.ts`).
 
 ---
 

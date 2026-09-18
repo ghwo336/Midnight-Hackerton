@@ -10,6 +10,7 @@ import {
   AttackPanel, ATTACK_IDS, type AttackId, type AttackStatus,
 } from '@/features/attack-panel/attack-panel';
 import { WalletPanel } from '@/features/wallet-panel/wallet-panel';
+import { judgeConcurrent } from '@/shared/runtime/concurrent-verdict';
 
 /**
  * 발표 콘솔.
@@ -87,12 +88,37 @@ export function DemoConsole() {
     setClimaxDone(false);
     setAttacks((prev) => ({ ...prev, A5: { kind: 'running' } }));
     try {
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         (['lender-a', 'lender-b'] as const).map((lender: LenderId) =>
           api.finance(target.invoiceId, lender, target.maxLoanAmount),
         ),
       );
-      setClimaxDone(true);
+
+      /*
+       * 판정은 **실제 결과에서 읽는다.**
+       *
+       * 예전에는 여기서 blocked: true 를 그냥 써 넣었다. 로컬에서는 우연히
+       * 맞았지만, 두 요청이 다른 이유로 실패해도 화면은 "통과" 를 띄웠다.
+       * 아무것도 시험하지 않고 초록불을 켜는 것이 이 패널이 가장 하면 안
+       * 되는 일이다.
+       *
+       * A5 가 통과했다는 것은 **정확히 한 건만 확정됐다**는 뜻이다. 둘 다
+       * 확정되면 이중 담보가 뚫린 것이고, 둘 다 실패하면 회로가 막은 게
+       * 아니라 다른 데서 죽은 것이다.
+       */
+      const settled = results.filter((r) => r.status === 'fulfilled');
+      const rejected = results.filter((r) => r.status === 'rejected');
+      const verdict = judgeConcurrent({
+        settledCount: settled.length,
+        rejectedCount: rejected.length,
+        rejectionCode:
+          rejected
+            .map((r) => (r.reason instanceof ApiError ? r.reason.code : 'UNKNOWN'))
+            .at(0) ?? null,
+        amountPerLoan: target.maxLoanAmount,
+      });
+
+      setClimaxDone(verdict.blocked);
       setAttacks((prev) => ({
         ...prev,
         A5: {
@@ -101,10 +127,7 @@ export function DemoConsole() {
             id: 'A5',
             title: '두 금융사 동시 신청',
             expected: '하나만 확정, 나머지 자금 보존',
-            blocked: true,
-            code: 'NULLIFIER_ALREADY_USED',
-            fundsMoved: target.maxLoanAmount,
-            note: '',
+            ...verdict,
           },
         },
       }));
@@ -234,7 +257,13 @@ export function DemoConsole() {
 
         <WalletPanel />
 
-        <AttackPanel statuses={attacks} busy={busy} onRun={runAttack} onReset={reset} />
+        <AttackPanel
+          statuses={attacks}
+          busy={busy}
+          simulated={status?.simulated ?? true}
+          onRun={runAttack}
+          onReset={reset}
+        />
       </div>
     </div>
   );

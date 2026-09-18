@@ -56,6 +56,10 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
     return this.sim.snapshot().ltvBps;
   }
 
+  async hasInvoiceLeaf(leaf: Hex): Promise<boolean> {
+    return this.sim.ledgerView.invoiceTree.findPathForLeaf(hexToBytes32(leaf)) !== undefined;
+  }
+
   async isNullifierUsed(nullifier: Hex): Promise<boolean> {
     return this.sim.isNullifierUsed(nullifier);
   }
@@ -68,6 +72,11 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
    * 체인 이름을 'preprod'로 적지 않는다. 지금은 로컬 회로 실행이고,
    * 화면이 사실과 다른 것을 주장하면 안 된다 (README §5).
    */
+  /** 원장이 프로세스 안에 있다. 캐시가 없으므로 할 일이 없다. */
+  async invalidate(): Promise<void> {
+    return undefined;
+  }
+
   async getStatus(): Promise<ChainStatus> {
     const snap = this.sim.snapshot();
     return {
@@ -174,4 +183,13 @@ export function translateCircuitFailure(error: unknown): Error {
   if (raw.includes('insufficient borrower balance')) return new RepaymentBelowPrincipalError();
 
   return new ChainSubmitFailedError();
+}
+
+function hexToBytes32(hex: Hex): Uint8Array {
+  const body = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const out = new Uint8Array(body.length / 2);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = Number.parseInt(body.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
 }

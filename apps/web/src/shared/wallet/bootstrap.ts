@@ -8,6 +8,9 @@ import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witne
 import { buildProviders, ONCE_PRIVATE_STATE_ID, type OnceProviders } from './providers';
 import { ensureIssuerSecret, writeIssuerPublicKey } from './private-state';
 import { Recorder } from './measure';
+import { DEMO } from './demo-fixtures';
+
+export { DEMO };
 
 /**
  * 브라우저 + Lace 로 컨트랙트를 올리고 데모 상태를 세운다.
@@ -27,32 +30,6 @@ import { Recorder } from './measure';
  * 시간은 "업로드 + 서버 증명 + 다운로드"다. 그 사실을 보고서에 그대로 쓴다.
  */
 
-/**
- * 데모 고정값.
- *
- * **issuerSecret 은 여기 없다.** 저장소에 적힌 더미값을 테스트넷에 올리면
- * 누구나 registerInvoice·fundLender 를 부를 수 있다. 배포용 비밀키는
- * 첫 실행 때 이 기기에서 만들어 IndexedDB 에만 둔다
- * (`ensureIssuerSecret`). Node 경로의 `requireSecret()` 과 같은 이유다.
- *
- * supplierSecret 은 채권 리프를 계산하는 데만 쓰이고, 그 리프의 소유권을
- * 증명하는 것은 소유자 비밀키를 가진 쪽이다. 데모 값을 그대로 둔다.
- */
-export const DEMO = {
-  issuerId: `0x${'11'.repeat(32)}`,
-  supplierSecret: `0x${'7c'.repeat(32)}`,
-  ltvBps: 8000n,
-  lenders: [
-    { id: 'lender-a', key: `0x${'0a'.repeat(32)}`, label: '금융사 A' },
-    { id: 'lender-b', key: `0x${'0b'.repeat(32)}`, label: '금융사 B' },
-  ],
-  funding: 1_000_000_000n,
-  invoices: [
-    { id: `0x${'a1'.repeat(32)}`, faceAmount: 100_000_000n },
-    { id: `0x${'a2'.repeat(32)}`, faceAmount: 50_000_000n },
-    { id: `0x${'a3'.repeat(32)}`, faceAmount: 250_000_000n },
-  ],
-} as const;
 
 export function hexToBytes(hex: string): Uint8Array {
   const body = hex.startsWith('0x') ? hex.slice(2) : hex;

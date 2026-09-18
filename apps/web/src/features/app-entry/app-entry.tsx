@@ -122,7 +122,7 @@ export function AppEntry() {
       ) : resolved === 'lender' && identity.data?.lenderId ? (
         <LenderApp lenderId={identity.data.lenderId} account={account} />
       ) : resolved === 'supplier' ? (
-        <SupplierApp account={account} />
+        <SupplierApp account={account} wallet={state.api} />
       ) : (
         <RoleClaim address={address} onClaimed={refresh} onDisconnect={disconnect} />
       )}

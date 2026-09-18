@@ -40,11 +40,20 @@ function verdict(status: AttackStatus): { text: string; cls: string } {
 export function AttackPanel({
   statuses,
   busy,
+  simulated,
   onRun,
   onReset,
 }: {
   statuses: Record<AttackId, AttackStatus>;
   busy: boolean;
+  /**
+   * 로컬 회로 실행인가.
+   *
+   * 실제 체인에서는 서버가 서명하지 못하므로 이 러너가 돌지 않는다.
+   * 버튼을 눌러 전부 빨간불이 뜨는 것보다, 왜 여기서 못 도는지 말하고
+   * 막는 편이 낫다. 실제 체인 재현은 지갑이 서명해야 한다.
+   */
+  simulated: boolean;
   onRun: (id: AttackId) => void;
   onReset: () => void;
 }) {
@@ -52,11 +61,17 @@ export function AttackPanel({
     <section className="section">
       <header className="section__head">
         <span>공격 시나리오</span>
-        <button type="button" className="btn" onClick={onReset} disabled={busy}>
+        <button type="button" className="btn" onClick={onReset} disabled={busy || !simulated}>
           데모 초기화
         </button>
       </header>
       <div className="section__body">
+        {simulated ? null : (
+          <p className="hint hint--error">
+            실제 체인에서는 서버가 서명하지 않으므로 이 러너가 돌지 않는다.
+            재현은 지갑이 서명하는 브라우저 경로로 한다.
+          </p>
+        )}
         <div className="attacks">
           {ATTACK_IDS.map((id) => {
             const status = statuses[id];
@@ -67,7 +82,7 @@ export function AttackPanel({
                 <button
                   type="button"
                   className="btn attack__btn"
-                  disabled={busy}
+                  disabled={busy || !simulated}
                   onClick={() => onRun(id)}
                 >
                   {id}

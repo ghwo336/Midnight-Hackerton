@@ -28,8 +28,16 @@ const FACE = 100_000_000n;
 
 type Gateway = ChainReader & ChainWriter;
 
-export function chainGatewayContract(name: string, create: () => Promise<Gateway>): void {
-  describe(`ChainGateway 계약: ${name}`, () => {
+/**
+ * 읽기 계약. **모든 구현이 지킨다.**
+ *
+ * 로컬 시뮬레이터와 실제 체인(MidnightChainGateway)에 같은 스위트를
+ * 돌린다. 두 구현이 같은 질문에 다르게 답하면 화면이 모드에 따라 다른
+ * 것을 주장하게 된다. 실제 체인 쪽은 네트워크가 필요하므로 옵트인이다
+ * (test/contract-tests/live-chain.spec.ts).
+ */
+export function chainReaderContract(name: string, create: () => Promise<ChainReader>): void {
+  describe(`ChainReader 계약: ${name}`, () => {
     it('발급 기관 식별자와 LTV를 읽는다', async () => {
       const gateway = await create();
       expect(await gateway.getIssuerId()).toBe(ISSUER_ID);
@@ -41,6 +49,47 @@ export function chainGatewayContract(name: string, create: () => Promise<Gateway
       expect(await gateway.isNullifierUsed(`0x${'00'.repeat(32)}` as Hex)).toBe(false);
     });
 
+    it('발급자가 인증한 채권의 리프를 찾는다', async () => {
+      const gateway = await create();
+      const leaf = computeInvoiceLeaf({
+        invoiceId: INVOICE_ID, faceAmount: FACE,
+        ownerPk: deriveOwnerPublicKey(OWNER_SECRET),
+      });
+      expect(await gateway.hasInvoiceLeaf(leaf)).toBe(true);
+    });
+
+    /*
+     * 검사가 헛돌지 않는지 본다.
+     *
+     * 소유자 키가 다르면 리프도 다르고, 그 신청은 회로에서 거부된다.
+     * 여기서 true 가 나오면 위 검사는 아무것도 확인하지 않는 셈이다.
+     */
+    it('소유자 키가 다르면 같은 채권이라도 리프를 찾지 못한다', async () => {
+      const gateway = await create();
+      const leaf = computeInvoiceLeaf({
+        invoiceId: INVOICE_ID, faceAmount: FACE,
+        ownerPk: deriveOwnerPublicKey(`0x${'3b'.repeat(32)}` as Hex),
+      });
+      expect(await gateway.hasInvoiceLeaf(leaf)).toBe(false);
+    });
+
+    it('등록된 금융사에 예치금이 있다', async () => {
+      const gateway = await create();
+      expect(await gateway.getLenderVault('lender-a')).toBeGreaterThan(0n);
+    });
+
+    it('공개 원장 행에 채권 원문 필드가 없다', async () => {
+      const gateway = await create();
+      for (const loan of await gateway.listLoans()) {
+        expect(Object.keys(loan).sort()).toEqual([...PUBLIC_LOAN_FIELDS].sort());
+      }
+    });
+  });
+}
+
+/** 쓰기 계약. 서버가 서명하는 구현만 해당한다. */
+export function chainWriterContract(name: string, create: () => Promise<Gateway>): void {
+  describe(`ChainWriter 계약: ${name}`, () => {
     it('정상 대출이 확정되고 잔액이 줄어든다', async () => {
       const gateway = await create();
       const before = await gateway.getLenderVault('lender-a');
@@ -70,7 +119,7 @@ export function chainGatewayContract(name: string, create: () => Promise<Gateway
       ).rejects.toBeInstanceOf(NullifierAlreadyUsedError);
     });
 
-    it('공개 원장 행에 채권 원문 필드가 없다', async () => {
+    it('확정된 대출이 공개 원장에 원문 없이 올라간다', async () => {
       const gateway = await create();
       await gateway.submitFinancing({
         lender: 'lender-a', amount: 80_000_000n, recipient: RECIPIENT,
@@ -80,12 +129,14 @@ export function chainGatewayContract(name: string, create: () => Promise<Gateway
         },
       });
       const loans = await gateway.listLoans();
+      expect(loans).toHaveLength(1);
       expect(Object.keys(loans[0] ?? {}).sort()).toEqual([...PUBLIC_LOAN_FIELDS].sort());
     });
   });
 }
 
-chainGatewayContract('LocalCircuitChainGateway', async () => {
+/** 시뮬레이터를 데모 초기 상태로 세운다. 두 스위트가 같이 쓴다. */
+export async function seededSimulator(): Promise<OnceContractSimulator> {
   const sim = await OnceContractSimulator.create({
     issuerId: ISSUER_ID,
     issuerSecret: ISSUER_SECRET,
@@ -103,8 +154,13 @@ chainGatewayContract('LocalCircuitChainGateway', async () => {
       ownerPk: deriveOwnerPublicKey(OWNER_SECRET),
     }),
   );
-  return new LocalCircuitChainGateway(fixedSource(sim));
-});
+  return sim;
+}
+
+const localGateway = async () => new LocalCircuitChainGateway(fixedSource(await seededSimulator()));
+
+chainReaderContract('LocalCircuitChainGateway', localGateway);
+chainWriterContract('LocalCircuitChainGateway', localGateway);
 
 // 미등록 금융사 계약은 게이트웨이 단독으로 확인한다
 describe('ChainGateway 계약: 미등록 금융사', () => {
