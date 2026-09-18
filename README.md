@@ -18,9 +18,9 @@ pnpm dev
 
 | | |
 |---|---|
-| 필요한 것 | Node 20+ , pnpm |
+| 필요한 것 | Node 20+ , pnpm 10+ |
 | 필요 없는 것 | 지갑, faucet, 테스트넷, proof server, Compact 컴파일러 |
-| 걸리는 시간 | `pnpm install` 30초 내외, 기동 2초 |
+| 걸리는 시간 | `pnpm install` 8초, 기동 4초 (아래 클린 환경 실측) |
 
 포트는 API 3011 / 웹 3040이다. 이미 쓰는 포트가 있으면
 `PORT=... pnpm --filter @once/api dev` 로 바꾼다.
@@ -41,9 +41,12 @@ pnpm dev
 ### 검증
 
 ```bash
-pnpm test          # 50건: 불변식, 회로 라운드트립, 공격 A1~A9
-pnpm test:attacks  # 공격 시나리오만
+pnpm test          # 111건: 불변식, 회로 라운드트립, 공격 A1~A10, 계약 테스트
+pnpm test:attacks  # 공격 시나리오만 (24건)
 ```
+
+110건이 통과하고 1건은 건너뛴다. 건너뛰는 1건은 실제 네트워크가 필요한
+계약 테스트이고, `ONCE_LIVE_CHAIN=1` 일 때만 돈다 (§5.1).
 
 이 테스트들은 목 구현이 아니라 **컴파일된 Compact 회로를 실제로 실행한다.**
 거부는 애플리케이션 계층이 아니라 회로의 `assert`가 만든 결과다.
@@ -60,6 +63,30 @@ Node에서 그대로 돌린다. 증명 생성·제출은 로컬에서 일어나�
 
 로컬 실행이 대신하지 못하는 것은 노드의 증명 트랜스크립트 검증과 합의
 계층의 트랜잭션 순서 결정이다. 그건 테스트넷 배포로 확인한다(아래).
+
+### 클린 환경에서 확인했다
+
+"내 기계에서는 되던데" 를 없애기 위해, **이 저장소를 빈 디렉터리에 새로
+클론하고 pnpm 스토어까지 비운 상태**에서 위 명령만으로 돌려 봤다.
+`HOME` 을 격리해 이 기계의 캐시가 섞이지 않게 했다.
+
+| 단계 | 결과 |
+|---|---|
+| `git clone` | 220개 파일 · 60MB (증명키 21MB 포함) |
+| `pnpm install` (콜드 스토어) | 456개 패키지 전부 새로 내려받아 **7.8초**, 락파일 변경 없음 |
+| `pnpm dev` | API·웹 **4초** 내 기동. `/`, `/supplier`, `/console`, `/ledger` 전부 200 |
+| 증명키 | `predev` 가 `contracts/managed/` 에서 `public/zk` 로 복사 (10개, 20MB) |
+| 데모 1~3 | 금융사 A 확정 → 같은 채권으로 B 신청 시 `NULLIFIER_ALREADY_USED` · `!usedNullifiers.member(nf)`, B 예치 잔액 그대로 |
+| 공격 A1~A6 | 전부 거부. 나간 자금 0 (A5 만 정상 대출 1건분) |
+| `pnpm test` | 110 통과 · 1 건너뜀 |
+| `pnpm typecheck` · `pnpm lint` · `pnpm build` | 통과 |
+
+**Compact 툴체인은 설치하지 않았다.** `contracts/managed/` 가 커밋돼 있어서
+컴파일 단계가 없다.
+
+> `.env` 는 저장소에 없고 필요하지도 않다. 없으면 `local-circuit` 으로 돈다.
+> 실제 체인에 붙일 때만 만든다 (§5.1). `.env` 를 만든다면 Node 20.12 이상이
+> 필요하다 — 내장 `loadEnvFile` 을 쓴다.
 
 ---
 
@@ -248,7 +275,7 @@ GraphQL 로 직접 보려면 `https://indexer.preprod.midnight.network/api/v3/gr
 | G3 회로 | ✅ 정상 증명 성공, 실패 경로 확인 |
 | G4 체인 연동 | ✅ Preprod 배포 완료, 앱 전체가 실제 체인을 읽는다 (§5.1) |
 | G5 프론트 | ✅ 3화면 + 공개 원장 + 공격 패널 |
-| G6 검증 | ✅ A1~A10 전부 기대 결과, 테스트 101건 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
+| G6 검증 | ✅ A1~A10 전부 기대 결과, 테스트 111건 ([TEST_REPORT.md](docs/TEST_REPORT.md)) |
 
 로컬 모드도 컴파일된 회로를 그대로 실행한다. A1~A10의 거부는 애플리케이션
 계층이 아니라 회로의 assert가 만든 결과다. 로컬 실행이 증명하지 못하는 것은
@@ -348,7 +375,7 @@ once/
 ├── apps/
 │   ├── api/                       # NestJS. 포트/어댑터
 │   └── web/                       # Next.js. 얇은 뷰
-├── test/attacks/                  # A1~A9
+├── test/attacks/                  # A1~A10
 └── docs/
 ```
 

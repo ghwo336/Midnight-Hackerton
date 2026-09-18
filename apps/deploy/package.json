@@ -6,7 +6,8 @@
   "scripts": {
     "address": "tsx --env-file-if-exists=../../.env src/address.ts",
     "deploy": "taskpolicy -b env UV_THREADPOOL_SIZE=2 NODE_OPTIONS=\"--max-old-space-size=8192 --v8-pool-size=2\" tsx --env-file-if-exists=../../.env src/deploy.ts",
-    "scenario": "taskpolicy -b env UV_THREADPOOL_SIZE=2 NODE_OPTIONS=\"--max-old-space-size=8192 --v8-pool-size=2\" tsx --env-file-if-exists=../../.env src/scenario.ts"
+    "scenario": "taskpolicy -b env UV_THREADPOOL_SIZE=2 NODE_OPTIONS=\"--max-old-space-size=8192 --v8-pool-size=2\" tsx --env-file-if-exists=../../.env src/scenario.ts",
+    "sync": "taskpolicy -b env UV_THREADPOOL_SIZE=2 NODE_OPTIONS=\"--max-old-space-size=8192 --v8-pool-size=2\" tsx --env-file-if-exists=../../.env src/sync.ts"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.16.0",
