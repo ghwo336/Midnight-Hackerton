@@ -1,4 +1,6 @@
-import type { DomainErrorCode, Hex, LenderId, ReviewChecklist } from '@once/domain';
+import type {
+  DomainErrorCode, Hex, LenderId, ReviewChecklist, RiskProfile,
+} from '@once/domain';
 
 /**
  * 금융사에 도착한 대출 신청 한 건.
@@ -24,6 +26,16 @@ export interface ApplicationRecord {
   readonly block: number | null;
   readonly txHash: Hex | null;
   readonly elapsedMs: number;
+  /**
+   * 납품업체가 **이 금융사에만** 내준 위험 정보.
+   *
+   * 온체인에 올라가지 않는다. 신청과 함께 이 금융사에만 전달되는
+   * 오프체인 데이터다. 저장소가 금융사별로 나뉘어 있으므로 다른 금융사
+   * 응답에 섞일 수 없다.
+   *
+   * 고른 항목만 키가 있다. 고르지 않은 항목은 빈 값이 아니라 없다.
+   */
+  readonly disclosed: Partial<RiskProfile>;
 }
 
 /**

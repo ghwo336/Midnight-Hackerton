@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
-import type { LenderId, SupplierInvoice } from '@/shared/api/types';
+import {
+  DISCLOSURE_FIELDS, DISCLOSURE_LABEL,
+  type DisclosureField, type LenderId, type SupplierInvoice,
+} from '@/shared/api/types';
 import { RoleHeader, type AccountView } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
@@ -38,6 +41,13 @@ export function SupplierApp({ account }: { account?: AccountView }) {
   /** 지금 어느 금융사에 신청 중인가. 로그는 한 줄기다. */
   const [target, setTarget] = useState<LenderId | null>(null);
   const [runtime, setRuntime] = useState<LenderRuntime>(IDLE_RUNTIME);
+  /*
+   * 이 금융사에 무엇을 내줄지. **기본은 전부 꺼짐이다.**
+   *
+   * 켜는 것이 사용자의 의식적인 행동이어야 한다. 기본이 켜져 있으면
+   * "안 끄면 나간다"가 되고, 그건 선택적 공개가 아니다.
+   */
+  const [disclose, setDisclose] = useState<readonly DisclosureField[]>([]);
   const [tick, setTick] = useState(0);
 
   const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
@@ -98,7 +108,7 @@ export function SupplierApp({ account }: { account?: AccountView }) {
       setRuntime(beginRequest(new Date().toISOString()));
       setSelectedId(selected.invoiceId);
       try {
-        await api.finance(selected.invoiceId, lender, selected.maxLoanAmount);
+        await api.finance(selected.invoiceId, lender, selected.maxLoanAmount, disclose);
       } catch (error: unknown) {
         const code = error instanceof ApiError ? error.code : 'UNKNOWN';
         const assertExpr = error instanceof ApiError ? error.circuitAssert : null;
@@ -110,7 +120,7 @@ export function SupplierApp({ account }: { account?: AccountView }) {
         void queryClient.invalidateQueries();
       }
     },
-    [selected, queryClient],
+    [selected, disclose, queryClient],
   );
 
   const ltv = terms.data ? `${Number(terms.data.ltvBps) / 100}%` : EMPTY;
@@ -189,6 +199,43 @@ export function SupplierApp({ account }: { account?: AccountView }) {
             {!hasFree ? (
               <p className="ledger__empty">신청 가능한 채권이 없습니다.</p>
             ) : (
+            <>
+            {/*
+              무엇을 내줄지 고른다.
+              구매기업·채권번호·승인번호는 선택지에 없다. 그 항목들은
+              하나만 있어도 거래 상대가 드러나므로 고를 방법 자체를 두지 않는다.
+            */}
+            <div className="disclose">
+              <div className="stages__head">이 금융사에 제공할 정보</div>
+              {DISCLOSURE_FIELDS.map((field) => {
+                const on = disclose.includes(field);
+                return (
+                  <label key={field} className="disclose__row">
+                    <input
+                      type="checkbox"
+                      className="disclose__box"
+                      checked={on}
+                      disabled={!canApply}
+                      onChange={() =>
+                        setDisclose((prev) =>
+                          on ? prev.filter((f) => f !== field) : [...prev, field],
+                        )
+                      }
+                    />
+                    <span className="disclose__label">{DISCLOSURE_LABEL[field]}</span>
+                    <span className="disclose__value num">
+                      {canApply && selected ? selected.risk[field] : EMPTY}
+                    </span>
+                  </label>
+                );
+              })}
+              <p className="hint">
+                {disclose.length === 0
+                  ? '아무것도 제공하지 않으면 금융사는 검증 결과만 본다'
+                  : `${disclose.length}개 항목을 신청과 함께 보낸다`}
+              </p>
+            </div>
+
             <table className="terms">
               <colgroup>
                 <col />
@@ -228,6 +275,7 @@ export function SupplierApp({ account }: { account?: AccountView }) {
                 })}
               </tbody>
             </table>
+            </>
             )}
             <p className={`hint ${stalled || selectedUsed ? 'hint--error' : ''}`}>
               {stalled

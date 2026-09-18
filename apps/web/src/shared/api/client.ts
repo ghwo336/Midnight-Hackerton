@@ -1,7 +1,7 @@
 import type {
   AttackOutcome, ChainStatus, CheckDescriptor, ClaimResult, FinancingSettled, Identity,
-  IssueInvoiceBody, IssueResult, IssuerState, LenderId, LenderState, LenderTermsList, LoanRow,
-  SupplierInvoice,
+  DisclosureField, IssueInvoiceBody, IssueResult, IssuerState, LenderId, LenderState,
+  LenderTermsList, LoanRow, SupplierInvoice,
 } from './types.js';
 
 /**
@@ -89,10 +89,16 @@ export const api = {
   issuer: () => request<IssuerState>('/issuer/state'),
   issueInvoice: (body: IssueInvoiceBody) =>
     request<IssueResult>('/issuer/invoices', { method: 'POST', body: JSON.stringify(body) }),
-  finance: (invoiceId: string, lenderId: LenderId, amount: string) =>
+  finance: (
+    invoiceId: string,
+    lenderId: LenderId,
+    amount: string,
+    /** 이 금융사에 내줄 항목. 비우면 아무것도 내주지 않는다. */
+    disclose: readonly DisclosureField[] = [],
+  ) =>
     request<FinancingSettled>('/supplier/financing', {
       method: 'POST',
-      body: JSON.stringify({ invoiceId, lenderId, amount }),
+      body: JSON.stringify({ invoiceId, lenderId, amount, disclose }),
     }),
   attack: (id: string) => request<AttackOutcome>(`/demo/attack/${id}`, { method: 'POST' }),
   reset: () => request<{ ok: boolean }>('/demo/reset', { method: 'POST' }),

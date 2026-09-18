@@ -25,6 +25,15 @@ import { LENDER_FUNDING, LENDER_KEYS } from '../../apps/api/src/config/demo.conf
  * 결과를 함께 기록한다 (SPEC §10.2).
  */
 const CANARY = 'CANARY_ONCE_7F3A';
+
+/**
+ * 위험 정보에는 카나리아를 심지 않는다.
+ *
+ * 이 값들은 납품업체 본인 화면과, 납품업체가 고른 금융사에 **정당하게**
+ * 간다. 여기에 카나리아를 넣으면 정상 동작을 유출로 오판한다.
+ * 위험 정보의 격리는 role-isolation.spec.ts 가 따로 검사한다.
+ */
+const SAFE_RISK = { creditGrade: 'AA', dueWindow: '30~60일', industry: '전자부품 제조' };
 const SUPPLIER = 'supplier-1';
 const ISSUER_ID = `0x${'11'.repeat(32)}` as Hex;
 const ISSUER_SECRET = `0x${'5e'.repeat(32)}` as Hex;
@@ -82,6 +91,7 @@ describe('A9: 카나리아 전수 검색', () => {
         approvalNumber: `${CANARY}_20260917`,
         memo: `${CANARY}_메모`,
       },
+      risk: SAFE_RISK,
     });
 
     const settled = await stack.requestFinancing.execute({
@@ -136,6 +146,7 @@ describe('A9: 카나리아 전수 검색', () => {
         counterparty: `${CANARY}_x`, dueDate: `${CANARY}_y`,
         approvalNumber: `${CANARY}_z`, memo: CANARY,
       },
+      risk: SAFE_RISK,
     });
     await stack.requestFinancing.execute({
       supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
@@ -157,6 +168,7 @@ describe('A9: 카나리아 전수 검색', () => {
         counterparty: `${CANARY}_구매기업`, dueDate: `${CANARY}_2026`,
         approvalNumber: `${CANARY}_승인`, memo: CANARY,
       },
+      risk: SAFE_RISK,
     });
     const views = await stack.listInvoices.execute(SUPPLIER);
     expect(Object.keys(views[0] ?? {}).sort()).toEqual([...SUPPLIER_INVOICE_FIELDS].sort());
@@ -187,6 +199,7 @@ describe('A9: 카나리아 전수 검색', () => {
         counterparty: `${CANARY}_구매기업`, dueDate: CANARY,
         approvalNumber: CANARY, memo: CANARY,
       },
+      risk: SAFE_RISK,
     });
     await stack.requestFinancing.execute({
       supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',

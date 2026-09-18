@@ -55,6 +55,11 @@ export class IssuerController {
         approvalNumber: dto.approvalNumber,
         memo: dto.memo,
       },
+      risk: {
+        creditGrade: dto.creditGrade,
+        dueWindow: dto.dueWindow,
+        industry: dto.industry,
+      },
     });
 
     this.events.publish({ type: 'invoice.issued', invoiceId });

@@ -36,6 +36,8 @@ export class ListInvoicesUseCase {
         used: loan !== null || (await this.reader.isNullifierUsed(nullifier)),
         usedBy: loan?.lender ?? null,
         usedBlock: loan?.block ?? null,
+        // 본인 채권이다. 무엇을 내줄지 고르려면 무엇이 있는지 봐야 한다.
+        risk: invoice.risk,
       });
     }
     return views;

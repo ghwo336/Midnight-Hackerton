@@ -11,6 +11,7 @@ import { MerkleIssuerStrategy } from '../../apps/api/src/infrastructure/chain/me
 import { InMemoryPrivateStateRepository } from '../../apps/api/src/infrastructure/persistence/in-memory-private-state.repository.js';
 import { InMemoryApplicationLog } from '../../apps/api/src/infrastructure/persistence/in-memory-application-log.js';
 import { RequestFinancingUseCase } from '../../apps/api/src/application/request-financing.usecase.js';
+import { ListLoansUseCase } from '../../apps/api/src/application/list-loans.usecase.js';
 import { LenderController } from '../../apps/api/src/interface/http/lender.controller.js';
 import { LENDER_FUNDING, LENDER_KEYS } from '../../apps/api/src/config/demo.config.js';
 
@@ -31,6 +32,19 @@ const ISSUER_SECRET = `0x${'5e'.repeat(32)}` as Hex;
 const OWNER_SECRET = `0x${'7c'.repeat(32)}` as Hex;
 const RECIPIENT = `0x${'cc'.repeat(32)}` as Hex;
 const CANARY = 'CANARY_ROLE_9B2C';
+/**
+ * 위험 정보용 표식.
+ *
+ * 채권 원문(CANARY)과 구분한다. 위험 정보는 납품업체가 **고른 금융사에는
+ * 정당하게** 가므로 "어디에도 없어야 한다"로 검사할 수 없다. 간 곳과
+ * 가지 않은 곳을 나눠서 봐야 한다.
+ */
+const RISK = 'RISK_ROLE_4D71';
+const RISK_PROFILE = {
+  creditGrade: `${RISK}_AA`,
+  dueWindow: `${RISK}_30to60`,
+  industry: `${RISK}_electronics`,
+};
 const SUPPLIER = 'supplier-1';
 
 async function buildStack() {
@@ -53,6 +67,7 @@ async function buildStack() {
   const financing = new RequestFinancingUseCase(
     repo, gateway, gateway, new MerkleIssuerStrategy(), applications,
   );
+  const publicLoans = new ListLoansUseCase(gateway);
   const controller = new LenderController(gateway, applications);
 
   /** 카나리아를 심은 채권 하나를 발급한다. */
@@ -71,12 +86,13 @@ async function buildStack() {
         approvalNumber: `${CANARY}_20260917`,
         memo: `${CANARY}_메모`,
       },
+      risk: RISK_PROFILE,
     });
     await sim.registerInvoice(computeInvoiceLeaf({ invoiceId, faceAmount, ownerPk }));
     return invoiceId;
   };
 
-  return { sim, gateway, repo, applications, financing, controller, issue };
+  return { sim, gateway, repo, applications, financing, controller, issue, publicLoans };
 }
 
 describe('역할 격리: 금융사 경로', () => {
@@ -189,5 +205,106 @@ describe('역할 격리: 금융사 경로', () => {
     expect(rejected?.checks.ownership.state).toBe('skipped');
     expect(rejected?.checks.issuer.state).toBe('skipped');
     expect(rejected?.checks.unused).toEqual({ state: 'fail', by: 'pre-check' });
+  });
+});
+
+/**
+ * 심사 정보의 선택적 공개 (CONTEXT §5).
+ *
+ * 금융사는 구매기업이 누구인지 몰라야 하지만, 채무자의 위험은 알아야
+ * 심사가 성립한다. 그래서 납품업체가 항목별로 고른 것만 그 금융사에 간다.
+ *
+ * 여기서 검사하는 것은 "간 곳"이 아니라 **가지 않은 곳**이다. 고른 항목이
+ * 도착하는 것은 기능이고, 고르지 않은 항목이나 다른 금융사 쪽에 새는
+ * 것이 결함이다.
+ */
+describe('역할 격리: 심사 정보의 선택적 공개', () => {
+  it('고른 항목만 그 금융사에 간다', async () => {
+    const stack = await buildStack();
+    const invoiceId = await stack.issue(100_000_000n);
+    await stack.financing.execute({
+      supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
+      amount: 80_000_000n, recipient: RECIPIENT,
+      disclose: ['creditGrade'],
+    });
+
+    const a = await stack.controller.state('lender-a');
+    const disclosed = a.applications[0]?.disclosed ?? {};
+    expect(disclosed.creditGrade).toBe(RISK_PROFILE.creditGrade);
+    // 고르지 않은 항목은 빈 값이 아니라 키 자체가 없다. 화면이 "비공개"를
+    // 그릴 자리조차 없어야 한다.
+    expect(Object.keys(disclosed)).toEqual(['creditGrade']);
+    expect('dueWindow' in disclosed).toBe(false);
+    expect('industry' in disclosed).toBe(false);
+  });
+
+  it('아무것도 고르지 않으면 아무것도 가지 않는다', async () => {
+    const stack = await buildStack();
+    const invoiceId = await stack.issue(100_000_000n);
+    await stack.financing.execute({
+      supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
+      amount: 80_000_000n, recipient: RECIPIENT,
+    });
+
+    const a = await stack.controller.state('lender-a');
+    expect(a.applications[0]?.disclosed).toEqual({});
+    expect(JSON.stringify(a)).not.toContain(RISK);
+  });
+
+  it('한 금융사에 내준 심사 정보가 다른 금융사 응답에 없다', async () => {
+    const stack = await buildStack();
+    const invoiceId = await stack.issue(100_000_000n);
+
+    // A 에는 세 항목 전부 내준다
+    await stack.financing.execute({
+      supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
+      amount: 80_000_000n, recipient: RECIPIENT,
+      disclose: ['creditGrade', 'dueWindow', 'industry'],
+    });
+    // B 에는 같은 채권으로 신청하되 아무것도 내주지 않는다
+    await expect(
+      stack.financing.execute({
+        supplierId: SUPPLIER, invoiceId, lenderId: 'lender-b',
+        amount: 80_000_000n, recipient: RECIPIENT,
+      }),
+    ).rejects.toThrow();
+
+    const a = JSON.stringify(await stack.controller.state('lender-a'));
+    const b = JSON.stringify(await stack.controller.state('lender-b'));
+
+    expect(a).toContain(RISK_PROFILE.creditGrade);
+    expect(b, 'B 응답에 A 가 받은 심사 정보가 섞였다').not.toContain(RISK);
+  });
+
+  it('공개 원장에 심사 정보가 없다', async () => {
+    const stack = await buildStack();
+    const invoiceId = await stack.issue(100_000_000n);
+    await stack.financing.execute({
+      supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
+      amount: 80_000_000n, recipient: RECIPIENT,
+      disclose: ['creditGrade', 'dueWindow', 'industry'],
+    });
+
+    // 온체인에 올라가지 않는다. 신청과 함께 그 금융사에만 가는 오프체인이다.
+    const dump = (value: unknown) =>
+      JSON.stringify(value, (_k, v: unknown) => (typeof v === 'bigint' ? v.toString() : v));
+
+    expect(dump(await stack.publicLoans.execute())).not.toContain(RISK);
+    expect(dump(stack.sim.snapshot()), '원장 스냅샷에 심사 정보가 섞였다').not.toContain(RISK);
+  });
+
+  it('채권 원문은 선택지에 없어서 어느 쪽으로도 갈 수 없다', async () => {
+    const stack = await buildStack();
+    const invoiceId = await stack.issue(100_000_000n);
+    await stack.financing.execute({
+      supplierId: SUPPLIER, invoiceId, lenderId: 'lender-a',
+      amount: 80_000_000n, recipient: RECIPIENT,
+      disclose: ['creditGrade', 'dueWindow', 'industry'],
+    });
+
+    // 전부 내줘도 구매기업·지급일·승인번호는 나가지 않는다.
+    // DisclosureField 에 그 항목이 없어서 고를 방법 자체가 없다.
+    const a = JSON.stringify(await stack.controller.state('lender-a'));
+    expect(a).not.toContain(CANARY);
   });
 });

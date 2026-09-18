@@ -26,6 +26,27 @@ export interface ChainStatus {
   readonly ltvBps: string;
 }
 
+/**
+ * 심사에 쓰이는 위험 정보.
+ *
+ * 구매기업이 **누구인지는 빼고 얼마나 위험한지만** 남긴 값이다.
+ * 같은 등급·구간·업종을 가진 회사가 여럿이라 하나로 특정되지 않는다.
+ */
+export interface RiskProfile {
+  readonly creditGrade: string;
+  readonly dueWindow: string;
+  readonly industry: string;
+}
+
+export const DISCLOSURE_FIELDS = ['creditGrade', 'dueWindow', 'industry'] as const;
+export type DisclosureField = (typeof DISCLOSURE_FIELDS)[number];
+
+export const DISCLOSURE_LABEL: Record<DisclosureField, string> = {
+  creditGrade: '채무자 신용등급',
+  dueWindow: '지급 예정일 구간',
+  industry: '업종 분류',
+};
+
 export interface SupplierInvoice {
   readonly invoiceId: string;
   readonly faceAmount: string;
@@ -33,6 +54,8 @@ export interface SupplierInvoice {
   readonly used: boolean;
   readonly usedBy: LenderId | null;
   readonly usedBlock: number | null;
+  /** 본인 채권이다. 무엇을 내줄지 고르려면 무엇이 있는지 봐야 한다. */
+  readonly risk: RiskProfile;
 }
 
 /**
@@ -75,6 +98,11 @@ export interface ApplicationRow {
   readonly block: number | null;
   readonly txHash: string | null;
   readonly elapsedMs: number;
+  /**
+   * 납품업체가 이 금융사에만 내준 위험 정보.
+   * 고른 항목만 키가 있다. 고르지 않은 항목은 키 자체가 없다.
+   */
+  readonly disclosed: Partial<RiskProfile>;
 }
 
 export interface LenderState {

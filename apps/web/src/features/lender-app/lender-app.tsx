@@ -3,7 +3,10 @@
 import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
-import type { ApplicationRow, LenderId } from '@/shared/api/types';
+import {
+  DISCLOSURE_FIELDS, DISCLOSURE_LABEL,
+  type ApplicationRow, type LenderId,
+} from '@/shared/api/types';
 import { RoleHeader, type AccountView } from '@/shared/role/role-header';
 import { useLive } from '@/shared/role/use-live';
 import type { OnceEvent } from '@/shared/sse/use-once-events';
@@ -173,6 +176,22 @@ export function LenderApp({
                       {application.outcome === 'settled' ? '지급 완료' : '지급 거부'}
                     </span>
                   </header>
+
+                  {/*
+                    제공받은 항목만 그린다.
+                    제공되지 않은 항목은 응답에 키 자체가 없다. "비공개"라고
+                    적지 않는다. 없는 것은 그냥 없다.
+                  */}
+                  {DISCLOSURE_FIELDS.some((f) => application.disclosed[f]) ? (
+                    <dl className="risk">
+                      {DISCLOSURE_FIELDS.filter((f) => application.disclosed[f]).map((f) => (
+                        <div key={f} className="risk__row">
+                          <dt className="risk__key">{DISCLOSURE_LABEL[f]}</dt>
+                          <dd className="risk__val num">{application.disclosed[f]}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
 
                   <Checklist
                     descriptors={descriptors.data ?? []}

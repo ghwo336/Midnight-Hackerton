@@ -41,6 +41,12 @@ export const SUPPLIER_INVOICE_FIELDS = [
   'used',
   'usedBy',
   'usedBlock',
+  /*
+   * 위험 정보. 납품업체 본인 화면에만 있다.
+   * 무엇을 내줄지 고르려면 무엇이 있는지 봐야 한다. 고르기 전에는 아무
+   * 금융사에도 가지 않는다.
+   */
+  'risk',
 ] as const;
 
 /** 공개 경로에 절대 나가면 안 되는 키 (SPEC §8.6). */
@@ -78,6 +84,11 @@ export const APPLICATION_FIELDS = [
   'block',
   'txHash',
   'elapsedMs',
+  /*
+   * 납품업체가 이 금융사에만 내준 위험 정보. 고른 항목만 키가 있다.
+   * 고르지 않은 항목은 값이 비는 게 아니라 키 자체가 없다.
+   */
+  'disclosed',
 ] as const;
 
 /**

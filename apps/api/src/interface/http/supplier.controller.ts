@@ -44,6 +44,7 @@ export class SupplierController {
           lenderId: dto.lenderId,
           amount: dto.amount,
           recipient: SUPPLIER_ADDRESS,
+          disclose: dto.disclose,
         },
         stage,
       );

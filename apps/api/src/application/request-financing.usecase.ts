@@ -7,7 +7,10 @@ import {
   AmountExceedsLtvError,
   isWithinLtv,
   reviewChecklist,
+  selectDisclosure,
   type CheckVerifier,
+  type DisclosureField,
+  type RiskProfile,
   type DomainErrorCode,
   type FinancingResult,
   type Hex,
@@ -30,6 +33,13 @@ export interface RequestFinancingCommand {
   readonly lenderId: LenderId;
   readonly amount: bigint;
   readonly recipient: Hex;
+  /**
+   * 이 금융사에 내줄 위험 정보 항목.
+   *
+   * 선택이다. 없으면 아무것도 내주지 않고 금융사는 검증 결과만 본다.
+   * 빠뜨렸을 때 전부 나가는 쪽으로 열리면 안 된다.
+   */
+  readonly disclose?: readonly DisclosureField[];
 }
 
 /**
@@ -69,11 +79,17 @@ export class RequestFinancingUseCase {
      */
     let verifier: CheckVerifier = 'pre-check';
     let nullifier: Hex | null = null;
+    /*
+     * 거부돼도 금융사는 이미 받아 봤다. 기록에서 빼면 화면이 실제로
+     * 오간 것과 달라진다.
+     */
+    let disclosed: Partial<RiskProfile> = {};
 
     try {
       const result = await this.run(cmd, reportStage, {
         setVerifier: (value) => { verifier = value; },
         setNullifier: (value) => { nullifier = value; },
+        setDisclosed: (value) => { disclosed = value; },
       });
       await this.applications.record({
         id,
@@ -87,6 +103,7 @@ export class RequestFinancingUseCase {
         block: result.block,
         txHash: result.txHash,
         elapsedMs: Date.now() - startedAt,
+        disclosed,
       });
       return result;
     } catch (error: unknown) {
@@ -103,6 +120,7 @@ export class RequestFinancingUseCase {
         block: null,
         txHash: null,
         elapsedMs: Date.now() - startedAt,
+        disclosed,
       });
       throw error;
     }
@@ -114,10 +132,14 @@ export class RequestFinancingUseCase {
     track: {
       setVerifier: (value: CheckVerifier) => void;
       setNullifier: (value: Hex) => void;
+      setDisclosed: (value: Partial<RiskProfile>) => void;
     },
   ): Promise<FinancingResult> {
     const invoice = await this.privateState.findInvoice(cmd.supplierId, cmd.invoiceId);
     if (!invoice) throw new InvoiceNotFoundError();
+
+    // 납품업체가 고른 항목만 추린다. 고르지 않은 항목은 키가 생기지 않는다.
+    track.setDisclosed(selectDisclosure(invoice.risk, cmd.disclose));
 
     const ltvBps = await this.reader.getLtvBps();
     if (!isWithinLtv(cmd.amount, invoice.faceAmount, ltvBps)) {

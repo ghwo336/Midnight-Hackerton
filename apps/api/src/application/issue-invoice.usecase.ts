@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { webcrypto } from 'node:crypto';
-import { bytesToHex, type Hex, type InvoiceDetail, type PrivateInvoice } from '@once/domain';
+import {
+  bytesToHex, type Hex, type InvoiceDetail, type PrivateInvoice, type RiskProfile,
+} from '@once/domain';
 import { computeInvoiceLeaf, deriveOwnerPublicKey, generateSalt } from '@once/crypto';
 import { CHAIN_WRITER, type ChainWriter } from './ports/chain.gateway.js';
 import { PRIVATE_STATE_REPO, type PrivateStateRepository } from './ports/private-state.repository.js';
@@ -9,6 +11,7 @@ export interface IssueInvoiceCommand {
   readonly supplierId: string;
   readonly faceAmount: bigint;
   readonly detail: InvoiceDetail;
+  readonly risk: RiskProfile;
 }
 
 /**
@@ -40,6 +43,7 @@ export class IssueInvoiceUseCase {
       ownerPk,
       leafIndex: 0,
       detail: cmd.detail,
+      risk: cmd.risk,
     };
 
     await this.privateState.saveInvoice(cmd.supplierId, invoice);

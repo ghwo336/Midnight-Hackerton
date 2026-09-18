@@ -926,3 +926,47 @@ button { font: inherit; color: inherit; }
   .gate__box { padding: 22px 18px; }
   .account__menu { min-width: 220px; }
 }
+
+/* ── 심사 정보의 선택적 공개 ─────────────────────────────── */
+/*
+ * 납품업체 쪽: 무엇을 내줄지 고른다. 기본은 전부 꺼짐.
+ * 금융사 쪽: 받은 것만 그린다. 안 받은 항목은 자리조차 없다.
+ */
+
+.disclose {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.disclose .stages__head { margin-top: 0; }
+.disclose__row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+.disclose__box { accent-color: var(--settle); margin: 0; }
+.disclose__value { font-size: 12.5px; color: var(--ink-3); }
+.disclose input:disabled + .disclose__label { color: var(--ink-3); }
+
+/* 금융사가 실제로 받은 값. 심사의 근거이므로 체크리스트보다 위에 둔다. */
+.risk {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.risk__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+}
+.risk__key { font-size: 12.5px; color: var(--ink-3); margin: 0; }
+.risk__val { margin: 0; font-weight: 500; }

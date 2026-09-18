@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { deriveOwnerPublicKey } from '@once/crypto';
-import type { InvoiceDetail } from '@once/domain';
+import type { InvoiceDetail, RiskProfile } from '@once/domain';
 import { IssueInvoiceUseCase } from '../../application/issue-invoice.usecase.js';
 import {
   PRIVATE_STATE_REPO, type PrivateStateRepository,
@@ -13,7 +13,18 @@ import { SUPPLIER_ID, loadEnv } from '../../config/demo.config.js';
  * 데모 최소 구성을 부팅 시 준비한다:
  * 발급 기관 1곳, 납품업체 1곳, 금융사 2곳, 채권 3건 (CONTEXT §8).
  */
-const SEED_INVOICES: readonly { faceAmount: bigint; detail: InvoiceDetail }[] = [
+/**
+ * 등급을 서로 다르게 준다.
+ *
+ * 세 건이 같은 등급이면 금융사 화면에 위험 정보가 있어도 판단할 것이 없고,
+ * 선택적 공개가 왜 필요한지도 드러나지 않는다. 등급·구간·업종이 다르면
+ * 같은 한도라도 받을지 말지가 갈린다.
+ */
+const SEED_INVOICES: readonly {
+  faceAmount: bigint;
+  detail: InvoiceDetail;
+  risk: RiskProfile;
+}[] = [
   {
     faceAmount: 100_000_000n,
     detail: {
@@ -22,6 +33,7 @@ const SEED_INVOICES: readonly { faceAmount: bigint; detail: InvoiceDetail }[] = 
       approvalNumber: '20260917-41002983-11223344',
       memo: '9월 정밀부품 납품분',
     },
+    risk: { creditGrade: 'AA', dueWindow: '30~60일', industry: '전자부품 제조' },
   },
   {
     faceAmount: 50_000_000n,
@@ -31,6 +43,7 @@ const SEED_INVOICES: readonly { faceAmount: bigint; detail: InvoiceDetail }[] = 
       approvalNumber: '20260917-41002983-55667788',
       memo: '설비 유지보수 계약분',
     },
+    risk: { creditGrade: 'BBB', dueWindow: '60~90일', industry: '산업기계' },
   },
   {
     faceAmount: 250_000_000n,
@@ -40,6 +53,7 @@ const SEED_INVOICES: readonly { faceAmount: bigint; detail: InvoiceDetail }[] = 
       approvalNumber: '20260917-41002983-99001122',
       memo: '4분기 원자재 공급분',
     },
+    risk: { creditGrade: 'B', dueWindow: '90일 이상', industry: '기초화학' },
   },
 ];
 
@@ -81,6 +95,7 @@ export class DemoSeedService implements OnModuleInit {
         supplierId: SUPPLIER_ID,
         faceAmount: seed.faceAmount,
         detail: seed.detail,
+        risk: seed.risk,
       });
     }
   }
