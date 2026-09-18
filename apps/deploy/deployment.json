@@ -1,0 +1,125 @@
+{
+  "network": "preprod",
+  "path": "browser+lace",
+  "contractAddress": "52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596",
+  "explorer": {
+    "contract": "https://preprod.midnightexplorer.com/contracts/52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596",
+    "transaction": "https://preprod.midnightexplorer.com/transactions/<hash>"
+  },
+  "issuerId": "0x1111111111111111111111111111111111111111111111111111111111111111",
+  "issuerPk": "0xcc56a96dc74f69a6e8d935cffc5141e89a8d37bea2a683cd8b3ecf8e82485e72",
+  "issuerSecretLocation": "browser IndexedDB (기기 외부로 나가지 않음)",
+  "ltvBps": "8000",
+  "lenders": {
+    "lender-a": "0x0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+    "lender-b": "0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b"
+  },
+  "lenderFunding": "1000000000",
+  "invoices": [
+    {
+      "invoiceId": "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "faceAmount": "100000000"
+    },
+    {
+      "invoiceId": "0xa2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+      "faceAmount": "50000000"
+    },
+    {
+      "invoiceId": "0xa3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+      "faceAmount": "250000000"
+    }
+  ],
+  "dustRegistration": {
+    "txHash": "93d62a1aec9f5fdb",
+    "block": 2605723,
+    "note": "Midnight 측 DustRegistration 을 DApp 커넥터로 직접 조립·서명·제출. 자기자금 등록으로 수수료 충당."
+  },
+  "transactions": [
+    {
+      "label": "deploy",
+      "block": 2605881,
+      "txId": "8f3e02c49cb8e8c73698a19762040508168dc5e077ab5db84e6e682e665545f9",
+      "totalMs": 41780,
+      "proveMs": 0,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/8f3e02c49cb8e8c73698a19762040508168dc5e077ab5db84e6e682e665545f9"
+    },
+    {
+      "label": "registerLender:lender-a",
+      "block": 2605889,
+      "txId": "c52e1456e675622d7fb975c43edad62aacf2b04e3bbbb88d07d6cc25651a65b6",
+      "totalMs": 44450,
+      "proveMs": 910,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/c52e1456e675622d7fb975c43edad62aacf2b04e3bbbb88d07d6cc25651a65b6"
+    },
+    {
+      "label": "registerLender:lender-b",
+      "block": 2605896,
+      "txId": "f5689059189205107c9a259c2bcf873f40f7c4d5706d579c6f5761538c7c0431",
+      "totalMs": 34340,
+      "proveMs": 680,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/f5689059189205107c9a259c2bcf873f40f7c4d5706d579c6f5761538c7c0431"
+    },
+    {
+      "label": "fundLender:lender-a",
+      "block": 2605902,
+      "txId": "d4245aba510d284064631521912af68d73971919d0fede686fea5e564d27acd6",
+      "totalMs": 40550,
+      "proveMs": 1370,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/d4245aba510d284064631521912af68d73971919d0fede686fea5e564d27acd6"
+    },
+    {
+      "label": "fundLender:lender-b",
+      "block": 2605909,
+      "txId": "2b6fd4dd4c5e415dadbb277a5b926e4826acf7ef264816127896d8890f542ffc",
+      "totalMs": 36750,
+      "proveMs": 1010,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/2b6fd4dd4c5e415dadbb277a5b926e4826acf7ef264816127896d8890f542ffc"
+    },
+    {
+      "label": "registerInvoice:1",
+      "block": 2605915,
+      "txId": "9a7f8b5cf1b31d8f9ec7c1133ba6e5fa8fc88fc794852afc0d969d3d7b8468ca",
+      "totalMs": 36730,
+      "proveMs": 880,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/9a7f8b5cf1b31d8f9ec7c1133ba6e5fa8fc88fc794852afc0d969d3d7b8468ca"
+    },
+    {
+      "label": "registerInvoice:2",
+      "block": 2605921,
+      "txId": "5b7629790066ba1303986544c7b5d74bfc735160396d25775dcec748392d4df8",
+      "totalMs": 36730,
+      "proveMs": 640,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/5b7629790066ba1303986544c7b5d74bfc735160396d25775dcec748392d4df8"
+    },
+    {
+      "label": "registerInvoice:3",
+      "block": 2605926,
+      "txId": "46637de61eff7c1add647fea390a793a51fed9e5b93a572cb84d5681d6eb0f04",
+      "totalMs": 29480,
+      "proveMs": 660,
+      "explorer": "https://preprod.midnightexplorer.com/transactions/46637de61eff7c1add647fea390a793a51fed9e5b93a572cb84d5681d6eb0f04"
+    }
+  ],
+  "onChainStateVerified": {
+    "method": "indexer contractAction(address).state → ContractState.deserialize → ledger()",
+    "registeredLenders": 2,
+    "lenderVault": {
+      "lender-a": "1000000000",
+      "lender-b": "1000000000"
+    },
+    "invoiceLeaves": 3,
+    "issuerRoot": "0x70ba679b8ebce1d66351a31bfc77afa30d3ea759b32f65ee0174f04529605001",
+    "usedNullifiers": 0,
+    "loans": 0
+  },
+  "measurement": {
+    "source": "지갑 패널 실측 (OCR 로 옮김). 구간별 세부값은 '실측 복사' 결과가 오면 갱신",
+    "proveAvgMs": 880,
+    "proveCalls": 7,
+    "indexedDbPrivateStateReads": 7,
+    "witnessCalls": {
+      "issuerSecret": 7
+    }
+  },
+  "deployedAt": "2026-09-19T01:12:24+09:00"
+}

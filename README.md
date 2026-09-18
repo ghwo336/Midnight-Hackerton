@@ -205,24 +205,38 @@ salt만 바꿔 다시 봉인해도 nullifier가 같아서 거부된다.
 심사위원이 직접 배포할 필요는 없다. 아래는 **우리가 배포한 인스턴스**다.
 
 <!-- DEPLOYMENT:BEGIN -->
-> ⚠️ **아직 배포하지 않았다.** 이 절은 배포 후 주소와 tx 해시로 채운다.
-> 지금 비어 있는 것을 숨기지 않는다.
+> **배포됨 · 2026-09-19 01:12 KST · 브라우저 + Lace 경로.** 서명·잔액 조정·제출을 전부 사용자 지갑이 했다.
 >
 > | 항목 | 값 |
 > |---|---|
 > | 네트워크 | Midnight Preprod |
-> | 컨트랙트 주소 | _(미배포)_ |
-> | 배포 tx | _(미배포)_ |
-> | `finance` 성공 tx | _(미배포)_ |
-> | `finance` 중복 거부 | _(미배포)_ |
+> | 컨트랙트 주소 | [`52a72d93142c…ce5596`](https://preprod.midnightexplorer.com/contracts/52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596) |
+> | 배포 tx | [`8f3e02c49cb8…`](https://preprod.midnightexplorer.com/transactions/8f3e02c49cb8e8c73698a19762040508168dc5e077ab5db84e6e682e665545f9) · 블록 2605881 |
+> | 발급 기관 공개키 | `0xcc56…5e72` (비밀키는 배포한 브라우저의 IndexedDB 에만 있음) |
+> | `finance` 성공 tx | _(테스트넷 재현 예정 — 로컬 A1~A10 은 통과)_ |
+> | `finance` 중복 거부 | _(테스트넷 재현 예정)_ |
+>
+> 초기 설정 트랜잭션 8건 (각각 지갑 승인 1회):
+>
+> | 단계 | tx · 블록 · 소요 |
+> |---|---|
+> | `deploy` | [8f3e02c49cb8…](https://preprod.midnightexplorer.com/transactions/8f3e02c49cb8e8c73698a19762040508168dc5e077ab5db84e6e682e665545f9) · 블록 2605881 · 41.8s |
+> | `registerLender:lender-a` | [c52e1456e675…](https://preprod.midnightexplorer.com/transactions/c52e1456e675622d7fb975c43edad62aacf2b04e3bbbb88d07d6cc25651a65b6) · 블록 2605889 · 44.5s (증명 0.91s) |
+> | `registerLender:lender-b` | [f56890591892…](https://preprod.midnightexplorer.com/transactions/f5689059189205107c9a259c2bcf873f40f7c4d5706d579c6f5761538c7c0431) · 블록 2605896 · 34.3s (증명 0.68s) |
+> | `fundLender:lender-a` | [d4245aba510d…](https://preprod.midnightexplorer.com/transactions/d4245aba510d284064631521912af68d73971919d0fede686fea5e564d27acd6) · 블록 2605902 · 40.5s (증명 1.37s) |
+> | `fundLender:lender-b` | [2b6fd4dd4c5e…](https://preprod.midnightexplorer.com/transactions/2b6fd4dd4c5e415dadbb277a5b926e4826acf7ef264816127896d8890f542ffc) · 블록 2605909 · 36.8s (증명 1.01s) |
+> | `registerInvoice:1` | [9a7f8b5cf1b3…](https://preprod.midnightexplorer.com/transactions/9a7f8b5cf1b31d8f9ec7c1133ba6e5fa8fc88fc794852afc0d969d3d7b8468ca) · 블록 2605915 · 36.7s (증명 0.88s) |
+> | `registerInvoice:2` | [5b7629790066…](https://preprod.midnightexplorer.com/transactions/5b7629790066ba1303986544c7b5d74bfc735160396d25775dcec748392d4df8) · 블록 2605921 · 36.7s (증명 0.64s) |
+> | `registerInvoice:3` | [46637de61eff…](https://preprod.midnightexplorer.com/transactions/46637de61eff7c1add647fea390a793a51fed9e5b93a572cb84d5681d6eb0f04) · 블록 2605926 · 29.5s (증명 0.66s) |
+>
+> **온체인 상태 검증**: 인덱서 `contractAction(address).state` 를 `ContractState.deserialize` → `ledger()` 로
+> 디코드해 확인했다 — 금융사 2곳 등록·각 10억 예치, 채권 리프 3건, issuerRoot `0x70ba679b…`, nullifier 0.
+> 시뮬레이터가 같은 입력으로 만드는 상태와 일치한다. 전체 기록은 [`apps/deploy/deployment.json`](apps/deploy/deployment.json).
 <!-- DEPLOYMENT:END -->
 
-배포되면 인덱서에서 직접 확인할 수 있게 링크를 건다.
-
-```
-https://indexer.preprod.midnight.network/api/v3/graphql
-  query { contractActions(address: "<컨트랙트 주소>") { ... } }
-```
+링크 형식: 컨트랙트 `https://preprod.midnightexplorer.com/contracts/<주소>` · 트랜잭션 `https://preprod.midnightexplorer.com/transactions/<해시>`.
+GraphQL 로 직접 보려면 `https://indexer.preprod.midnight.network/api/v3/graphql` 에
+`{ contractAction(address: "<주소>") { state transaction { hash block { height } } } }`.
 
 ### 게이트 진행 상황
 

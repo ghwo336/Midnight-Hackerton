@@ -12,7 +12,7 @@ S6은 그 뒤에 추가한 것이다. "심사위원에게 보여주는 데모"�
 | S3 | 회로 안에서 Merkle 멤버십 검증이 가능한가 | ✅ 가능 | 폴백 B 불필요 |
 | S4 | 같은 nullifier로 두 트랜잭션이 오면 하나만 성공하는가 | ✅ 하나만 | 진행 |
 | S5 | 백엔드에서 증명 생성·제출이 가능한가 | ⚠️ 부분 확인 | §S5 참조 |
-| S6 | 사용자가 자기 브라우저 지갑으로 서명할 수 있는가 | ⚠️ 부분 확인 | §S6 참조 |
+| S6 | 사용자가 자기 브라우저 지갑으로 서명할 수 있는가 | ✅ 확인 (배포 완료) | §S6 참조 |
 
 ---
 
@@ -139,10 +139,11 @@ assert(!usedNullifiers.member(disclose(nf)), "nullifier already used");
 | 항목 | 결과 |
 |---|---|
 | S6-a 지갑 주입 | ✅ 확인 |
-| S6-b 브라우저 증명 생성 | ⚠️ 경로는 열림, 실측 없음 |
-| S6-c 브라우저 private state | ⚠️ 구현됨, 회로로 검증 안 됨 |
+| S6-b 브라우저 증명 생성 | ✅ **실측 평균 0.88s** (7건, 최대 1.37s) |
+| S6-c 브라우저 private state | ✅ IndexedDB → witness → 회로 assert 통과 7회 |
 | S6-d 동기화 대기 | ✅ DApp은 지갑 동기화를 하지 않는다 |
 | S6-e 원격 배포 | ✅ 프론트 가능. 백엔드는 §S6-e |
+| S6-f DUST 수수료 자원 | ✅ 등록 트랜잭션을 직접 만들어 해결 (§S6-f) |
 
 ---
 
@@ -162,40 +163,45 @@ assert(!usedNullifiers.member(disclose(nf)), "nullifier already used");
 
 구현: `apps/web/src/shared/wallet/connect.ts`
 
-### S6-b: 브라우저에서 증명을 만들 수 있는가 — ⚠️ 경로는 열렸고 실측이 없다
+### S6-b: 브라우저에서 증명을 만들 수 있는가 — ✅ 실측 완료
 
-**확인된 것**
+2026-09-19 01:12~01:17 KST, Preprod 에 컨트랙트를 배포하고 회로 7건을 호출했다.
+전부 브라우저 + Lace 경로다. 서명·잔액 조정·제출을 사용자 지갑이 했다.
 
-- 공용 proof server `https://proof-server.preprod.midnight.network` 가 살아 있다.
-  `/health` → `{"status":"ok"}`.
-- **CORS가 임의 origin에 열려 있다.** preflight 결과:
+| 단계 | 증명 | 전체 |
+|---|---|---|
+| 컨트랙트 배포 | — (회로 호출 없음) | 41.78s |
+| registerLender A | 0.91s | 44.45s |
+| registerLender B | 0.68s | 34.34s |
+| fundLender A | 1.37s | 40.55s |
+| fundLender B | 1.01s | 36.75s |
+| registerInvoice #1 | 0.88s | 36.73s |
+| registerInvoice #2 | 0.64s | 36.73s |
+| registerInvoice #3 | 0.66s | 29.48s |
 
-  ```
-  access-control-allow-origin: <요청 origin 반사>
-  access-control-allow-methods: GET, PUT, PATCH, ..., POST
-  access-control-allow-headers: content-type
-  access-control-allow-credentials: true
-  ```
+**증명 평균 0.88초, 최대 1.37초.** 30초 임계값에 여유가 크다. "증명" 은 브라우저 CPU 가
+아니라 증명키 업로드 + 공용 proof server 왕복 + 응답이다 (§S6-b 앞부분의 구조 그대로).
 
-  → **원격 사용자는 로컬 proof server(6300)를 띄울 필요가 없다.** 우리가
-  proof server를 호스팅하지 않아도 된다. 이게 S6-b에서 가장 중요한 답이다.
-- 증명키를 브라우저가 받아갈 수 있다. `/zk/keys/finance.prover` 9,988,040바이트가
-  HTTP 200으로 서빙된다. `contracts/managed`에서 복사해 정적으로 올린다.
-- WASM 런타임이 브라우저 번들에 들어간다. `next build` 통과.
+전체 30~45초 중 증명은 1초 남짓이고 **나머지는 지갑 승인 대기와 블록 확정 대기**다.
+사람이 팝업을 누르는 시간이 포함돼 있어 순수 시스템 시간은 이보다 짧다.
 
-**확인하지 않은 것**
+Node 대비 배수는 내지 않는다. 같은 proof server 가 증명하므로 비교할 대상이 클라이언트
+전송뿐이고, Node 경로는 dust 동기화에 막혀 같은 회로를 끝까지 돌린 적이 없다.
 
-- 브라우저에서 `finance` 회로 증명을 **실제로 만든 적이 없다.** 따라서 소요
-  시간도, Node 대비 배수도 측정값이 없다. 추정치를 여기 적지 않는다.
+컨트랙트: [`52a72d93142c…`](https://preprod.midnightexplorer.com/contracts/52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596). 전체 tx 목록은 `apps/deploy/deployment.json`.
 
-### S6-c: private state를 브라우저에 둘 수 있는가 — ⚠️ 구현됨, 검증 안 됨
+### S6-c: private state를 브라우저에 둘 수 있는가 — ✅ 회로가 증명했다
 
-`PrivateStateProvider` 13개 메서드를 IndexedDB로 구현했다
-(`apps/web/src/shared/wallet/private-state.ts`). `export`/`import`는 일부러
-던지게 뒀다. 채권 원문을 파일로 빼내는 경로를 만들지 않기 위해서다.
+`PrivateStateProvider` 13개 메서드를 IndexedDB 로 구현했다 (`apps/web/src/shared/wallet/private-state.ts`).
 
-인터페이스는 갖췄지만 **회로 witness로 실제 값을 넘겨 증명을 만든 적이 없다.**
-S6-b와 같은 시점에 함께 판가름난다.
+실측: **IndexedDB 읽기 7회, witness `issuerSecret` 호출 7회.** registerLender·fundLender·
+registerInvoice 는 모두 `assert(issuerPublicKey(issuerSecret()) == issuerPk)` 를 거치고,
+7건 모두 통과해 온체인 상태를 바꿨다. 즉 IndexedDB 에서 읽어 witness 로 넘긴 값이 배포
+시점의 `issuerPk` 와 일치하는 비밀키였다. 로그가 아니라 **회로가 증명**한 것이다.
+
+배포 시 발급 기관 비밀키는 저장소의 더미값(0x5e…)이 아니라 그 브라우저에서
+`crypto.getRandomValues` 로 만들어 IndexedDB 에만 뒀다. 온체인 `issuerPk` = `0xcc56…5e72`.
+그 브라우저만 이 컨트랙트의 발급 기관이다.
 
 ### S6-d: 접속한 사람이 동기화를 기다리는가 — ✅ 기다리지 않는다
 
@@ -220,8 +226,8 @@ DApp이 직접 읽는 것은 인덱서의 컨트랙트 상태뿐이고, 그건 �
 전부 수행해야 했고, 여기서 몇 시간이 걸렸다. 브라우저 경로에는 그 단계가 없다.
 이 차이가 이 방향으로 가는 이유다.
 
-단, 위 근거는 **API 표면에서 온 추론이고 완결된 트랜잭션으로 증명되지
-않았다.** 브라우저 배포를 한 번 성공시키면 S6-b·c·d가 동시에 확정된다.
+배포로 확정됐다. 지갑을 연결한 뒤 동기화를 기다린 시간은 0 이었고, 8건의 트랜잭션이
+지갑의 잔액 조정과 제출로 확정됐다.
 
 ### S6-e: 원격 배포 — ✅ 프론트는 가능
 
@@ -251,6 +257,46 @@ DApp이 직접 읽는 것은 인덱서의 컨트랙트 상태뿐이고, 그건 �
 지금의 `apps/api`는 시뮬레이터를 들고 있고 채권 원문을 서버 메모리에 둔다.
 사용자가 자기 지갑으로 서명하는 방향에서는 이 역할이 줄어든다. 어디에 올릴지는
 그 설계가 정해진 뒤에 결정한다.
+
+### S6-f: DUST — 수수료 자원이 없어 첫 배포가 막혔다
+
+첫 시도는 `Wallet.InsufficientFunds: could not balance dust` 로 죽었다. 잔액 5,000 tNIGHT
+이 있었지만 수수료는 DUST 로 내고, `getDustBalance()` 가 `{cap: 0, balance: 0}` 이었다.
+
+**원인**: DUST 는 NIGHT 을 들고만 있으면 생기지 않는다. 원장 스펙 —
+"A new DUST UTXO is created if and only if a NIGHT UTXO is created *and its key has a table entry*."
+그 entry 를 만드는 `DustRegistration` 이 없었다.
+
+**Lace 4.0.1 에는 그 UI 가 없다.** Portfolio · tNIGHT 화면 · Settings→Midnight · Account Center
+를 전부 확인했다. DApp 커넥터에도 등록 메서드가 없다 (21개 메서드 전수 확인; dust 는
+`getDustBalance`·`getDustAddress` 읽기 둘뿐).
+
+**해결**: 등록 트랜잭션을 직접 조립했다 (`apps/web/src/shared/wallet/dust-registration.ts`).
+
+```
+DustRegistration(marker, nightKey, dustAddress, allowFeePayment, signature)
+DustActions(markerS, markerP, ctime, [], [registration])
+Intent.new(ttl).dustActions = ↑
+서명 대상 = Intent.signatureData(segmentId)
+Transaction.fromParts → prove → balanceUnsealedTransaction → submitTransaction
+```
+
+- night 검증키: `signData()` 가 `verifyingKey` 를 함께 돌려준다 (버리는 서명 1회로 획득)
+- dust 주소: `getDustAddress()` 의 bech32m → `DustAddress.codec.decode` → `DustPublicKey`
+- 수수료: 스펙의 **자기자금 등록**. 지갑이 잔액 조정에서 NIGHT 자기 전송을 넣었고,
+  그 입력의 소급 DUST 로 등록 수수료를 냈다 (Lace 에 "+5,000 Pending" 으로 보였던 것)
+
+결과: 블록 2605723 에서 `registeredForDustGeneration: true`. `cap` 이 0 에서
+25,000,000,000,000,000,000 으로, `balance` 가 곧바로 4.67×10^18 로 올랐다. 그 뒤 8건이
+전부 이 DUST 로 수수료를 냈다.
+
+두 가지를 미리 걱정했는데 둘 다 문제가 아니었다: `signData` 의 접두사(원장 검증과
+어긋날 가능성)와 NIGHT 입력 부재(지갑이 채웠다). 첫 시도는 `makeIntent()` 가 이미
+sealed 된 트랜잭션을 돌려줘 역직렬화 헤더가 어긋나 실패했고, 직접 조립으로 바꿨다.
+
+**미해결 의문**: 인덱서의 dust 쿼리는 `dustGenerationStatus(cardanoRewardAddresses)` 처럼
+**Cardano reward 주소** 기준이다. 우리는 Midnight 측 `DustRegistration` 으로 등록했고
+그게 동작했다. 두 경로가 어떻게 관계되는지는 확인하지 못했다. 동작 사실만 적는다.
 
 ### S6이 답하지 않는 것: 금융사의 승인 행위
 

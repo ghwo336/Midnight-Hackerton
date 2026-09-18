@@ -82,7 +82,7 @@ export function LedgerTable({
               {explorerBase ? (
                 <a
                   className="txlink"
-                  href={`https://indexer.${explorerBase}.midnight.network/api/v3/graphql`}
+                  href={`https://${explorerBase}.midnightexplorer.com/transactions/${loan.txHash.replace(/^0x/, '')}`}
                   target="_blank"
                   rel="noreferrer"
                   title={loan.txHash}
