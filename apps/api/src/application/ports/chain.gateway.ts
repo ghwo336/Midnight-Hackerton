@@ -9,8 +9,18 @@ export interface PublicLoanView {
   readonly lender: LenderId;
   readonly amount: string;
   readonly commitment: Hex;
-  readonly block: number;
-  readonly txHash: Hex;
+  /**
+   * 대출이 확정된 블록과 그 트랜잭션.
+   *
+   * **null 일 수 있다.** 온체인 원장은 대출 기록만 담고 그것을 만든
+   * 트랜잭션은 담지 않는다. 액션 이력을 되짚어 복원하는데, 인덱서가 아직
+   * 그 블록을 노출하지 않았으면 못 찾는다.
+   *
+   * 예전에는 못 찾으면 0 과 0x000…0 을 넣었다. 화면은 그걸 해시로 알고
+   * 탐색기 링크를 만들었고, 그 링크는 404 였다. 없는 것은 없다고 말한다.
+   */
+  readonly block: number | null;
+  readonly txHash: Hex | null;
   /** 확정 시각 (ISO). 원장 화면의 시각 컬럼. */
   readonly settledAt: string | null;
   readonly borrower: Hex;

@@ -171,9 +171,9 @@ export class MidnightChainGateway implements ChainReader, ChainWriter, OnModuleI
         borrower: indexerBytesToHex(record.borrower),
         repaid: record.repaid,
         repaidBlock: origin?.repaidBlock ?? null,
-        block: origin?.block ?? 0,
         // 해시를 지어내지 않는다. 아직 못 찾았으면 없다고 말한다.
-        txHash: origin?.txHash ?? (`0x${'0'.repeat(64)}` as Hex),
+        block: origin?.block ?? null,
+        txHash: origin?.txHash ?? null,
         settledAt: origin?.settledAt ?? null,
       });
     }

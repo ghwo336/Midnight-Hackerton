@@ -11,8 +11,9 @@ export interface LoanRow {
   readonly lender: LenderId;
   readonly amount: string;
   readonly commitment: string;
-  readonly block: number;
-  readonly txHash: string;
+  /** 못 찾았으면 null 이다. 0 이나 0x000…0 을 넣지 않는다. */
+  readonly block: number | null;
+  readonly txHash: string | null;
   readonly settledAt: string | null;
   readonly borrower: string;
   /** 상환해도 담보는 풀리지 않는다. 같은 채권은 여전히 막혀 있다. */

@@ -114,7 +114,7 @@ export class LocalCircuitChainGateway implements ChainReader, ChainWriter {
         borrower: loan.borrower,
         repaid: loan.repaid,
         repaidBlock: loan.repaidBlock,
-        txHash: loan.txHash ?? (`0x${'0'.repeat(64)}` as Hex),
+        txHash: loan.txHash ?? null,
         settledAt: loan.settledAt,
       });
     }

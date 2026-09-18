@@ -91,7 +91,8 @@ export function FundsPanel({
                   </span>
                   <span className="position__cell">
                     <span className="readout__key">실행 블록</span>
-                    <span className="num">{loan.block}</span>
+                    {/* 인덱서에서 아직 못 찾은 경우가 있다. 0 을 넣지 않는다. */}
+                    <span className="num">{loan.block ?? EMPTY}</span>
                   </span>
                   <span className="position__cell">
                     <span className="readout__key">실행 시각</span>

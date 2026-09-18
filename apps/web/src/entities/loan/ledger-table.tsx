@@ -77,9 +77,19 @@ export function LedgerTable({
             <td>{LENDER_LABEL[loan.lender] ?? EMPTY}</td>
             <td className="num">{formatAmount(loan.amount)}</td>
             <td className="hash">{shortHash(loan.commitment)}</td>
-            <td className="num">{loan.block}</td>
+            <td className="num">{loan.block ?? EMPTY}</td>
+            {/*
+              해시가 없으면 링크를 만들지 않는다.
+
+              온체인 원장은 대출 기록만 담고 그것을 만든 트랜잭션은 담지
+              않는다. 액션 이력에서 복원하는데, 인덱서가 아직 그 블록을
+              노출하지 않았으면 못 찾는다. 예전에는 그때 0x000…0 을 넣었고
+              화면은 그걸 해시로 알고 링크를 걸었다. 그 링크는 404 였다.
+            */}
             <td className={`hash ${simulated ? 'sim' : ''}`}>
-              {explorerBase ? (
+              {loan.txHash === null ? (
+                EMPTY
+              ) : explorerBase ? (
                 <a
                   className="txlink"
                   href={`https://${explorerBase}.midnightexplorer.com/transactions/${loan.txHash.replace(/^0x/, '')}`}
