@@ -13,13 +13,22 @@ export interface WalletState {
   readonly wallet: DetectedWallet | null;
   readonly address: string | null;
   readonly balance: string | null;
+  /**
+   * 수수료로 쓰이는 DUST.
+   *
+   * 잔액(tNIGHT)이 있어도 DUST 가 0 이면 트랜잭션을 못 낸다. DUST 는
+   * NIGHT 보유량에서 시간에 따라 생성되고, cap 은 지금 NIGHT 로 도달할 수
+   * 있는 최대치다. 이게 화면에 없으면 배포가 왜 막히는지 알 방법이 없다.
+   */
+  readonly dust: string | null;
+  readonly dustCap: string | null;
   readonly network: string | null;
   readonly message: string | null;
 }
 
 const INITIAL: WalletState = {
   status: 'idle', api: null, wallet: null,
-  address: null, balance: null, network: null, message: null,
+  address: null, balance: null, dust: null, dustCap: null, network: null, message: null,
 };
 
 /** 네이티브 토큰(tNight)의 토큰 타입. 32바이트 0. */
@@ -51,10 +60,11 @@ export function useWallet(networkId: NetworkId = 'preprod') {
 
     const { api, wallet } = result;
     try {
-      const [config, unshielded, balances] = await Promise.all([
+      const [config, unshielded, balances, dust] = await Promise.all([
         api.getConfiguration(),
         api.getUnshieldedAddress(),
         api.getUnshieldedBalances(),
+        api.getDustBalance(),
       ]);
       const raw = balances[NATIVE];
       setState({
@@ -63,6 +73,8 @@ export function useWallet(networkId: NetworkId = 'preprod') {
         wallet,
         address: unshielded.unshieldedAddress,
         balance: raw === undefined ? '0' : raw.toString(),
+        dust: dust.balance.toString(),
+        dustCap: dust.cap.toString(),
         network: config.networkId,
         message: null,
       });

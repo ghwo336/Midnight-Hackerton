@@ -62,6 +62,14 @@ export function WalletPanel() {
     }
   }, [state.api]);
 
+  /*
+   * DUST 가 없으면 배포를 시작하지 않는다.
+   *
+   * 시작하면 잔액 조정 단계에서 10초를 쓰고 "could not balance dust" 로
+   * 죽는다. 할 수 없는 일을 버튼으로 내놓지 않는다.
+   */
+  const noDust = state.status === 'connected' && (state.dust ?? '0') === '0';
+
   const failed = steps.find((step) => step.state === 'failed') ?? null;
   const done = steps.filter((step) => step.state === 'done').length;
   const proved = steps.filter((step) => step.provable && step.proveMs !== undefined);
@@ -96,8 +104,18 @@ export function WalletPanel() {
                 <span className="num">{state.address ? shortHash(state.address) : EMPTY}</span>
               </div>
               <div className="readout__row">
-                <span className="readout__key">잔액</span>
+                <span className="readout__key">잔액 (tNIGHT)</span>
                 <span className="num">{formatAmount(state.balance ?? '0')}</span>
+              </div>
+              <div className={`readout__row ${noDust ? 'vault vault--unchanged' : ''}`}>
+                {/*
+                  수수료는 tNIGHT 이 아니라 DUST 로 낸다. 이게 0 이면
+                  잔액이 아무리 많아도 트랜잭션을 낼 수 없다.
+                */}
+                <span className="readout__key">수수료 자원 (DUST)</span>
+                <span className="num">
+                  {formatAmount(state.dust ?? '0')} / {formatAmount(state.dustCap ?? '0')}
+                </span>
               </div>
               {address ? (
                 <div className="readout__row">
@@ -160,6 +178,14 @@ export function WalletPanel() {
               </tbody>
             </table>
 
+            {noDust ? (
+              <p className="hint hint--error">
+                수수료 자원(DUST)이 0이다. 트랜잭션 수수료는 tNIGHT이 아니라
+                DUST로 낸다. DUST는 보유한 tNIGHT에서 시간이 지나며 생성되므로
+                잠시 뒤 다시 연결하면 값이 오른다.
+              </p>
+            ) : null}
+
             {failed ? (
               <p className="hint hint--error">
                 {failed.label}에서 중단: {failed.error}
@@ -199,7 +225,12 @@ export function WalletPanel() {
             </p>
 
             <div className="btn-row">
-              <button type="button" className="btn" disabled={running} onClick={() => void run()}>
+              <button
+                type="button"
+                className="btn"
+                disabled={running || noDust}
+                onClick={() => void run()}
+              >
                 {running ? '진행 중 (지갑 승인 필요)' : done > 0 ? '다시 실행' : '배포 시작'}
               </button>
               <button type="button" className="btn" disabled={!recorder} onClick={copyReport}>
