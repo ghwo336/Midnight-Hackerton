@@ -97,11 +97,21 @@ export function SupplierApp({ account }: { account?: AccountView }) {
   void tick;
 
   const list = invoices.data ?? [];
-  const selected =
-    list.find((invoice) => invoice.invoiceId === selectedId) ??
-    list.find((invoice) => !invoice.used) ??
-    list[0] ??
-    null;
+
+  /*
+   * 고른 채권이 쓰이고 나면 선택을 다음 미사용 채권으로 옮긴다.
+   *
+   * 신청에 성공하면 그 채권은 '사용됨'이 된다. 선택이 거기 남아 있으면
+   * 미사용 채권이 있는데도 화면이 "이미 사용된 채권입니다"만 띄우고
+   * 다음 신청을 막는다. 쓰인 채권은 더 이상 담보가 아니므로 붙들고
+   * 있을 이유가 없다.
+   *
+   * 사용자가 직접 누른 경우에는 그대로 둔다. 무엇이 어디에 쓰였는지
+   * 확인하려고 누른 것이고, 그때는 그 안내가 맞다.
+   */
+  const clicked = list.find((invoice) => invoice.invoiceId === selectedId) ?? null;
+  const firstFree = list.find((invoice) => !invoice.used) ?? null;
+  const selected = clicked ?? firstFree ?? list[0] ?? null;
 
   /*
    * 할 수 없는 행동을 버튼으로 내놓지 않는다.
@@ -123,9 +133,12 @@ export function SupplierApp({ account }: { account?: AccountView }) {
       setBusy(true);
       setTarget(lender);
       setRuntime(beginRequest(new Date().toISOString()));
-      setSelectedId(selected.invoiceId);
       try {
         await api.finance(selected.invoiceId, lender, selected.maxLoanAmount, disclose);
+        // 이 채권은 소진됐다. 선택을 놓아 다음 미사용 채권으로 넘어가게 한다.
+        setSelectedId(null);
+        // 제공 항목도 초기 상태로 돌린다. 켜는 것이 매번 의식적인 행동이어야 한다.
+        setDisclose([]);
       } catch (error: unknown) {
         const code = error instanceof ApiError ? error.code : 'UNKNOWN';
         const assertExpr = error instanceof ApiError ? error.circuitAssert : null;
