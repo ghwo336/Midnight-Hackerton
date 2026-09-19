@@ -98,6 +98,19 @@ export async function readIssuerSecret(): Promise<Uint8Array | null> {
   return existing instanceof Uint8Array && existing.length === 32 ? existing : null;
 }
 
+/**
+ * 발급 기관 비밀키를 넣는다. 가져오기에서만 쓴다.
+ *
+ * 유도한 공개키를 **같이** 저장한다. 진입 화면이 발급 권한을 판단할 때
+ * 회로 런타임(WASM)을 끌어오지 않고 문자열만 비교하기 때문이다. 둘이
+ * 어긋나면 키는 맞는데 화면이 발급 기관으로 알아보지 못한다.
+ */
+export async function writeIssuerSecret(secret: Uint8Array, publicKey: string): Promise<void> {
+  if (secret.length !== 32) throw new Error('발급 기관 비밀키는 32바이트여야 한다');
+  await withStore<IDBValidKey>(STORE_KEYS, 'readwrite', (s) => s.put(secret, ISSUER_SECRET_KEY));
+  await writeIssuerPublicKey(publicKey);
+}
+
 export async function ensureIssuerSecret(): Promise<Uint8Array> {
   const existing = await withStore<Uint8Array | undefined>(STORE_KEYS, 'readonly', (s) =>
     s.get(ISSUER_SECRET_KEY),
@@ -112,9 +125,15 @@ export async function ensureIssuerSecret(): Promise<Uint8Array> {
 /**
  * 13개 메서드 전부를 구현한다.
  *
- * 내보내기/가져오기는 지원하지 않는다. 비공개 상태를 파일로 빼내는 경로를
- * 만들면 "원문이 기기를 떠나지 않는다"는 주장이 약해진다. 필요해지면
- * 그때 암호화와 함께 설계한다.
+ * **비공개 상태의 내보내기/가져오기는 지원하지 않는다.** 채권 원문·salt·
+ * 소유자 비밀키를 파일로 빼내는 경로를 만들면 "원문이 기기를 떠나지
+ * 않는다" 는 주장이 약해진다. 필요해지면 그때 암호화와 함께 설계한다.
+ *
+ * 발급 기관 서명키는 다르다. 그건 원문이 아니라 권한이고, 한 브라우저에만
+ * 두면 데이터를 지우는 순간 컨트랙트의 발급 권한이 영구히 사라진다.
+ * 그래서 서명키만 따로 내보낼 수 있다 (`shared/runtime/issuer-key-file.ts`).
+ * 저장소가 나뉘어 있어 경로가 섞이지 않는다 — 원문은 `state`, 키는
+ * `signing-keys` 에 있다.
  */
 export function indexedDbPrivateStateProvider<
   PSI extends string,

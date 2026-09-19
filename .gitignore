@@ -19,3 +19,8 @@ contracts/out/
 # ZK 자산은 contracts/managed/에서 복사해 온 것이다.
 # pnpm --filter @once/web sync:zk 로 다시 만든다.
 apps/web/public/zk/
+
+# 발급 기관 키 내보내기 파일.
+# 이 파일을 가진 사람은 해당 컨트랙트에 채권을 발급할 수 있다.
+# 실수로 커밋되는 경로를 애초에 막는다.
+once-issuer-key-*.json

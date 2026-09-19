@@ -11,6 +11,7 @@ import {
   AttackPanel, ATTACK_IDS, type AttackId, type AttackStatus,
 } from '@/features/attack-panel/attack-panel';
 import { OnChainAttacks } from '@/features/attack-panel/onchain-attacks';
+import { IssuerKeyPanel } from './issuer-key-panel';
 import { WalletPanel } from '@/features/wallet-panel/wallet-panel';
 import { useWallet } from '@/features/wallet-panel/use-wallet';
 
@@ -154,6 +155,8 @@ export function DevTools() {
         </header>
 
         <WalletPanel wallet={wallet} />
+
+        <IssuerKeyPanel />
 
         {/*
           실제 체인에서는 지갑이 서명해야 하므로 브라우저 러너를 쓴다.
