@@ -294,17 +294,36 @@ GraphQL 로 직접 보려면 `https://indexer.preprod.midnight.network/api/v3/gr
 | tx 해시·블록 | 시뮬레이터가 붙인 번호 | 진짜 값, 탐색기 링크가 열린다 |
 | 화면 표시 | "모의" 라고 적는다 | 그대로 적는다 |
 
-`preprod` 에서 서버가 할 수 있는 일은 신청 전 검사와 회로 입력 전달까지다
-(`POST /api/supplier/financing/prepare`). 증명·서명·제출은 브라우저가 하고,
-결과를 서버에 알린다 (`.../confirm`). 서버는 그 보고를 **그대로 믿지 않고
-원장을 읽어 대조한 뒤에만** 기록한다 — 대조에 실패하면 `CLAIM_NOT_ON_CHAIN`
-으로 거절한다.
+`preprod` 에서 서버가 할 수 있는 일은 사전 검사와 회로 입력 전달까지다.
+증명·서명·제출은 브라우저가 하고, 결과를 서버에 알린다. 서버는 그 보고를
+**그대로 믿지 않고 원장을 읽어 대조한 뒤에만** 기록한다 — 대조에 실패하면
+`CLAIM_NOT_ON_CHAIN` 으로 거절한다.
 
-서버가 서명하는 경로들(`POST /supplier/financing`, `/supplier/repay`,
-`/demo/attack/:id`, `/demo/reset`)은 `preprod` 에서 `SERVER_CANNOT_SIGN` 으로
-막힌다. 막지 않으면 공격 러너의 모든 제출이 "서버가 서명 못 함" 으로 죽고,
-러너는 그걸 "막혔다" 로 세어 **여섯 칸 전부 초록불이 뜬다. 아무것도
-시험하지 않은 채로.**
+체인에 쓰는 경로는 넷이고, 전부 이 구조로 바뀌어 있다.
+
+| 하는 일 | `preprod` 에서 막히는 경로 | 대신하는 것 |
+|---|---|---|
+| 대출 신청 | `POST /supplier/financing` | `financing/prepare` → 지갑 서명 → `financing/confirm` |
+| 상환 | `POST /supplier/repay` | 지갑 서명 → `repay/confirm` (회로가 쓰는 값이 `GET /supplier/funds` 로 이미 나가므로 준비 단계가 없다) |
+| 채권 발급 | `POST /issuer/invoices` | `invoices/prepare` → 지갑 서명 → `invoices/confirm` |
+| 등록 요청 승인 | `POST /issuer/requests/approve` | `requests/approve/prepare` → 지갑 서명 → `invoices/confirm` |
+| 공격 러너·데모 초기화 | `POST /demo/attack/:id`, `/demo/reset` | 대체 경로 없음. 러너는 `/devtools` 의 브라우저 재현기가 맡고, 실제 체인은 되돌릴 수 없다 |
+
+막지 않으면 요청이 게이트웨이 깊은 곳에서 죽고 화면은 "체인이 거부했다"
+로 읽는다. 공격 러너는 더 나쁘다 — 서버가 서명 못 해 죽은 것을 "막혔다"
+로 세어 **여섯 칸 전부 초록불이 뜬다. 아무것도 시험하지 않은 채로.**
+
+채권 발급은 하나가 더 있다. 발급 기관 비밀키는 서버에 없고 **배포한
+브라우저의 IndexedDB 에만** 있다. 회로가
+`assert(issuerPublicKey(issuerSecret()) == issuerPk)` 를 보므로, 발급이
+성공했다는 것은 그 기기가 실제로 발급 권한을 쥐고 있었다는 뜻이다.
+로그가 아니라 회로가 증명한다. 키가 없는 기기에서는 새로 만들지 않고
+누르기 전에 멈춘다 — 만들어 넣으면 회로가 거부하는데 화면에는 회로
+메시지만 남아서 원인이 "권한 없는 기기" 라는 게 드러나지 않는다.
+
+이 표가 어긋나지 않게 테스트가 지킨다 (`test/contract-tests/write-paths.spec.ts`).
+체인에 쓰는 POST 핸들러가 가드 없이 추가되면 걸리고, 막기만 하고 대체
+수단을 정하지 않아도 걸린다.
 
 ### 5.2 실제 체인에서의 A5·A6
 

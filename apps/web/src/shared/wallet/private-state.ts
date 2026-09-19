@@ -82,6 +82,22 @@ export async function readIssuerPublicKey(): Promise<string | null> {
   return value ?? null;
 }
 
+/**
+ * 발급 기관 비밀키를 읽기만 한다. **없으면 만들지 않는다.**
+ *
+ * `ensureIssuerSecret` 은 없으면 새로 만든다. 배포할 때는 그게 맞지만
+ * 채권 발급에서는 아니다. 발급 권한이 없는 기기에서 새 키를 만들어 쓰면
+ * 회로가 `issuerPublicKey(issuerSecret()) == issuerPk` 에서 거부하는데,
+ * 화면에는 회로 메시지만 남아 "이 기기에 발급 권한이 없다" 는 사실이
+ * 드러나지 않는다. 누르기 전에 알 수 있어야 한다.
+ */
+export async function readIssuerSecret(): Promise<Uint8Array | null> {
+  const existing = await withStore<Uint8Array | undefined>(STORE_KEYS, 'readonly', (s) =>
+    s.get(ISSUER_SECRET_KEY),
+  );
+  return existing instanceof Uint8Array && existing.length === 32 ? existing : null;
+}
+
 export async function ensureIssuerSecret(): Promise<Uint8Array> {
   const existing = await withStore<Uint8Array | undefined>(STORE_KEYS, 'readonly', (s) =>
     s.get(ISSUER_SECRET_KEY),

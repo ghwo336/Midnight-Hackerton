@@ -9,7 +9,7 @@ import {
   witnesses as sharedWitnesses, type OncePrivateState,
 } from '@once/witness';
 import { buildProviders, ONCE_PRIVATE_STATE_ID, type OnceProviders } from './providers';
-import { ensureIssuerSecret } from './private-state';
+import { ensureIssuerSecret, readIssuerSecret } from './private-state';
 import { hexToBytes } from './bootstrap';
 import { Recorder } from './measure';
 import type { TxPhase } from '@/shared/runtime/tx-phase';
@@ -291,6 +291,45 @@ export async function repayOnChain(
   if (!call) throw new Error('repay 회로를 찾지 못했다');
 
   const result = await call(hexToBytes(loan.nullifier), BigInt(loan.amount));
+  onPhase('done');
+  return { txHash: result.public.txId, block: result.public.blockHeight, recorder };
+}
+
+/**
+ * 채권 리프를 발급자 트리에 넣는다.
+ *
+ * **이 기기가 발급 권한을 쥐고 있어야 한다.** 회로가
+ * `assert(issuerPublicKey(issuerSecret()) == issuerPk)` 를 보고, 그
+ * `issuerSecret()` 은 IndexedDB 에 저장된 값을 witness 로 받는다. 서버는
+ * 이 값을 모르고 알 필요도 없다.
+ *
+ * 비밀키가 없으면 만들지 않고 멈춘다. 새로 만들어 넣으면 회로가 거부하는데,
+ * 화면에는 회로 메시지만 남아서 원인이 "권한 없는 기기" 라는 게 드러나지
+ * 않는다.
+ */
+export async function registerInvoiceOnChain(
+  api: ConnectedAPI,
+  contractAddress: string,
+  leaf: string,
+  onPhase: PhaseListener = () => undefined,
+): Promise<ChainCallResult> {
+  const recorder = new Recorder();
+  recorder.setStep('registerInvoice');
+  onPhase('preparing');
+
+  const issuerSecret = await readIssuerSecret();
+  if (!issuerSecret) {
+    throw new Error('이 기기에 발급 기관 비밀키가 없다. 컨트랙트를 배포한 브라우저에서 해야 한다');
+  }
+
+  const providers = phased(await buildProviders(api, recorder), recorder, onPhase);
+  const privateState: OncePrivateState = { issuerSecret, activeInvoice: null };
+
+  const contract = await attach(providers, contractAddress, recorder, privateState);
+  const call = contract.callTx['registerInvoice'];
+  if (!call) throw new Error('registerInvoice 회로를 찾지 못했다');
+
+  const result = await call(hexToBytes(leaf));
   onPhase('done');
   return { txHash: result.public.txId, block: result.public.blockHeight, recorder };
 }

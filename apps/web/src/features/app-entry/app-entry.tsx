@@ -118,7 +118,7 @@ export function AppEntry() {
   return (
     <div className="app-shell">
       {resolved === 'issuer' ? (
-        <IssuerApp account={account} />
+        <IssuerApp account={account} wallet={state.api} />
       ) : resolved === 'lender' && identity.data?.lenderId ? (
         <LenderApp lenderId={identity.data.lenderId} account={account} />
       ) : resolved === 'supplier' ? (

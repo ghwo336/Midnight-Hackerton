@@ -283,3 +283,26 @@ export interface ConfirmFinancingBody {
   readonly block: number | null;
   readonly reason: string | null;
 }
+
+/**
+ * `/issuer/invoices/prepare` 의 응답.
+ *
+ * 브라우저가 registerInvoice 회로에 넣을 재료다. **리프 해시 하나뿐이다** —
+ * 회로가 받는 것도 그것 하나이고 채권 원문은 나가지 않는다.
+ */
+export interface IssuancePlanResponse {
+  readonly issuanceId: string;
+  readonly invoiceId: string;
+  readonly leaf: string;
+  readonly rootBefore: string;
+}
+
+/** 확정 응답. 발급 전 루트는 준비 단계에서 이미 받았으므로 담지 않는다. */
+export interface IssuanceConfirmed {
+  readonly invoiceId: string;
+  readonly requestId: string | null;
+  readonly rootAfter: string;
+  readonly invoiceCount: number;
+  readonly txHash: string | null;
+  readonly block: number | null;
+}

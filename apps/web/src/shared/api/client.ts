@@ -2,7 +2,7 @@ import type {
   AttackOutcome, ChainStatus, CheckDescriptor, ClaimResult, FinancingSettled, Identity,
   DisclosureField, InvoiceRequest, IssueInvoiceBody, IssueResult, IssuerState, LenderId,
   LenderState, LenderTermsList, LoanRow, RequestInvoiceBody, SupplierFunds, SupplierInvoice,
-  ConfirmFinancingBody, FinancingPlanResponse,
+  ConfirmFinancingBody, FinancingPlanResponse, IssuancePlanResponse, IssuanceConfirmed,
 } from './types.js';
 
 /**
@@ -123,6 +123,33 @@ export const api = {
   issuer: () => request<IssuerState>('/issuer/state'),
   issueInvoice: (body: IssueInvoiceBody) =>
     request<IssueResult>('/issuer/invoices', { method: 'POST', body: JSON.stringify(body) }),
+
+  /**
+   * 발급 준비. 실제 체인 경로의 첫 단계다.
+   *
+   * 돌아오는 것은 리프 해시와 발급 식별자뿐이다. 서명·제출은 브라우저가
+   * 하고, 발급 기관 비밀키는 이 기기의 IndexedDB 에서 witness 로 들어간다.
+   */
+  prepareIssue: (body: IssueInvoiceBody) =>
+    request<IssuancePlanResponse>('/issuer/invoices/prepare', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** 등록 요청 승인 준비. 같은 회로를 같은 방식으로 부른다. */
+  prepareApprove: (requestId: string) =>
+    request<IssuancePlanResponse>('/issuer/requests/approve/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ requestId }),
+    }),
+
+  /** 리프를 올렸다는 보고. 서버가 발급자 트리에서 확인한 뒤에만 기록한다. */
+  confirmIssue: (issuanceId: string, txHash: string | null, block: number | null) =>
+    request<IssuanceConfirmed>(
+      '/issuer/invoices/confirm',
+      { method: 'POST', body: JSON.stringify({ issuanceId, txHash, block }) },
+      CHAIN_TIMEOUT_MS,
+    ),
   finance: (
     invoiceId: string,
     lenderId: LenderId,

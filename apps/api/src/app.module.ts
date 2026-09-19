@@ -17,6 +17,10 @@ import { RequestFinancingUseCase } from './application/request-financing.usecase
 import { RepayLoanUseCase } from './application/repay-loan.usecase.js';
 import { PrepareFinancingUseCase } from './application/prepare-financing.usecase.js';
 import { ConfirmFinancingUseCase } from './application/confirm-financing.usecase.js';
+import { PrepareIssuanceUseCase } from './application/prepare-issuance.usecase.js';
+import { ConfirmIssuanceUseCase } from './application/confirm-issuance.usecase.js';
+import { PENDING_ISSUANCE } from './application/ports/pending-issuance.js';
+import { InMemoryPendingIssuance } from './infrastructure/persistence/in-memory-pending-issuance.js';
 import { RunAttackUseCase } from './application/run-attack.usecase.js';
 
 import { LocalCircuitChainGateway } from './infrastructure/chain/local-circuit.gateway.js';
@@ -115,6 +119,10 @@ import { OnceEventsService } from './interface/events/once-events.service.js';
     RepayLoanUseCase,
     PrepareFinancingUseCase,
     ConfirmFinancingUseCase,
+    PrepareIssuanceUseCase,
+    ConfirmIssuanceUseCase,
+    InMemoryPendingIssuance,
+    { provide: PENDING_ISSUANCE, useExisting: InMemoryPendingIssuance },
     RunAttackUseCase,
     OnceEventsService,
     DemoSeedService,

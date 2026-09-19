@@ -90,3 +90,16 @@ export type RequestInvoiceDto = z.infer<typeof RequestInvoiceSchema>;
 
 export const ApproveInvoiceSchema = z.object({ requestId: z.string().min(8).max(64) });
 export type ApproveInvoiceDto = z.infer<typeof ApproveInvoiceSchema>;
+
+/**
+ * 브라우저가 리프를 올렸다는 보고.
+ *
+ * 서버는 이 값을 그대로 믿지 않는다. 발급자 트리에 그 리프가 있는지
+ * 원장에서 확인한 뒤에만 기록한다 (ConfirmIssuanceUseCase).
+ */
+export const ConfirmIssuanceSchema = z.object({
+  issuanceId: z.string().min(8).max(64),
+  txHash: hex32Schema.nullable().default(null),
+  block: z.number().int().nonnegative().nullable().default(null),
+});
+export type ConfirmIssuanceDto = z.infer<typeof ConfirmIssuanceSchema>;
