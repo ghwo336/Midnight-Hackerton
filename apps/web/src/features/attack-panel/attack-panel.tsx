@@ -37,23 +37,22 @@ function verdict(status: AttackStatus): { text: string; cls: string } {
  * 라이브로 누르는 버튼이므로 실패해도 화면이 깨지지 않게 오류를 정상
  * 경로로 처리한다. 백엔드도 예외를 던지지 않고 결과를 돌려준다.
  */
+/**
+ * 공격 러너. **시뮬레이터에서만 쓴다.**
+ *
+ * 서버가 서명하는 러너이므로 실제 체인에서는 아무것도 하지 못한다.
+ * 예전에는 "여기서는 돌지 않는다" 는 문구를 띄운 채로 버튼 여섯 개를
+ * 남겨 뒀는데, 못 쓴다고 적어 놓고 누를 수 있게 두는 것은 모순이다.
+ * 이제 부르는 쪽이 아예 렌더하지 않는다 (features/devtools).
+ */
 export function AttackPanel({
   statuses,
   busy,
-  simulated,
   onRun,
   onReset,
 }: {
   statuses: Record<AttackId, AttackStatus>;
   busy: boolean;
-  /**
-   * 로컬 회로 실행인가.
-   *
-   * 실제 체인에서는 서버가 서명하지 못하므로 이 러너가 돌지 않는다.
-   * 버튼을 눌러 전부 빨간불이 뜨는 것보다, 왜 여기서 못 도는지 말하고
-   * 막는 편이 낫다. 실제 체인 재현은 지갑이 서명해야 한다.
-   */
-  simulated: boolean;
   onRun: (id: AttackId) => void;
   onReset: () => void;
 }) {
@@ -61,17 +60,11 @@ export function AttackPanel({
     <section className="section">
       <header className="section__head">
         <span>공격 시나리오</span>
-        <button type="button" className="btn" onClick={onReset} disabled={busy || !simulated}>
+        <button type="button" className="btn" onClick={onReset} disabled={busy}>
           데모 초기화
         </button>
       </header>
       <div className="section__body">
-        {simulated ? null : (
-          <p className="hint hint--error">
-            실제 체인에서는 서버가 서명하지 않으므로 이 러너가 돌지 않는다.
-            재현은 지갑이 서명하는 브라우저 경로로 한다.
-          </p>
-        )}
         <div className="attacks">
           {ATTACK_IDS.map((id) => {
             const status = statuses[id];
@@ -82,7 +75,7 @@ export function AttackPanel({
                 <button
                   type="button"
                   className="btn attack__btn"
-                  disabled={busy || !simulated}
+                  disabled={busy}
                   onClick={() => onRun(id)}
                 >
                   {id}

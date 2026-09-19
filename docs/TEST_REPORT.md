@@ -208,8 +208,8 @@ ONCE_LIVE_CHAIN=1 CHAIN_MODE=preprod CONTRACT_ADDRESS=… DEPLOY_BLOCK=… \
   그 서명은 지갑만 할 수 있다. 사람이 승인 창을 눌러야 하므로 자동으로
   돌릴 수 없다.
 
-  실행기는 만들어 두었다. `/console` 의 지갑 패널에 **실제 체인 공격 재현**
-  섹션이 있고, A5·A6 각각 지갑 승인 2회로 끝난다. 판정은 통과·실패·판정
+  실행기는 만들어 두었다. `/devtools` 에 **실제 체인 공격 재현** 섹션이
+  있고, A5·A6 각각 지갑 승인 2회로 끝난다. 판정은 통과·실패·판정
   불가 세 갈래이고, 지갑 문제로 죽은 것을 통과로 세지 않는다
   (`apps/web/src/shared/runtime/onchain-verdict.ts`).
 

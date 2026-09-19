@@ -1,16 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
-import type { LenderId } from '@/shared/api/types';
 import { useLive } from '@/shared/role/use-live';
 import { EMPTY, shortHash } from '@/shared/ui/format';
-import {
-  AttackPanel, ATTACK_IDS, type AttackId, type AttackStatus,
-} from '@/features/attack-panel/attack-panel';
-import { WalletPanel } from '@/features/wallet-panel/wallet-panel';
-import { judgeConcurrent } from '@/shared/runtime/concurrent-verdict';
 
 /**
  * 발표 콘솔.
@@ -23,9 +16,11 @@ import { judgeConcurrent } from '@/shared/runtime/concurrent-verdict';
  * 공개 이벤트 스트림을 듣고 반응한다. 콘솔이 패널을 조종하지 않는다.
  * 그래서 화면 세 개가 정말로 따로 도는 앱이라는 게 드러난다.
  *
- * 콘솔이 직접 가진 것은 공격 시나리오와 지갑뿐이다. 둘 다 역할 화면에
- * 속하지 않는 발표 도구다.
+ * **검증 도구는 여기 없다.** 배포 패널과 공격 러너는 제품 기능이 아니라
+ * 우리가 주장을 확인하는 수단이다. 같이 두면 어디까지가 제품이고
+ * 어디부터가 도구인지 구분되지 않는다. /devtools 로 뺐다.
  */
+
 /**
  * 각 화면이 무엇을 보지 못하는지는 **여기에만** 적는다.
  *
@@ -54,125 +49,12 @@ const FRAMES: readonly { href: string; label: string; note: string }[] = [
   },
 ];
 
-const IDLE_ATTACKS = Object.fromEntries(
-  ATTACK_IDS.map((id) => [id, { kind: 'idle' } as AttackStatus]),
-) as Record<AttackId, AttackStatus>;
-
 export function DemoConsole() {
-  const queryClient = useQueryClient();
-  const [busy, setBusy] = useState(false);
-  const [attacks, setAttacks] = useState<Record<AttackId, AttackStatus>>(IDLE_ATTACKS);
-  /** iframe을 다시 그리게 하는 열쇠. 리셋 후 안쪽 상태까지 지운다. */
-  const [frameKey, setFrameKey] = useState(0);
-  const [climaxDone, setClimaxDone] = useState(false);
-
   const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
   // 콘솔은 단계 이벤트를 그리지 않는다. 연결을 붙들 이유가 없다.
   useLive('never');
 
   const status = chain.data;
-
-  /**
-   * A5: 두 금융사에 같은 채권으로 동시에 신청한다.
-   *
-   * 콘솔이 두 요청을 쏘기만 한다. 그 뒤로는 손대지 않는다. 두 금융사 화면은
-   * 각자 이벤트를 듣고 각자 판정 결과를 그린다. 한쪽에 도장이 찍히고 다른
-   * 쪽 예치 잔액이 그대로인 것을, 콘솔이 아니라 그 화면들이 보여준다.
-   */
-  const runConcurrent = useCallback(async () => {
-    const invoices = await api.invoices();
-    const target = invoices.find((invoice) => !invoice.used);
-    if (!target) return;
-
-    setBusy(true);
-    setClimaxDone(false);
-    setAttacks((prev) => ({ ...prev, A5: { kind: 'running' } }));
-    try {
-      const results = await Promise.allSettled(
-        (['lender-a', 'lender-b'] as const).map((lender: LenderId) =>
-          api.finance(target.invoiceId, lender, target.maxLoanAmount),
-        ),
-      );
-
-      /*
-       * 판정은 **실제 결과에서 읽는다.**
-       *
-       * 예전에는 여기서 blocked: true 를 그냥 써 넣었다. 로컬에서는 우연히
-       * 맞았지만, 두 요청이 다른 이유로 실패해도 화면은 "통과" 를 띄웠다.
-       * 아무것도 시험하지 않고 초록불을 켜는 것이 이 패널이 가장 하면 안
-       * 되는 일이다.
-       *
-       * A5 가 통과했다는 것은 **정확히 한 건만 확정됐다**는 뜻이다. 둘 다
-       * 확정되면 이중 담보가 뚫린 것이고, 둘 다 실패하면 회로가 막은 게
-       * 아니라 다른 데서 죽은 것이다.
-       */
-      const settled = results.filter((r) => r.status === 'fulfilled');
-      const rejected = results.filter((r) => r.status === 'rejected');
-      const verdict = judgeConcurrent({
-        settledCount: settled.length,
-        rejectedCount: rejected.length,
-        rejectionCode:
-          rejected
-            .map((r) => (r.reason instanceof ApiError ? r.reason.code : 'UNKNOWN'))
-            .at(0) ?? null,
-        amountPerLoan: target.maxLoanAmount,
-      });
-
-      setClimaxDone(verdict.blocked);
-      setAttacks((prev) => ({
-        ...prev,
-        A5: {
-          kind: 'done',
-          outcome: {
-            id: 'A5',
-            title: '두 금융사 동시 신청',
-            expected: '하나만 확정, 나머지 자금 보존',
-            ...verdict,
-          },
-        },
-      }));
-    } finally {
-      setBusy(false);
-      void queryClient.invalidateQueries();
-    }
-  }, [queryClient]);
-
-  const runAttack = useCallback(
-    async (id: AttackId) => {
-      if (id === 'A5') {
-        await runConcurrent();
-        return;
-      }
-      setBusy(true);
-      setAttacks((prev) => ({ ...prev, [id]: { kind: 'running' } }));
-      try {
-        const outcome = await api.attack(id);
-        setAttacks((prev) => ({ ...prev, [id]: { kind: 'done', outcome } }));
-      } catch {
-        setAttacks((prev) => ({ ...prev, [id]: { kind: 'idle' } }));
-      } finally {
-        setBusy(false);
-        void queryClient.invalidateQueries();
-      }
-    },
-    [runConcurrent, queryClient],
-  );
-
-  const reset = useCallback(async () => {
-    setBusy(true);
-    try {
-      await api.reset();
-      setAttacks(IDLE_ATTACKS);
-      setClimaxDone(false);
-      // 역할 화면들은 각자 상태를 들고 있다. 다시 실어야 같이 처음으로 간다.
-      setFrameKey((n) => n + 1);
-    } catch {
-      // 발표 중 리셋이 실패해도 화면은 유지한다
-    } finally {
-      setBusy(false);
-      void queryClient.invalidateQueries();
-    }
-  }, [queryClient]);
 
   return (
     <div className="app">
@@ -218,7 +100,6 @@ export function DemoConsole() {
           </span>
         </header>
 
-
         <div className="frames">
           {FRAMES.map((frame) => (
             <section className="frame" key={frame.href}>
@@ -229,41 +110,21 @@ export function DemoConsole() {
               <header className="frame__cap">
                 <span className="frame__note">{frame.note}</span>
               </header>
-              <iframe
-                key={`${frame.href}-${frameKey}`}
-                className="frame__view"
-                src={frame.href}
-                title={frame.label}
-              />
+              <iframe className="frame__view" src={frame.href} title={frame.label} />
             </section>
           ))}
         </div>
-
-        {climaxDone ? (
-          <p className="climax-note">한 건만 나갔다. B는 A의 장부를 보지 않았다.</p>
-        ) : null}
 
         <section className="frame frame--wide">
           <header className="frame__cap">
             <span className="frame__note">이 표에 채권 내용은 한 글자도 없다</span>
           </header>
           <iframe
-            key={`ledger-${frameKey}`}
             className="frame__view frame__view--ledger"
             src="/ledger"
             title="공개 원장"
           />
         </section>
-
-        <WalletPanel />
-
-        <AttackPanel
-          statuses={attacks}
-          busy={busy}
-          simulated={status?.simulated ?? true}
-          onRun={runAttack}
-          onReset={reset}
-        />
       </div>
     </div>
   );
