@@ -2,6 +2,16 @@
 
 import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { adoptNetworkId } from './network';
+import { classifyConnectError, type ConnectFailure, type NetworkId } from './connect-failure';
+
+/*
+ * 실패 분류와 문구는 connect-failure.ts 에 있다. SDK 를 끌어오지 않는
+ * 자리여야 테스트가 읽을 수 있다. 여기서 다시 내보내 호출부는 그대로 둔다.
+ */
+export {
+  NETWORK_IDS, classifyConnectError, describeFailure, isNetworkMismatch,
+} from './connect-failure';
+export type { ConnectFailure, NetworkId } from './connect-failure';
 
 /**
  * Midnight 지갑 연결.
@@ -21,10 +31,6 @@ import { adoptNetworkId } from './network';
  *    맞는 모델이다.
  */
 
-/** 지원 네트워크. 지갑이 알려준 목록 그대로다. */
-export const NETWORK_IDS = ['undeployed', 'preview', 'preprod', 'mainnet'] as const;
-export type NetworkId = (typeof NETWORK_IDS)[number];
-
 export interface DetectedWallet {
   /** 열거해서 찾은 키. 고정값으로 가정하지 않는다. */
   readonly key: string;
@@ -33,12 +39,6 @@ export interface DetectedWallet {
   readonly apiVersion: string;
   readonly api: InitialAPI;
 }
-
-export type ConnectFailure =
-  | { readonly kind: 'no-wallet' }
-  | { readonly kind: 'network-mismatch'; readonly wanted: NetworkId }
-  | { readonly kind: 'rejected' }
-  | { readonly kind: 'error'; readonly message: string };
 
 export type ConnectResult =
   | { readonly ok: true; readonly api: ConnectedAPI; readonly wallet: DetectedWallet }
@@ -58,19 +58,6 @@ export function detectWallets(): DetectedWallet[] {
       apiVersion: String(api.apiVersion ?? ''),
       api,
     }));
-}
-
-function classify(error: unknown): ConnectFailure {
-  const message =
-    typeof error === 'object' && error !== null && 'message' in error
-      ? String((error as { message: unknown }).message)
-      : String(error);
-
-  if (/network id mismatch/i.test(message)) {
-    return { kind: 'network-mismatch', wanted: 'preprod' };
-  }
-  if (/reject|denied|cancel/i.test(message)) return { kind: 'rejected' };
-  return { kind: 'error', message };
 }
 
 /**
@@ -106,7 +93,7 @@ export async function connectWallet(networkId: NetworkId): Promise<ConnectResult
 
     return { ok: true, api, wallet };
   } catch (error: unknown) {
-    const failure = classify(error);
+    const failure = classifyConnectError(error);
     return {
       ok: false,
       failure:
@@ -115,16 +102,3 @@ export async function connectWallet(networkId: NetworkId): Promise<ConnectResult
   }
 }
 
-/** 실패 사유를 사용자가 행동할 수 있는 문장으로 바꾼다. */
-export function describeFailure(failure: ConnectFailure): string {
-  switch (failure.kind) {
-    case 'no-wallet':
-      return 'Midnight 지갑이 없습니다. Chrome에 Midnight 지갑 확장(Lace · 1am 등)을 설치하고 페이지를 새로고침하세요.';
-    case 'network-mismatch':
-      return `지갑이 다른 네트워크에 있습니다. 지갑 설정에서 네트워크를 ${failure.wanted}로 바꾸세요.`;
-    case 'rejected':
-      return '지갑에서 연결을 승인하지 않았습니다.';
-    case 'error':
-      return `연결 실패: ${failure.message}`;
-  }
-}
