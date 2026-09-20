@@ -2,3 +2,19 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'contracts'
+
+# pnpm 10 부터 package.json 의 "pnpm" 필드를 읽지 않는다. 설정의 새 집이 여기다.
+# 옮기기 전까지는 경고 한 줄만 나오고 고정이 조용히 사라졌다. 그때도 테스트가
+# 통과한 이유는 pnpm-lock.yaml 이 이미 고정된 상태로 커밋돼 있어서였을 뿐이다.
+
+# 네이티브 빌드를 허용할 패키지. 나머지는 설치 스크립트를 돌리지 않는다.
+onlyBuiltDependencies:
+  - esbuild
+  - classic-level
+  - msgpackr-extract
+
+# WASM 런타임이 두 인스턴스로 갈리는 것을 막는다.
+# 근거와 사고 이력은 test/contract-tests/single-runtime.spec.ts 주석에 있다.
+overrides:
+  '@midnight-ntwrk/ledger-v8': 8.1.2
+  '@midnight-ntwrk/onchain-runtime-v3': 3.0.0
