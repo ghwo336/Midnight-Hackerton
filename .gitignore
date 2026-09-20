@@ -7,7 +7,8 @@ build/
 coverage/
 *.log
 .env
-.env.local
+.env.*
+!.env.example
 contracts/out/
 
 # contracts/managed/ 는 의도적으로 커밋한다.

@@ -95,9 +95,16 @@ Node에서 그대로 돌린다. 증명 생성·제출은 로컬에서 일어나�
 1 건너뜀을 확인했다. 클린 환경 측정은 다시 돌리지 않았다
 ([TEST_REPORT.md](docs/TEST_REPORT.md)).
 
-> `.env` 는 저장소에 없고 필요하지도 않다. 없으면 `local-circuit` 으로 돈다.
-> 실제 체인에 붙일 때만 만든다 (§5.1). `.env` 를 만든다면 Node 20.12 이상이
-> 필요하다 — 내장 `loadEnvFile` 을 쓴다.
+> `.env` 는 저장소에 없고 심사 경로에는 필요하지도 않다. 없으면
+> `local-circuit` 으로 돈다. 실제 체인에 붙이는 방법은 두 가지다 (§5.1).
+>
+> - **`pnpm dev:preprod`** — `.env.preprod` 를 읽는다. 기본 `pnpm dev` 는
+>   영향받지 않는다. **이쪽을 쓴다.**
+> - 루트에 `.env` 를 만든다 — 이후 `pnpm dev` 를 포함한 **모든** 실행이
+>   preprod 가 된다. Node 20.12 이상이 필요하다 (내장 `loadEnvFile`).
+>
+> 인라인 환경변수가 파일보다 우선한다. `loadEnvFile` 은 이미 설정된 값을
+> 덮어쓰지 않으므로 `CHAIN_MODE=local-circuit pnpm dev:preprod` 로 되돌릴 수 있다.
 
 ---
 

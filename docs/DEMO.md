@@ -38,11 +38,16 @@ pnpm dev         # API 3011 / 웹 3040
 - [ ] `/devtools` → **데모 초기화** 를 눌러 채권 3건을 미사용으로 되돌렸다
 - [ ] 납품업체 화면에 채권 3건이 보이고 전부 미사용이다
 
-`.env` 가 있으면 안 된다. 있으면 Preprod 로 붙는다.
+루트에 `.env` 가 있으면 안 된다. 있으면 `pnpm dev` 도 Preprod 로 붙는다.
+preprod 설정은 `.env.preprod` 에 두고 `pnpm dev:preprod` 로만 켠다.
+
+**판정 기준은 하나다 — 상단에 `local-circuit` 이 뜨는가.** 파일이 있나 없나를
+눈으로 세지 말고 화면을 봐라.
 
 ### Preprod
 
-`.env` 에 `CHAIN_MODE=preprod`, `CONTRACT_ADDRESS`, `DEPLOY_BLOCK` 이 있어야
+`pnpm dev:preprod` 로 띄운다. `.env.preprod` 에 `CHAIN_MODE=preprod`,
+`CONTRACT_ADDRESS`, `DEPLOY_BLOCK` 이 있어야
 한다. 값은 [`apps/deploy/deployment.json`](../apps/deploy/deployment.json) 에 있다.
 
 - [ ] 상단에 **`preprod`** 와 실제 블록 높이가 뜬다

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "dev:preprod": "tsx watch --env-file-if-exists=../../.env.preprod src/main.ts",
     "start": "tsx src/main.ts"
   },
   "dependencies": {
