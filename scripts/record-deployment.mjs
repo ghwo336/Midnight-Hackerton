@@ -6,6 +6,17 @@
  * deployment.json / scenario-result.json을 읽어 기계적으로 채운다.
  *
  *   node scripts/record-deployment.mjs
+ *
+ * ⚠️ 지금은 돌리지 마라.
+ *
+ * 이 스크립트는 README 의 <!-- DEPLOYMENT:BEGIN/END --> 사이를 통째로
+ * 갈아치운다. 그런데 현재 그 블록은 **브라우저 + 지갑 경로로 배포한 기록**
+ * 이고 손으로 쓴 것이다 — 초기 설정 tx 8건의 해시·블록·소요·증명 시간 표,
+ * 인덱서로 디코드한 온체인 상태 검증까지 들어 있다. 이 스크립트가 만드는
+ * 표에는 그게 없다. 돌리면 배포 증거가 줄어든다.
+ *
+ * Node 지갑 SDK 배포 경로(apps/deploy)를 되살릴 때만 의미가 있고, 그 경로는
+ * 폐기됐다 (docs/SPIKE.md S6-d). 그때까지 README §5 는 손으로 갱신한다.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
