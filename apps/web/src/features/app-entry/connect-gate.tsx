@@ -28,7 +28,7 @@ export function ConnectGate({
 
         {message ? <p className="hint hint--error">{message}</p> : null}
         {!hasWallet && message === null ? (
-          <p className="hint">Chrome에 Lace 지갑이 필요하다.</p>
+          <p className="hint">Chrome에 Midnight 지갑 확장이 필요하다.</p>
         ) : null}
 
         <div className="btn-row">

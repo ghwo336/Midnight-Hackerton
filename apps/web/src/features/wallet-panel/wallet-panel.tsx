@@ -335,8 +335,8 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
             <p className="hint">
               {state.message ??
                 (hasWallet
-                  ? 'Preprod 네트워크로 설정한 Lace를 연결한다.'
-                  : 'Chrome에 Lace 지갑이 필요하다.')}
+                  ? 'Preprod 네트워크로 설정한 Midnight 지갑을 연결한다.'
+                  : 'Chrome에 Midnight 지갑 확장이 필요하다.')}
             </p>
             <div className="btn-row">
               <button

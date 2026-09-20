@@ -81,6 +81,13 @@ function classify(error: unknown): ConnectFailure {
  */
 export async function connectWallet(networkId: NetworkId): Promise<ConnectResult> {
   const wallets = detectWallets();
+  /*
+   * 주입된 것 중 첫 번째를 고른다. 선택 UI 가 없다.
+   *
+   * 확장이 두 개 이상 깔려 있으면 열거 순서가 결정하고 그건 제어할 수 없다.
+   * **지갑 확장 하나만 설치한 브라우저 프로필에서 작업해라.** 엉뚱한 지갑에
+   * 연결되면 주소·네트워크는 멀쩡해 보이는데 서명 단계에서만 어긋난다.
+   */
   const wallet = wallets[0];
   if (!wallet) return { ok: false, failure: { kind: 'no-wallet' } };
 
@@ -112,9 +119,9 @@ export async function connectWallet(networkId: NetworkId): Promise<ConnectResult
 export function describeFailure(failure: ConnectFailure): string {
   switch (failure.kind) {
     case 'no-wallet':
-      return 'Midnight 지갑이 없습니다. Chrome에 Lace를 설치하고 페이지를 새로고침하세요.';
+      return 'Midnight 지갑이 없습니다. Chrome에 Midnight 지갑 확장(Lace · 1am 등)을 설치하고 페이지를 새로고침하세요.';
     case 'network-mismatch':
-      return `지갑이 다른 네트워크에 있습니다. Lace 설정에서 네트워크를 ${failure.wanted}로 바꾸세요.`;
+      return `지갑이 다른 네트워크에 있습니다. 지갑 설정에서 네트워크를 ${failure.wanted}로 바꾸세요.`;
     case 'rejected':
       return '지갑에서 연결을 승인하지 않았습니다.';
     case 'error':
