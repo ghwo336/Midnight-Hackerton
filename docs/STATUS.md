@@ -1,5 +1,14 @@
 # 현재 상태와 다음 할 일
 
+> ⚠️ **이 문서는 2026-09-17 시점이고 그 뒤로 상황이 바뀌었다.** 아래의
+> "동기화 8시간" · "G4 미완" · "방향 전환 검토 중" 은 전부 지난 이야기다.
+> 배포는 끝났고(README §5, Preprod `52a72d93…` 생존을 2026-09-20 에 재확인),
+> 동기화 경로는 브라우저 + 지갑으로 대체돼 그 8시간이 사라졌다.
+> `scripts/sync-until-done.sh` 는 **돌리지 마라** — README §5 의 배포 증거를
+> 덮어쓴다. 현재 상태는 [ONCE_HANDOFF_final.md](ONCE_HANDOFF_final.md) 를 봐라.
+>
+> 아래 내용은 판단 근거와 측정 기록으로 남겨 둔다. 전면 재작성은 아직이다.
+
 작업을 이어받는 사람(또는 새 세션)이 맥락을 빨리 잡기 위한 문서다.
 제품 설명은 [README.md](../README.md), 측정치는 [TEST_REPORT.md](TEST_REPORT.md)에 있다.
 
@@ -133,7 +142,7 @@ Claude 세션은 SSH가 끊기면 멈춘다. 계속 붙여두려면 tmux를 쓴�
 
 ```bash
 tmux new -s once
-cd /Users/Shared/srv/midngiht-probability
+cd ~/dev/Midnight-Hackerton
 claude
 # 나갈 때: Ctrl+b 누르고 d
 # 돌아와서: tmux attach -t once
