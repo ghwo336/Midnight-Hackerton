@@ -30,5 +30,13 @@ console.log('tNight를 받을 주소 (faucet에 넣는 값):');
 console.log(`  ${address}`);
 console.log('');
 console.log('faucet: https://faucet.preprod.midnight.network/');
-console.log('자금 반영까지 2~3분. tNight를 위임하면 수수료용 DUST가 자동 생성된다.');
+console.log('자금 반영까지 2~3분.');
+/*
+ * tNIGHT 을 들고 있으면 DUST 가 저절로 생긴다는 말이 오래 적혀 있었는데
+ * 사실이 아니다. 원장은 night 키에 테이블 항목이 있을 때만 DUST UTXO 를
+ * 만든다. 그 항목을 만드는 것이 DustRegistration 이고, 등록 없이는 잔액이
+ * 5,000 tNIGHT 여도 cap 이 0 이라 트랜잭션을 한 건도 못 낸다 (SPIKE S6-f).
+ */
+console.log('tNIGHT 만으로는 트랜잭션을 못 낸다. 수수료용 DUST 를 따로 등록해야 한다:');
+console.log('  /devtools → 지갑 연결 → [DUST 생성 등록]  (docs/DEPLOY.md)');
 console.log('');
