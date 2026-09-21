@@ -393,7 +393,7 @@ A6 도 2회가 필요하고 한 건당 30~45초가 걸린다.
 회로를 고치거나 직접 테스트넷에 올리려면:
 
 - 회로 재컴파일: [docs/VERSIONS.md](docs/VERSIONS.md): 툴체인 설치와 버전 고정
-- 테스트넷 배포: [docs/DEPLOY.md](docs/DEPLOY.md): 지갑·faucet·동기화 소요 시간
+- 테스트넷 배포: [docs/DEPLOY.md](docs/DEPLOY.md): 지갑·faucet·DUST 등록 (폐기된 Node 경로는 부록)
 
 ```bash
 # 회로를 고쳤을 때만 필요하다. contracts/managed/ 가 저장소에 있으므로
