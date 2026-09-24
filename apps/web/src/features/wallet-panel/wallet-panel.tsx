@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { formatAmount, shortHash, EMPTY } from '@/shared/ui/format';
 import {
   initialSteps, runBootstrap, type StepResult,
 } from '@/shared/wallet/bootstrap';
 import type { Recorder } from '@/shared/wallet/measure';
 import { currentNetworkId } from '@/shared/wallet/network';
+import { clearDeployProgress, readDeployProgress } from '@/shared/wallet/private-state';
 import type { useWallet } from './use-wallet';
 
 /**
@@ -51,7 +52,18 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
   const [address, setAddress] = useState<string | null>(null);
   const [issuerPk, setIssuerPk] = useState<string | null>(null);
   const [recorder, setRecorder] = useState<Recorder | null>(null);
-  const run = useCallback(async () => {
+  const [resumable, setResumable] = useState<string | null>(null);
+
+  /*
+   * 이어받을 배포가 있는지 본다. 있으면 [배포 시작] 이 새 컨트랙트를 올리지
+   * 않고 그 컨트랙트를 이어받는다는 것을 미리 말해 준다 — 누르고 나서야
+   * 아는 것과 다르다.
+   */
+  useEffect(() => {
+    void readDeployProgress().then((p) => setResumable(p?.contractAddress ?? null));
+  }, [state.status]);
+
+  const run = useCallback(async (resume = true) => {
     if (!state.api) return;
     setRunning(true);
     setSteps(initialSteps());
@@ -64,10 +76,17 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
       setIssuerPk(result.issuerPublicKey);
       setRecorder(result.recorder);
       setSteps(result.steps);
+      setResumable((await readDeployProgress())?.contractAddress ?? null);
     } finally {
       setRunning(false);
     }
   }, [state.api]);
+
+  const startOver = useCallback(async () => {
+    await clearDeployProgress();
+    setResumable(null);
+    await run(false);
+  }, [run]);
 
   /*
    * DUST 가 없으면 배포를 시작하지 않는다.
@@ -244,6 +263,18 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
               저장소에 적힌 더미 키로 배포하면 누구나 채권을 등록할 수 있다.
             </p>
 
+            {/*
+              이어받을 배포가 있으면 누르기 전에 말해 준다. 8건 중 앞의
+              성공분을 버리고 새 컨트랙트를 올리는 것은 거의 항상 잘못된
+              선택이라 기본값이 이어받기다.
+            */}
+            {resumable ? (
+              <p className="hint">
+                이어받을 배포가 있다 · {shortHash(`0x${resumable}`)} — [배포 시작]은 이
+                컨트랙트를 이어받고 끝난 단계는 건너뛴다. 처음부터 하려면 [새로 배포].
+              </p>
+            ) : null}
+
             <div className="btn-row">
               <button
                 type="button"
@@ -251,8 +282,24 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
                 disabled={running || noDust}
                 onClick={() => void run()}
               >
-                {running ? '진행 중 (지갑 승인 필요)' : done > 0 ? '다시 실행' : '배포 시작'}
+                {running
+                  ? '진행 중 (지갑 승인 필요)'
+                  : resumable
+                    ? '배포 이어하기'
+                    : done > 0
+                      ? '다시 실행'
+                      : '배포 시작'}
               </button>
+              {resumable ? (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={running}
+                  onClick={() => void startOver()}
+                >
+                  새로 배포
+                </button>
+              ) : null}
               <button type="button" className="btn" disabled={!recorder} onClick={copyReport}>
                 실측 복사
               </button>

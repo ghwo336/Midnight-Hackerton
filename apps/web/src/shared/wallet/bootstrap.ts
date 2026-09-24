@@ -1,13 +1,15 @@
 'use client';
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
-import { deployContract } from '@midnight-ntwrk/midnight-js/contracts';
+import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js/contracts';
 import { isTransactionPending } from './connect-failure';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
 import { buildProviders, ONCE_PRIVATE_STATE_ID, type OnceProviders } from './providers';
-import { ensureIssuerSecret, writeIssuerPublicKey } from './private-state';
+import { ensureIssuerSecret, writeIssuerPublicKey,
+  readDeployProgress, writeDeployProgress, clearDeployProgress,
+} from './private-state';
 import { Recorder } from './measure';
 import { DEMO } from './demo-fixtures';
 
@@ -258,6 +260,14 @@ export function initialSteps(): StepResult[] {
 export async function runBootstrap(
   api: ConnectedAPI,
   onProgress: (steps: readonly StepResult[], recorder: Recorder) => void,
+  /**
+   * 앞선 실행을 이어받을 것인가.
+   *
+   * 기본값이 true 다. 중간에 끊긴 배포를 처음부터 다시 하는 것은 거의 항상
+   * 잘못된 선택이다 — 컨트랙트를 새로 올리고 앞의 성공분을 버린다. 처음부터
+   * 하고 싶을 때만 false 를 준다.
+   */
+  resume = true,
 ): Promise<BootstrapResult> {
   const recorder = new Recorder();
   const list = steps();
@@ -288,53 +298,36 @@ export async function runBootstrap(
   let deployed: { callTx: Record<string, (...args: unknown[]) => Promise<unknown>> } | null = null;
 
   /**
-   * 지갑이 앞 트랜잭션을 아직 pending 으로 잡고 있으면 기다렸다 다시 낸다.
+   * 앞 트랜잭션이 확정될 시간을 준 뒤 다음 단계로 간다.
    *
-   * 단계는 이미 순차다. 그런데 회로 호출은 **제출이 끝나면** 반환되고,
-   * 지갑은 그 뒤로도 확정을 볼 때까지 pending 으로 잡는다. 그래서 다음
-   * 단계가 "A transaction is already pending" 으로 거부됐다.
+   * 처음에는 `getDustBalance()` 가 0 이 아니게 될 때까지 기다리게 했는데
+   * **아무 일도 하지 않았다.** 1am 이 돌려주는 값은 내 DUST 가 아니라
+   * proof server 의 대납 한도이고, 그건 늘 만충이라 첫 조회에서 바로
+   * 빠져나갔다. 가설이 틀렸으면 코드도 틀린 것이다.
    *
-   * 거부는 제출 **이전** 에 일어나므로 다시 시도해도 이중 제출이 아니다.
-   * 증명과 잔액 조정을 다시 하느라 시간은 더 쓴다 — 실측 balance 한 번이
-   * 10초 남짓이라 그 값이 재시도 간격의 근거다.
-   *
-   * 무한정 기다리지 않는다. 확정이 안 되는 것과 느린 것은 다르고, 영원히
-   * 도는 화면은 어느 쪽인지 말해 주지 않는다.
+   * 지금은 실측에 기댄다. 이 기기에서 성공한 6단계가 30.98 · 31.23 ·
+   * 29.29 · 30.75 · 82.43 · 49.78초였고, 앞선 Lace 배포도 29.5~44.5초였다.
+   * 확정에 그만큼 걸린다는 뜻이므로 다음 요청을 그 전에 보내면 대납이
+   * 거절된다. 25초를 깔고, 그래도 거절당하면 아래 재시도가 받는다.
    */
-  /*
-   * 간격의 근거는 실측이다. 앞선 Lace 배포에서 한 건이 29.5~44.5초 걸렸고
-   * 그중 증명은 1초 남짓이었다 — 나머지가 전부 확정 대기다. 6초로 다시
-   * 내봐야 앞 건이 확정되기 한참 전이라 또 거부당한다.
-   */
-  const PENDING_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
+  const SETTLE_FLOOR_MS = 25_000;
 
-  /**
-   * 지갑에 수수료 여력이 돌아올 때까지 기다린다.
-   *
-   * **가설이다.** 앞 트랜잭션이 확정되기 전에는 그 수수료로 잡아 둔 DUST 가
-   * 묶여 있어서, 다음 건의 수수료를 약속하지 못하고 지갑이 지불 승인을
-   * 거절하는 것으로 보인다. 실제로 두 번 다 같은 모양이었다 — prove 2회 ·
-   * balance 2회인데 submit 은 1회였다. 사람이 승인 창을 놓친 것이라면
-   * 그렇게 일정하게 나오지 않는다.
-   *
-   * 확인하지는 못했다. 그래서 **틀려도 해가 없게** 만든다. 잔액이 줄지
-   * 않는 지갑에서는 첫 조회에서 바로 빠져나가 아무 일도 하지 않는다.
-   */
-  const waitForFeeCapacity = async (note: (text: string) => void): Promise<void> => {
+  const waitForSettlement = async (note: (text: string) => void): Promise<void> => {
     const started = Date.now();
-    const deadline = started + 120_000;
     for (;;) {
-      try {
-        const { balance } = await api.getDustBalance();
-        if (balance > 0n) return;
-      } catch {
-        // 지갑이 동기화 중일 수 있다. 그것도 기다릴 이유다.
-      }
-      if (Date.now() >= deadline) return; // 영원히 붙잡지 않는다. 실패는 다음 단계가 말한다.
-      note(`지갑 수수료 여력 대기 ${Math.round((Date.now() - started) / 1000)}초`);
-      await new Promise((resolve) => setTimeout(resolve, 5_000));
+      const elapsed = Date.now() - started;
+      if (elapsed >= SETTLE_FLOOR_MS) return;
+      note(`앞 트랜잭션 확정 대기 ${Math.round((SETTLE_FLOOR_MS - elapsed) / 1000)}초 남음`);
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
     }
   };
+
+  /*
+   * 간격의 근거는 실측이다. 이 기기에서 성공한 단계가 29~82초였고 앞선
+   * Lace 배포도 29.5~44.5초였다. 그중 증명은 1초 남짓이니 나머지가 전부
+   * 확정 대기다. 몇 초 만에 다시 내봐야 같은 이유로 또 거절당한다.
+   */
+  const PENDING_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
 
   const runWithPendingRetry = async (
     body: () => Promise<{ txId?: string; block?: number }>,
@@ -365,7 +358,7 @@ export async function runBootstrap(
        * 통째로 다시 한다.
        */
       if (step.id !== list[0]!.id) {
-        await waitForFeeCapacity((text) => {
+        await waitForSettlement((text) => {
           step.note = text;
           report();
         });
@@ -406,8 +399,57 @@ export async function runBootstrap(
     return { txId: pub?.txId, block: pub?.blockHeight };
   };
 
+  /*
+   * 끝낸 단계를 남긴다.
+   *
+   * 초기 설정은 트랜잭션 8건이고 한 건에 30~80초다. 중간에 하나가 죽으면
+   * 지금까지는 처음부터 다시 했다 — 컨트랙트를 새로 배포하고 앞의 성공분을
+   * 통째로 버렸다. 수수료가 유한한 환경(대납 한도·DUST)에서는 그게 가장
+   * 비싼 실패 방식이다.
+   */
+  const prior = resume ? await readDeployProgress() : null;
+  const done = new Set<string>(prior?.done ?? []);
+
+  const remember = async () => {
+    if (contractAddress === null) return;
+    await writeDeployProgress({
+      contractAddress,
+      issuerPublicKey,
+      done: [...done],
+      at: new Date().toISOString(),
+    });
+  };
+
+  /** 이미 끝낸 단계는 건너뛴다. 화면에는 건너뛴 것으로 남긴다. */
+  const step = async (target: StepResult, body: () => Promise<{ txId?: string; block?: number }>) => {
+    if (done.has(target.id)) {
+      target.state = 'done';
+      target.note = '앞선 실행에서 완료';
+      report();
+      return;
+    }
+    await run(target, body);
+    done.add(target.id);
+    await remember();
+  };
+
   try {
-    await run(list[0]!, async () => {
+    await step(list[0]!, async () => {
+      /*
+       * 이어받을 컨트랙트가 있으면 새로 배포하지 않는다. 배포를 다시 하면
+       * 주소가 바뀌어 앞의 등록·예치가 전부 남의 컨트랙트 것이 된다.
+       */
+      if (prior) {
+        const found = await findDeployedContract(providers as never, {
+          contractAddress: prior.contractAddress,
+          contract: compiled as never,
+          privateStateId: ONCE_PRIVATE_STATE_ID,
+          initialPrivateState: privateState,
+        } as never);
+        deployed = found as never;
+        contractAddress = prior.contractAddress;
+        return {};
+      }
       const result = await deployContract(providers as never, {
         compiledContract: compiled as never,
         privateStateId: ONCE_PRIVATE_STATE_ID,
@@ -432,13 +474,13 @@ export async function runBootstrap(
 
     let index = 1;
     for (const lender of DEMO.lenders) {
-      await run(list[index]!, async () =>
+      await step(list[index]!, async () =>
         finish(await callTx()['registerLender']!(hexToBytes(lender.key))),
       );
       index += 1;
     }
     for (const lender of DEMO.lenders) {
-      await run(list[index]!, async () =>
+      await step(list[index]!, async () =>
         finish(await callTx()['fundLender']!(hexToBytes(lender.key), DEMO.funding)),
       );
       index += 1;
@@ -447,9 +489,11 @@ export async function runBootstrap(
     const ownerPk = pureCircuits.ownerPublicKey(hexToBytes(DEMO.supplierSecret));
     for (const invoice of DEMO.invoices) {
       const leaf = pureCircuits.invoiceLeaf(hexToBytes(invoice.id), invoice.faceAmount, ownerPk);
-      await run(list[index]!, async () => finish(await callTx()['registerInvoice']!(leaf)));
+      await step(list[index]!, async () => finish(await callTx()['registerInvoice']!(leaf)));
       index += 1;
     }
+    // 전부 끝났다. 다음 실행이 옛 기록을 이어받지 않게 지운다.
+    await clearDeployProgress();
   } catch {
     // 단계에 이미 기록했다. 여기서는 부분 결과를 그대로 돌려준다.
   }

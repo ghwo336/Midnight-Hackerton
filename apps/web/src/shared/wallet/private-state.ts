@@ -62,6 +62,7 @@ async function withStore<T>(
  */
 const ISSUER_SECRET_KEY = 'issuerSecret';
 const ISSUER_PK_KEY = 'issuerPublicKey';
+const DEPLOY_PROGRESS_KEY = 'deployProgress';
 
 /**
  * 유도된 발급 기관 공개키를 같이 저장한다.
@@ -180,4 +181,38 @@ export function indexedDbPrivateStateProvider<
     exportSigningKeys: unsupported('서명키 내보내기'),
     importSigningKeys: unsupported('서명키 가져오기'),
   } as PrivateStateProvider<PSI, PS>;
+}
+
+/**
+ * 배포 진행 상태.
+ *
+ * 초기 설정은 트랜잭션 8건이고 한 건에 30~80초가 걸린다. 중간에 하나가
+ * 죽으면 지금까지는 처음부터 다시 했다 — 컨트랙트를 새로 배포하고 앞의
+ * 성공분을 통째로 버렸다. 수수료가 유한한 환경에서는 그게 가장 비싼
+ * 실패 방식이다.
+ *
+ * 컨트랙트 주소와 끝낸 단계를 남겨 두면 다음 실행이 이어받는다.
+ */
+export interface DeployProgress {
+  readonly contractAddress: string;
+  readonly issuerPublicKey: string;
+  readonly done: readonly string[];
+  readonly at: string;
+}
+
+export async function writeDeployProgress(progress: DeployProgress): Promise<void> {
+  await withStore<IDBValidKey>(STORE_KEYS, 'readwrite', (s) =>
+    s.put(progress, DEPLOY_PROGRESS_KEY),
+  );
+}
+
+export async function readDeployProgress(): Promise<DeployProgress | null> {
+  const value = await withStore<DeployProgress | undefined>(STORE_KEYS, 'readonly', (s) =>
+    s.get(DEPLOY_PROGRESS_KEY),
+  );
+  return value ?? null;
+}
+
+export async function clearDeployProgress(): Promise<void> {
+  await withStore<undefined>(STORE_KEYS, 'readwrite', (s) => s.delete(DEPLOY_PROGRESS_KEY));
 }
