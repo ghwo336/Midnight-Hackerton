@@ -301,7 +301,40 @@ export async function runBootstrap(
    * 무한정 기다리지 않는다. 확정이 안 되는 것과 느린 것은 다르고, 영원히
    * 도는 화면은 어느 쪽인지 말해 주지 않는다.
    */
-  const PENDING_RETRY_DELAYS_MS = [6_000, 12_000, 20_000, 30_000];
+  /*
+   * 간격의 근거는 실측이다. 앞선 Lace 배포에서 한 건이 29.5~44.5초 걸렸고
+   * 그중 증명은 1초 남짓이었다 — 나머지가 전부 확정 대기다. 6초로 다시
+   * 내봐야 앞 건이 확정되기 한참 전이라 또 거부당한다.
+   */
+  const PENDING_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
+
+  /**
+   * 지갑에 수수료 여력이 돌아올 때까지 기다린다.
+   *
+   * **가설이다.** 앞 트랜잭션이 확정되기 전에는 그 수수료로 잡아 둔 DUST 가
+   * 묶여 있어서, 다음 건의 수수료를 약속하지 못하고 지갑이 지불 승인을
+   * 거절하는 것으로 보인다. 실제로 두 번 다 같은 모양이었다 — prove 2회 ·
+   * balance 2회인데 submit 은 1회였다. 사람이 승인 창을 놓친 것이라면
+   * 그렇게 일정하게 나오지 않는다.
+   *
+   * 확인하지는 못했다. 그래서 **틀려도 해가 없게** 만든다. 잔액이 줄지
+   * 않는 지갑에서는 첫 조회에서 바로 빠져나가 아무 일도 하지 않는다.
+   */
+  const waitForFeeCapacity = async (note: (text: string) => void): Promise<void> => {
+    const started = Date.now();
+    const deadline = started + 120_000;
+    for (;;) {
+      try {
+        const { balance } = await api.getDustBalance();
+        if (balance > 0n) return;
+      } catch {
+        // 지갑이 동기화 중일 수 있다. 그것도 기다릴 이유다.
+      }
+      if (Date.now() >= deadline) return; // 영원히 붙잡지 않는다. 실패는 다음 단계가 말한다.
+      note(`지갑 수수료 여력 대기 ${Math.round((Date.now() - started) / 1000)}초`);
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
+  };
 
   const runWithPendingRetry = async (
     body: () => Promise<{ txId?: string; block?: number }>,
@@ -326,6 +359,17 @@ export async function runBootstrap(
     report();
     const started = performance.now();
     try {
+      /*
+       * 첫 단계가 아니면 앞 트랜잭션이 지갑에서 정리되기를 먼저 기다린다.
+       * 거부당한 뒤 재시도하는 것보다 싸다 — 재시도는 증명과 잔액 조정을
+       * 통째로 다시 한다.
+       */
+      if (step.id !== list[0]!.id) {
+        await waitForFeeCapacity((text) => {
+          step.note = text;
+          report();
+        });
+      }
       const out = await runWithPendingRetry(body, (attempt, delayMs) => {
         /*
          * 기다리는 중이라는 것을 화면에 적는다. 말하지 않으면 멈춘 것으로
