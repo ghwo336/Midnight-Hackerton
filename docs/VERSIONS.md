@@ -13,6 +13,31 @@
 | Node.js | v25.8.0 | `node -v` |
 | pnpm | 10.30.3 | `pnpm -v` |
 
+## 재현 확인 (2026-09-24)
+
+커밋된 `contracts/managed/`가 **소스에서 그대로 다시 나오는지** 확인했다. 인수 환경
+(WSL2)에서 컴파일러를 0.31.1로 맞추고 스크래치 디렉터리로 컴파일했다.
+
+```bash
+compact update 0.31
+compact compile --skip-zk contracts/src/once.compact /tmp/out
+```
+
+| 산출물 | 커밋본과 |
+|---|---|
+| `contract/index.js` | 바이트 단위 동일 |
+| `contract/index.d.ts` | 바이트 단위 동일 |
+| `zkir/` 5개 (`finance` · `fundLender` · `registerInvoice` · `registerLender` · `repay`) | 전부 동일 |
+
+언어 0.23.0 · 런타임 0.16.0 · 원장 ledger-8.0.2도 위 표와 같았다.
+
+**증명키(`keys/`)는 대조하지 않았다.** `--skip-zk`는 키를 만들지 않는다. 회로 로직과
+공개 인터페이스가 소스에서 재현된다는 것까지가 이 확인의 범위다.
+
+그리고 **이 확인은 0.34에서는 성립하지 않는다.** 인수 시점에 이 기계에는 0.34.0이
+깔려 있었고 `compact` 진단 도구가 그걸 "최신 · 통과"로 보고했다. 세션 시작 훅도 업데이트를
+권한다. 둘 다 이 저장소에는 틀린 조언이다 — 아래 이유로.
+
 ## 왜 최신 툴체인이 아닌가
 
 `compact update`는 0.34.0을 설치하지만, **그걸로 컴파일한 컨트랙트는 어느
