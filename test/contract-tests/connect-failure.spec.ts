@@ -119,3 +119,39 @@ describe('앞 트랜잭션 pending', () => {
     }
   });
 });
+
+/**
+ * 수수료 승인 거부.
+ *
+ * 일반 거부와 갈라 둔다. 사람이 할 일이 다르기 때문이다 — 승인 창을 놓친
+ * 것이면 다시 누르면 되고, DUST 가 모자란 것이면 잔액을 봐야 한다.
+ */
+describe('수수료(DUST) 승인 거부', () => {
+  const load = () => import('../../apps/web/src/shared/wallet/connect-failure.js');
+
+  it('1am 의 문구를 알아본다', async () => {
+    const { isFeeDeclined, classifyConnectError } = await load();
+    // 2026-09-24 배포 중 실제로 관측된 문자열
+    const message = 'User declined to pay dust fee';
+    expect(isFeeDeclined(message)).toBe(true);
+    expect(classifyConnectError(new Error(message)).kind).toBe('fee-declined');
+  });
+
+  it('안내가 DUST 잔액을 확인하라고 말한다', async () => {
+    const { describeFailure } = await load();
+    const text = describeFailure({ kind: 'fee-declined' });
+    expect(text).toContain('DUST');
+  });
+
+  it('연결 거부와 수수료 거부를 섞지 않는다', async () => {
+    const { classifyConnectError } = await load();
+    expect(classifyConnectError(new Error('User rejected the request')).kind).toBe('rejected');
+    expect(classifyConnectError(new Error('User declined to pay dust fee')).kind).toBe('fee-declined');
+  });
+
+  it('"declined" 도 거부로 센다', async () => {
+    const { isRejection } = await load();
+    // 옛 정규식은 reject|denied|cancel 뿐이라 declined 를 놓쳤다.
+    expect(isRejection('User declined the signature request')).toBe(true);
+  });
+});

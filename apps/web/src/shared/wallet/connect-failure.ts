@@ -15,6 +15,7 @@ export type ConnectFailure =
   | { readonly kind: 'no-wallet' }
   | { readonly kind: 'network-mismatch'; readonly wanted: NetworkId }
   | { readonly kind: 'syncing' }
+  | { readonly kind: 'fee-declined' }
   | { readonly kind: 'rejected' }
   | { readonly kind: 'error'; readonly message: string };
 
@@ -79,9 +80,29 @@ export function isTransactionPending(message: string): boolean {
   );
 }
 
-/** 사용자가 승인을 거부했는가. */
+/**
+ * 수수료(DUST) 지불 승인이 거부됐는가.
+ *
+ * 1am 이 이렇게 말한다 (2026-09-24 관측).
+ *
+ *   User declined to pay dust fee
+ *
+ * 일반 거부와 갈라 두는 이유는 사람이 할 일이 다르기 때문이다. 연결 승인을
+ * 안 한 것이라면 다시 누르면 되지만, 이건 **DUST 가 모자라서 지갑이 물어본
+ * 것일 수도 있다.** 잔액을 보라고 말해 줘야 한다.
+ */
+export function isFeeDeclined(message: string): boolean {
+  return /declin\w*\s+to\s+pay|dust\s+fee|fee\s+(was\s+)?(declined|rejected)/i.test(message);
+}
+
+/**
+ * 사용자가 승인을 거부했는가.
+ *
+ * "declin" 이 빠져 있어서 1am 의 "User declined …" 를 놓쳤다. 지갑마다
+ * 쓰는 낱말이 다르니 넓게 잡는다.
+ */
 export function isRejection(message: string): boolean {
-  return /reject|denied|cancel/i.test(message);
+  return /reject|declin|denied|dismiss|cancel|abort/i.test(message);
 }
 
 /** 던져진 값에서 메시지를 뽑는다. 지갑은 Error 가 아닌 것도 던진다. */
@@ -95,6 +116,8 @@ export function classifyConnectError(error: unknown): ConnectFailure {
   const message = messageOf(error);
   if (isNetworkMismatch(message)) return { kind: 'network-mismatch', wanted: 'preprod' };
   if (isSyncing(message)) return { kind: 'syncing' };
+  // 수수료 거부를 먼저 본다. 일반 거부 패턴에도 걸리지만 할 일이 다르다.
+  if (isFeeDeclined(message)) return { kind: 'fee-declined' };
   if (isRejection(message)) return { kind: 'rejected' };
   return { kind: 'error', message };
 }
@@ -113,6 +136,8 @@ export function describeFailure(failure: ConnectFailure): string {
       return `지갑이 다른 네트워크에 있습니다. 지갑 설정에서 네트워크를 ${failure.wanted}로 바꾸고 다시 연결하세요.`;
     case 'syncing':
       return '지갑이 아직 동기화 중입니다. 지갑을 열어 둔 채로 끝나기를 기다렸다가 다시 연결하세요. 설정 문제가 아닙니다.';
+    case 'fee-declined':
+      return '지갑이 수수료(DUST) 지불 승인을 받지 못했습니다. 승인 창을 놓쳤다면 다시 시도하고, 계속 그러면 /devtools 패널에서 DUST 잔액이 0이 아닌지 확인하세요.';
     case 'rejected':
       return '지갑에서 연결을 승인하지 않았습니다.';
     case 'error':
