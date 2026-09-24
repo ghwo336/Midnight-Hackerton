@@ -54,6 +54,31 @@ export function isSyncing(message: string): boolean {
   return /\bsyncing\b|\bsynchroniz|still\s+sync|wait for sync/i.test(message);
 }
 
+/**
+ * 지갑이 "앞 트랜잭션이 아직 pending" 이라며 거부했는가.
+ *
+ * 1am 이 실제로 이렇게 말한다 (2026-09-24 관측).
+ *
+ *   A transaction is already pending.
+ *   Wait for it to confirm or expire before requesting another.
+ *
+ * **지갑이 트랜잭션을 직렬화한다는 뜻이다.** 초기 설정은 이미 순차로 돌지만,
+ * 회로 호출은 제출이 끝나면 반환되고 지갑은 그 뒤로도 확정을 볼 때까지
+ * pending 으로 잡는다. 그래서 다음 단계가 거부된다.
+ *
+ * 이건 기다리면 풀리는 상태이고, **아무것도 제출되지 않았다** — 거부가
+ * 제출 이전이므로 다시 시도해도 이중 제출이 아니다.
+ *
+ * A5(동시 신청)에 그대로 걸린다. 두 건을 정말 동시에 내야 하는데 지갑이
+ * 직렬화하면 진 쪽이 회로에 닿지 못하고 죽는다. 그건 '통과' 도 '실패' 도
+ * 아닌 **판정 불가** 다 (docs/ONCE_HANDOFF_final.md §7.1).
+ */
+export function isTransactionPending(message: string): boolean {
+  return /transaction is already pending|already pending.*confirm|pending.*before requesting another/i.test(
+    message,
+  );
+}
+
 /** 사용자가 승인을 거부했는가. */
 export function isRejection(message: string): boolean {
   return /reject|denied|cancel/i.test(message);

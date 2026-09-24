@@ -193,7 +193,15 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
                     <td className={step.state === 'failed' ? 'check--fail' : ''}>
                       {STATE_MARK[step.state]}
                     </td>
-                    <td>{step.label}</td>
+                    <td>
+                      {step.label}
+                      {/*
+                        기다리는 중이라는 것을 적는다. 말하지 않으면 멈춘
+                        것으로 읽히고, 사람이 새로고침해서 상태를 더
+                        헝클어 놓는다.
+                      */}
+                      {step.note ? <div className="hint">{step.note}</div> : null}
+                    </td>
                     {/*
                       배포도 proveTx 를 거친다. "회로 없음" 으로 덮어 두면
                       31초가 어디서 갔는지 볼 수 없다. 측정값을 그대로 쓴다.

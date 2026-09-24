@@ -84,3 +84,38 @@ describe('지갑 연결 실패 분류', () => {
     expect(text).toContain('Lace');
   });
 });
+
+/**
+ * 지갑이 트랜잭션을 직렬화하는가.
+ *
+ * 1am 은 앞 트랜잭션이 확정되기 전에 다음 제출을 거부한다. 초기 설정 8건은
+ * 기다렸다 다시 내면 되지만, **A5(동시 신청)는 그럴 수 없다** — 두 건이
+ * 정말 동시에 나가야 회로의 실행 시점 재검사를 시험하는 것이 된다.
+ */
+describe('앞 트랜잭션 pending', () => {
+  it('1am 의 pending 거부를 알아본다', async () => {
+    const { isTransactionPending } = await import(
+      '../../apps/web/src/shared/wallet/connect-failure.js'
+    );
+    // 2026-09-24 배포 중 실제로 관측된 문자열
+    expect(
+      isTransactionPending(
+        'A transaction is already pending. Wait for it to confirm or expire before requesting another.',
+      ),
+    ).toBe(true);
+  });
+
+  it('다른 실패를 pending 으로 오인하지 않는다', async () => {
+    const { isTransactionPending } = await import(
+      '../../apps/web/src/shared/wallet/connect-failure.js'
+    );
+    for (const other of [
+      'Wallet is syncing — wait for sync to finish',
+      'Network mismatch. Wallet is on mainnet, requested preprod.',
+      'User rejected the request',
+      'nullifier already used',
+    ]) {
+      expect(isTransactionPending(other), other).toBe(false);
+    }
+  });
+});

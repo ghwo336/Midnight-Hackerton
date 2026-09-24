@@ -2,6 +2,7 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { deployContract } from '@midnight-ntwrk/midnight-js/contracts';
+import { isTransactionPending } from './connect-failure';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
@@ -160,6 +161,8 @@ export interface StepResult {
   ms?: number;
   /** 증명 구간만. 밸런싱·제출과 분리해서 잰다. */
   proveMs?: number;
+  /** 진행 중 알림. 기다리는 중이라는 것을 말하지 않으면 멈춘 것으로 읽힌다. */
+  note?: string;
   error?: string;
 }
 
@@ -284,13 +287,54 @@ export async function runBootstrap(
   let contractAddress: string | null = null;
   let deployed: { callTx: Record<string, (...args: unknown[]) => Promise<unknown>> } | null = null;
 
+  /**
+   * 지갑이 앞 트랜잭션을 아직 pending 으로 잡고 있으면 기다렸다 다시 낸다.
+   *
+   * 단계는 이미 순차다. 그런데 회로 호출은 **제출이 끝나면** 반환되고,
+   * 지갑은 그 뒤로도 확정을 볼 때까지 pending 으로 잡는다. 그래서 다음
+   * 단계가 "A transaction is already pending" 으로 거부됐다.
+   *
+   * 거부는 제출 **이전** 에 일어나므로 다시 시도해도 이중 제출이 아니다.
+   * 증명과 잔액 조정을 다시 하느라 시간은 더 쓴다 — 실측 balance 한 번이
+   * 10초 남짓이라 그 값이 재시도 간격의 근거다.
+   *
+   * 무한정 기다리지 않는다. 확정이 안 되는 것과 느린 것은 다르고, 영원히
+   * 도는 화면은 어느 쪽인지 말해 주지 않는다.
+   */
+  const PENDING_RETRY_DELAYS_MS = [6_000, 12_000, 20_000, 30_000];
+
+  const runWithPendingRetry = async (
+    body: () => Promise<{ txId?: string; block?: number }>,
+    onWait: (attempt: number, delayMs: number) => void,
+  ): Promise<{ txId?: string; block?: number }> => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await body();
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const delay = PENDING_RETRY_DELAYS_MS[attempt];
+        if (!isTransactionPending(message) || delay === undefined) throw error;
+        onWait(attempt + 1, delay);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  };
+
   const run = async (step: StepResult, body: () => Promise<{ txId?: string; block?: number }>) => {
     step.state = 'running';
     recorder.setStep(step.id);
     report();
     const started = performance.now();
     try {
-      const out = await body();
+      const out = await runWithPendingRetry(body, (attempt, delayMs) => {
+        /*
+         * 기다리는 중이라는 것을 화면에 적는다. 말하지 않으면 멈춘 것으로
+         * 읽히고, 사람이 새로고침해서 상태를 더 헝클어 놓는다.
+         */
+        step.note = `앞 트랜잭션 확정 대기 ${attempt}회 (${delayMs / 1000}초)`;
+        report();
+      });
+      step.note = undefined;
       step.ms = performance.now() - started;
       step.proveMs = recorder.totalFor(step.id, 'prove') ?? undefined;
       step.txId = out.txId;
