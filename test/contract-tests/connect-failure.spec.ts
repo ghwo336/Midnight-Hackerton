@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  classifyConnectError, describeFailure, isNetworkMismatch,
+  classifyConnectError, describeFailure, isNetworkMismatch, isSyncing,
 } from '../../apps/web/src/shared/wallet/connect-failure.js';
 
 /**
@@ -53,6 +53,29 @@ describe('지갑 연결 실패 분류', () => {
   it('Error 가 아닌 것을 던져도 죽지 않는다', () => {
     expect(classifyConnectError('Network mismatch').kind).toBe('network-mismatch');
     expect(classifyConnectError(undefined).kind).toBe('error');
+  });
+
+  /*
+   * 동기화 중은 **고칠 것이 없는 상태다.** 다른 실패와 섞으면 사람이
+   * 설정을 뒤진다. 되는 것과 안 되는 것 사이에 "아직" 을 두는 것은
+   * 공격 판정에 '판정 불가' 를 두는 것과 같은 이유다.
+   */
+  it('동기화 중을 설정 오류와 구분한다', () => {
+    // 1am 이 faucet 직후 실제로 뱉은 문자열 (2026-09-24 관측)
+    const message = 'Wallet is syncing — open 1AM and wait for sync to finish';
+    expect(isSyncing(message)).toBe(true);
+    expect(classifyConnectError(new Error(message)).kind).toBe('syncing');
+  });
+
+  it('동기화 중 안내는 기다리라고 말하고 설정을 의심하게 하지 않는다', () => {
+    const text = describeFailure({ kind: 'syncing' });
+    expect(text).toContain('기다');
+    expect(text).toContain('설정 문제가 아닙니다');
+  });
+
+  it('동기화와 네트워크 불일치를 서로 오인하지 않는다', () => {
+    expect(isSyncing('Network mismatch. Wallet is on mainnet, requested preprod.')).toBe(false);
+    expect(isNetworkMismatch('Wallet is syncing — wait for sync to finish')).toBe(false);
   });
 
   it('지갑 없음 안내에 특정 제품만 박지 않는다', () => {

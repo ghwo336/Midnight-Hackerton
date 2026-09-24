@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import {
-  connectWallet, describeFailure, detectWallets,
+  classifyConnectError, connectWallet, describeFailure, detectWallets,
   type DetectedWallet, type NetworkId,
 } from '@/shared/wallet/connect';
 
@@ -79,11 +79,14 @@ export function useWallet(networkId: NetworkId = 'preprod') {
         message: null,
       });
     } catch (error: unknown) {
-      setState({
-        ...INITIAL,
-        status: 'failed',
-        message: `지갑 조회 실패: ${error instanceof Error ? error.message : String(error)}`,
-      });
+      /*
+       * 연결은 됐는데 조회가 실패했다. 여기도 같은 분류를 태운다.
+       *
+       * 예전에는 원문을 그대로 붙여 "지갑 조회 실패: …" 로 내보냈다. 그런데
+       * 가장 흔한 사유가 **동기화 중** 이고, 그건 고칠 것이 없는 일시 상태다.
+       * 다른 실패와 똑같이 보여주면 사람이 설정을 뒤지기 시작한다.
+       */
+      setState({ ...INITIAL, status: 'failed', message: describeFailure(classifyConnectError(error)) });
     }
   }, [networkId]);
 

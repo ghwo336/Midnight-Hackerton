@@ -14,6 +14,7 @@ export type NetworkId = (typeof NETWORK_IDS)[number];
 export type ConnectFailure =
   | { readonly kind: 'no-wallet' }
   | { readonly kind: 'network-mismatch'; readonly wanted: NetworkId }
+  | { readonly kind: 'syncing' }
   | { readonly kind: 'rejected' }
   | { readonly kind: 'error'; readonly message: string };
 
@@ -37,6 +38,22 @@ export function isNetworkMismatch(message: string): boolean {
   );
 }
 
+/**
+ * 지갑이 아직 동기화 중인가.
+ *
+ * **이건 고칠 것이 없는 상태다. 기다리면 된다.** 그런데 화면이 다른 실패와
+ * 똑같이 보여주면, 읽는 사람은 설정을 뒤지기 시작한다. 실제로 1am 이 faucet
+ * 자금을 받은 직후에 이렇게 말한다.
+ *
+ *   Wallet is syncing — open 1AM and wait for sync to finish
+ *
+ * 되는 것과 안 되는 것 사이에 "아직" 을 두는 것은 이 저장소가 공격 판정에
+ * '판정 불가' 를 두는 것과 같은 이유다. 섞으면 원인을 못 찾는다.
+ */
+export function isSyncing(message: string): boolean {
+  return /\bsyncing\b|\bsynchroniz|still\s+sync|wait for sync/i.test(message);
+}
+
 /** 사용자가 승인을 거부했는가. */
 export function isRejection(message: string): boolean {
   return /reject|denied|cancel/i.test(message);
@@ -52,6 +69,7 @@ export function messageOf(error: unknown): string {
 export function classifyConnectError(error: unknown): ConnectFailure {
   const message = messageOf(error);
   if (isNetworkMismatch(message)) return { kind: 'network-mismatch', wanted: 'preprod' };
+  if (isSyncing(message)) return { kind: 'syncing' };
   if (isRejection(message)) return { kind: 'rejected' };
   return { kind: 'error', message };
 }
@@ -68,6 +86,8 @@ export function describeFailure(failure: ConnectFailure): string {
       return 'Midnight 지갑이 없습니다. Chrome에 Midnight 지갑 확장(Lace · 1am 등)을 설치하고 페이지를 새로고침하세요.';
     case 'network-mismatch':
       return `지갑이 다른 네트워크에 있습니다. 지갑 설정에서 네트워크를 ${failure.wanted}로 바꾸고 다시 연결하세요.`;
+    case 'syncing':
+      return '지갑이 아직 동기화 중입니다. 지갑을 열어 둔 채로 끝나기를 기다렸다가 다시 연결하세요. 설정 문제가 아닙니다.';
     case 'rejected':
       return '지갑에서 연결을 승인하지 않았습니다.';
     case 'error':
