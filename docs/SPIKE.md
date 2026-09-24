@@ -294,6 +294,14 @@ Transaction.fromParts → prove → balanceUnsealedTransaction → submitTransac
 어긋날 가능성)와 NIGHT 입력 부재(지갑이 채웠다). 첫 시도는 `makeIntent()` 가 이미
 sealed 된 트랜잭션을 돌려줘 역직렬화 헤더가 어긋나 실패했고, 직접 조립으로 바꿨다.
 
+**후속 관측 (2026-09-24, 1am 지갑)**: 같은 등록을 1am 이 자체적으로 하는 것으로
+보인다 — 버튼을 누르지 않았는데 `getDustBalance()` 가 `{balance: 1e15, cap: 1e15}`
+로 만충이었다. 그런데 **cap 이 위 Lace 측정의 2.5e19 보다 25,000배 작다.** tNIGHT 은
+오히려 2배(10,000)였다. cap 이 NIGHT 보유량에 비례한다는 문서 설명과 맞지 않으므로,
+지갑이 등록할 때 `allowFeePayment` 를 낮게 잡는 것으로 추정한다 — 우리 코드가 쓰는
+값은 1e16 이다. 추정이고 확인하지 못했다. 이 한도로 초기 설정 8건이 되는지는 아직
+모른다.
+
 **미해결 의문**: 인덱서의 dust 쿼리는 `dustGenerationStatus(cardanoRewardAddresses)` 처럼
 **Cardano reward 주소** 기준이다. 우리는 Midnight 측 `DustRegistration` 으로 등록했고
 그게 동작했다. 두 경로가 어떻게 관계되는지는 확인하지 못했다. 동작 사실만 적는다.
