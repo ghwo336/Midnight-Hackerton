@@ -68,10 +68,14 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
     setRunning(true);
     setSteps(initialSteps());
     try {
-      const result = await runBootstrap(state.api, (next, rec) => {
-        setSteps(next);
-        setRecorder(rec);
-      });
+      const result = await runBootstrap(
+        state.api,
+        (next, rec) => {
+          setSteps(next);
+          setRecorder(rec);
+        },
+        resume,
+      );
       setAddress(result.contractAddress);
       setIssuerPk(result.issuerPublicKey);
       setRecorder(result.recorder);
