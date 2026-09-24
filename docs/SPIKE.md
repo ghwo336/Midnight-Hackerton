@@ -294,13 +294,42 @@ Transaction.fromParts → prove → balanceUnsealedTransaction → submitTransac
 어긋날 가능성)와 NIGHT 입력 부재(지갑이 채웠다). 첫 시도는 `makeIntent()` 가 이미
 sealed 된 트랜잭션을 돌려줘 역직렬화 헤더가 어긋나 실패했고, 직접 조립으로 바꿨다.
 
-**후속 관측 (2026-09-24, 1am 지갑)**: 같은 등록을 1am 이 자체적으로 하는 것으로
-보인다 — 버튼을 누르지 않았는데 `getDustBalance()` 가 `{balance: 1e15, cap: 1e15}`
-로 만충이었다. 그런데 **cap 이 위 Lace 측정의 2.5e19 보다 25,000배 작다.** tNIGHT 은
-오히려 2배(10,000)였다. cap 이 NIGHT 보유량에 비례한다는 문서 설명과 맞지 않으므로,
-지갑이 등록할 때 `allowFeePayment` 를 낮게 잡는 것으로 추정한다 — 우리 코드가 쓰는
-값은 1e16 이다. 추정이고 확인하지 못했다. 이 한도로 초기 설정 8건이 되는지는 아직
-모른다.
+**후속 관측 (2026-09-24, 1am 지갑) — 수수료 대납이라는 제3의 경로**
+
+1am 은 등록 없이도 트랜잭션이 나갔다. `getDustBalance()` 가 `{balance: 1e15,
+cap: 1e15}` 로 만충을 보고했고, 패널에도 그대로 떴다. **그 값은 내 DUST 가
+아니었다.**
+
+1am 의 proof server 가 수수료를 **대납**한다 (지갑 UI 상단에 `DUST SPONSORED`).
+배포 8단계 중 6건이 그렇게 나갔다. 그러다 7번째에서 대납이 실패하며 지갑이
+이렇게 말했다.
+
+```
+Dust Sponsorship Failed
+REASON: A transaction is already pending.
+        Wait for it to confirm or expire before requesting another.
+The proof server could not sponsor this transaction.
+Would you like to pay the dust fee from your own wallet instead?
+→ You have no dust in your wallet. Generate dust first
+  or wait for the proof server to come back online.
+```
+
+여기서 두 가지가 뒤집혔다.
+
+1. **`getDustBalance()` 의 값을 내 DUST 로 읽으면 안 된다.** 만충을 보고하는
+   동시에 "you have no dust" 가 뜬다. 그래서 등록 버튼을 그 값으로 가리던
+   조건을 걷어냈다 — 지갑이 등록하라고 말하는데 누를 데가 없었다.
+2. **`A transaction is already pending` 은 내 지갑의 UTXO 경합이 아니라
+   대납 서버의 큐였다.** 한동안 UTXO 모델의 성질로 단정했는데 정확하지 않다.
+   UTXO 경합은 실재하지만 여기서 맞은 벽은 그게 아니었다.
+
+2번은 A5 에 영향이 있다. 직렬화의 출처가 대납 서버라면, 내 DUST 로 직접 내는
+경로는 그 큐를 타지 않는다. `finance` 는 컨트랙트가 자금을 들고 있어 내 UTXO 를
+거의 쓰지 않으므로 **진짜 동시 제출이 가능할 수도 있다. 확인하지 못했다.**
+리허설 컨트랙트에서 채권을 쓰지 않고 시험할 수 있다.
+
+측정 참고: 배포 6건이 30.98 · 31.23 · 29.29 · 30.75 · 82.43 · 49.78초였다.
+82초짜리는 단계 사이 대기가 걸린 것이다.
 
 **미해결 의문**: 인덱서의 dust 쿼리는 `dustGenerationStatus(cardanoRewardAddresses)` 처럼
 **Cardano reward 주소** 기준이다. 우리는 Midnight 측 `DustRegistration` 으로 등록했고

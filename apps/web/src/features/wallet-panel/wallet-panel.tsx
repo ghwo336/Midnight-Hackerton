@@ -213,24 +213,40 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
               </tbody>
             </table>
 
+            {/*
+              등록 버튼을 DUST 잔액으로 가리지 않는다.
+              
+              한때 0 일 때만 내놓았는데, 1am 에서 그 판단이 틀렸다. 이 지갑은
+              proof server 가 수수료를 대납하고(패널에 "DUST SPONSORED"),
+              getDustBalance() 가 0 이 아닌 값을 돌려준다. 그런데 정작 대납이
+              실패하면 지갑이 "You have no dust in your wallet" 이라고 말한다.
+              읽은 값이 **내 DUST 가 아니었던 것이다.**
+
+              그 상태에서 등록 버튼이 숨어 있으면, 등록하라는 지갑의 지시를
+              받고도 누를 데가 없다. 판단이 불확실한 값으로 기능을 감추지
+              않는다 — 필요 없으면 안 누르면 그만이다.
+            */}
             {noDust ? (
-              <>
-                <p className="hint hint--error">
-                  수수료 자원(DUST)이 0이다. 수수료는 tNIGHT이 아니라 DUST로 낸다.
-                  DUST는 보유한 NIGHT을 생성에 등록해야 쌓이기 시작한다.
-                </p>
-                <div className="btn-row">
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={registering}
-                    onClick={() => void register()}
-                  >
-                    {registering ? '등록 중 (지갑 승인 2회)' : 'DUST 생성 등록'}
-                  </button>
-                </div>
-              </>
-            ) : null}
+              <p className="hint hint--error">
+                수수료 자원(DUST)이 0이다. 수수료는 tNIGHT이 아니라 DUST로 낸다.
+                DUST는 보유한 NIGHT을 생성에 등록해야 쌓이기 시작한다.
+              </p>
+            ) : (
+              <p className="hint">
+                위 DUST 값이 0이 아니어도 지갑이 대납(sponsorship)으로 채운 값일 수 있다.
+                대납이 실패하고 &ldquo;you have no dust&rdquo;가 뜨면 아래로 직접 등록한다.
+              </p>
+            )}
+            <div className="btn-row">
+              <button
+                type="button"
+                className="btn"
+                disabled={registering}
+                onClick={() => void register()}
+              >
+                {registering ? '등록 중 (지갑 승인 2회)' : 'DUST 생성 등록'}
+              </button>
+            </div>
 
             {registration ? (
               <>
