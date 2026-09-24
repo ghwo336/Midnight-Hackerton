@@ -7,7 +7,6 @@ import {
 } from '@/shared/wallet/bootstrap';
 import type { Recorder } from '@/shared/wallet/measure';
 import { currentNetworkId } from '@/shared/wallet/network';
-import { registerForDust, type RegistrationResult } from '@/shared/wallet/dust-registration';
 import type { useWallet } from './use-wallet';
 
 /**
@@ -52,25 +51,6 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
   const [address, setAddress] = useState<string | null>(null);
   const [issuerPk, setIssuerPk] = useState<string | null>(null);
   const [recorder, setRecorder] = useState<Recorder | null>(null);
-  const [registering, setRegistering] = useState(false);
-  const [registration, setRegistration] = useState<RegistrationResult | null>(null);
-
-  /*
-   * DUST 생성 등록.
-   *
-   * NIGHT 을 들고만 있으면 DUST 가 생기지 않는다. night 키를 dust 주소에
-   * 잇는 등록이 원장에 있어야 한다. Lace 에 그 UI 가 없어서 직접 만든다.
-   */
-  const register = useCallback(async () => {
-    if (!state.api) return;
-    setRegistering(true);
-    try {
-      setRegistration(await registerForDust(state.api));
-    } finally {
-      setRegistering(false);
-    }
-  }, [state.api]);
-
   const run = useCallback(async () => {
     if (!state.api) return;
     setRunning(true);
@@ -214,91 +194,18 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
             </table>
 
             {/*
-              등록 버튼을 DUST 잔액으로 가리지 않는다.
-              
-              한때 0 일 때만 내놓았는데, 1am 에서 그 판단이 틀렸다. 이 지갑은
-              proof server 가 수수료를 대납하고(패널에 "DUST SPONSORED"),
-              getDustBalance() 가 0 이 아닌 값을 돌려준다. 그런데 정작 대납이
-              실패하면 지갑이 "You have no dust in your wallet" 이라고 말한다.
-              읽은 값이 **내 DUST 가 아니었던 것이다.**
+              DUST 생성 등록 버튼은 패널에서 뺐다.
 
-              그 상태에서 등록 버튼이 숨어 있으면, 등록하라는 지갑의 지시를
-              받고도 누를 데가 없다. 판단이 불확실한 값으로 기능을 감추지
-              않는다 — 필요 없으면 안 누르면 그만이다.
+              1am 에서는 proof server 가 수수료를 대납하고, 등록 트랜잭션
+              자체도 대납을 타므로 대납이 막힌 상황에서는 이 버튼도 같이
+              막힌다. 누를 수 없는 버튼을 내놓지 않는다 — 이 저장소가
+              공격 러너에서 이미 한 번 정리한 원칙이다
+              (shared/runtime/devtool-visibility.ts).
+
+              조립 코드(shared/wallet/dust-registration.ts)와 테스트는
+              그대로 둔다. 되살리려면 이 자리에 register() 를 부르는 버튼을
+              다시 놓으면 된다.
             */}
-            {noDust ? (
-              <p className="hint hint--error">
-                수수료 자원(DUST)이 0이다. 수수료는 tNIGHT이 아니라 DUST로 낸다.
-                DUST는 보유한 NIGHT을 생성에 등록해야 쌓이기 시작한다.
-              </p>
-            ) : (
-              <p className="hint">
-                위 DUST 값이 0이 아니어도 지갑이 대납(sponsorship)으로 채운 값일 수 있다.
-                대납이 실패하고 &ldquo;you have no dust&rdquo;가 뜨면 아래로 직접 등록한다.
-              </p>
-            )}
-            <div className="btn-row">
-              <button
-                type="button"
-                className="btn"
-                disabled={registering}
-                onClick={() => void register()}
-              >
-                {registering ? '등록 중 (지갑 승인 2회)' : 'DUST 생성 등록'}
-              </button>
-            </div>
-
-            {registration ? (
-              <>
-                <div className="stages__head">
-                  등록 {registration.ok ? '성공' : '실패'}
-                </div>
-                {/*
-                  스크린샷이 아니라 텍스트로 옮길 수 있어야 한다.
-                  로그를 눈으로 옮겨 적는 것은 오타가 나고, 이미지는
-                  전달 과정에서 깨진다.
-                */}
-                <div className="btn-row">
-                  <button
-                    type="button"
-                    className="btn btn--inline"
-                    onClick={() => {
-                      const text = [
-                        `등록 ${registration.ok ? '성공' : '실패'}`,
-                        ...registration.steps.map(
-                          (step, index) =>
-                            `${String(index + 1).padStart(2, '0')} ${step.label}${
-                              step.detail === undefined ? '' : ` · ${step.detail}`
-                            }`,
-                        ),
-                        ...(registration.error ? [`!! ${registration.error}`] : []),
-                      ].join('\n');
-                      void navigator.clipboard.writeText(text);
-                    }}
-                  >
-                    로그 복사
-                  </button>
-                </div>
-                <div className="log">
-                  {registration.steps.map((step, index) => (
-                    <div key={`${step.label}-${index}`} className="log__line">
-                      <span className="log__at">{String(index + 1).padStart(2, '0')}</span>
-                      <span>
-                        {step.label}
-                        {step.detail === undefined ? '' : ` · ${step.detail}`}
-                      </span>
-                    </div>
-                  ))}
-                  {registration.error ? (
-                    <div className="log__line log__line--seal">
-                      <span className="log__at">!!</span>
-                      <span>{registration.error}</span>
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : null}
-
             {failed ? (
               <p className="hint hint--error">
                 {failed.label}에서 중단: {failed.error}
