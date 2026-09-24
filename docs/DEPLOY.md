@@ -109,7 +109,7 @@ Lace 4.0.1에는 그 UI가 없고 DApp 커넥터에도 등록 메서드가 없�
 | (아무것도 없음) | `getDustAddress` 등 | 읽기 메서드부터 다르다 |
 | `NIGHT 잔액` | `signData` | keyType `unshielded` 서명 미지원 |
 | `night 검증키 확보` | 응답에 `verifyingKey` 없음 | 서명할 바이트를 만들 수 없다 |
-| `서명 완료` | `getProvingProvider` | 증명 위임 경로가 없다 |
+| `트랜잭션 조립` | `getProvingProvider` | 증명 위임 경로가 없다 |
 | `증명 완료` | `balanceUnsealedTransaction` | **여기서 막히면 A5·A6도 못 한다** |
 | `잔액 조정 완료` | `submitTransaction` | 제출 경로가 없다 |
 

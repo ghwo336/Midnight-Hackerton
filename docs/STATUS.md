@@ -1,6 +1,6 @@
 # 현재 상태
 
-마지막 갱신: **2026-09-21** · 인수 환경(WSL2 · Node 24.15.0 · pnpm 10.30.3)
+마지막 갱신: **2026-09-24** · 인수 환경(WSL2 · Node 24.15.0 · pnpm 10.30.3)
 
 제품 설명은 [README.md](../README.md), 인수인계 사항은
 [ONCE_HANDOFF_final.md](ONCE_HANDOFF_final.md), 측정치는
@@ -19,7 +19,7 @@
 | 항목 | 결과 |
 |---|---|
 | `pnpm install` | 456 패키지 16.4초, 락파일 변경 없음 |
-| `pnpm test` | 26개 파일 · 141 통과 · 1 건너뜀 |
+| `pnpm test` | 27개 파일 · 148 통과 · 1 건너뜀 |
 | `pnpm dev` | API 3011 · 웹 3040 정상 (`local-circuit`) |
 | `pnpm dev:preprod` | 실제 Preprod에 붙는다 (`simulated: false`) |
 | `pnpm typecheck` · `lint` · `build` | 통과 |

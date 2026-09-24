@@ -163,7 +163,7 @@ tNIGHT만 있으면 아무것도 못 한다. 수수료용 DUST가 필요하고, 
 | (아무것도 없음) | `getDustAddress` 등 | 이 지갑은 읽기 메서드부터 다르다 |
 | `NIGHT 잔액` | `signData` | keyType `unshielded` 서명을 지원하지 않는다 |
 | `night 검증키 확보` | 응답에 `verifyingKey` 없음 | 서명할 바이트를 만들 수 없다 |
-| `서명 완료` | `getProvingProvider` | 지갑에 증명 위임 경로가 없다 |
+| `트랜잭션 조립` | `getProvingProvider` | 지갑에 증명 위임 경로가 없다 |
 | `증명 완료` | `balanceUnsealedTransaction` | **여기서 막히면 A5·A6도 못 한다** |
 | `잔액 조정 완료` | `submitTransaction` | 제출 경로가 없다 |
 
@@ -266,7 +266,7 @@ import하면 온체인 `issuerPk`와 대조해서 일치 여부가 바로 뜬다
 | 항목 | 결과 |
 |---|---|
 | `pnpm install` | 16.4초, 락파일 변경 없음 |
-| `pnpm test` | 26개 파일 · 141 통과 · 1 건너뜀 |
+| `pnpm test` | 27개 파일 · 148 통과 · 1 건너뜀 |
 | `pnpm dev` | API 3011 · 웹 3040 정상 |
 | 배포된 Preprod 컨트랙트 | **살아 있다.** `ONCE_LIVE_CHAIN=1` live-chain 스위트 19/19 통과 (30초) |
 
