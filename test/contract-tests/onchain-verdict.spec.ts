@@ -11,13 +11,17 @@ import {
  * 그걸 "막혔다" 로 세면 아무것도 시험하지 않고 초록불을 켜는 것이다.
  * 이 스위트가 그 경로를 모두 고정한다.
  */
-const settled = (lender: string, block = 100): AttemptResult => ({
+const settled = (lender: string, block = 100, startedAt = 0, endedAt = 1000): AttemptResult => ({
   lender, settled: true, code: null, detail: null,
-  txHash: `0x${'ab'.repeat(32)}`, block, ms: 40_000,
+  txHash: `0x${'ab'.repeat(32)}`, block, ms: 40_000, startedAt, endedAt,
 });
 
-const rejected = (lender: string, code: string | null, detail: string | null = null): AttemptResult => ({
+const rejected = (
+  lender: string, code: string | null, detail: string | null = null,
+  startedAt = 0, endedAt = 1000,
+): AttemptResult => ({
   lender, settled: false, code, detail, txHash: null, block: null, ms: 12_000,
+  startedAt, endedAt,
 });
 
 describe('A5 · 실제 체인', () => {
@@ -81,5 +85,45 @@ describe('A6 · 실제 체인', () => {
     const r = judgeA6(settled('lender-a'), rejected('lender-b', null, 'proof server timeout'));
     expect(r.verdict).toBe('inconclusive');
     expect(r.note).toContain('proof server timeout');
+  });
+});
+
+/**
+ * 겹치지 않은 "동시" 신청.
+ *
+ * 지갑은 한 지갑에서 나가는 트랜잭션을 직렬화한다 — UTXO 하나는 한 번만
+ * 쓸 수 있어서 같은 지갑의 두 건이 같은 입력을 고르기 때문이고, 특정
+ * 지갑의 문제가 아니라 UTXO 모델 자체의 성질이다.
+ *
+ * 그러면 앞 건이 확정된 **뒤에** 뒤 건이 나가고, 회로가 당연히 중복으로
+ * 막는다. 예전 판정은 그걸 '통과' 로 셌다. 조건은 다 맞지만 합의 계층의
+ * 경합은 시험하지 않았다 — A6 을 한 번 더 돌린 것에 가깝다.
+ */
+describe('A5 · 두 신청이 겹쳤는가', () => {
+  it('순차로 나갔으면 통과로 세지 않는다', () => {
+    const first = settled('lender-a', 100, 0, 40_000);
+    const second = rejected('lender-b', 'NULLIFIER_ALREADY_USED', null, 45_000, 60_000);
+    const r = judgeA5([first, second]);
+    expect(r.verdict).toBe('inconclusive');
+    expect(r.note).toContain('겹치지 않았다');
+  });
+
+  it('겹쳤으면 통과다', () => {
+    const first = settled('lender-a', 100, 0, 40_000);
+    const second = rejected('lender-b', 'NULLIFIER_ALREADY_USED', null, 1_000, 38_000);
+    expect(judgeA5([first, second]).verdict).toBe('pass');
+  });
+
+  it('겹침 판정은 순서에 무관하다', () => {
+    const a = settled('lender-a', 100, 5_000, 40_000);
+    const b = rejected('lender-b', 'NULLIFIER_ALREADY_USED', null, 0, 10_000);
+    expect(judgeA5([a, b]).verdict).toBe('pass');
+    expect(judgeA5([b, a]).verdict).toBe('pass');
+  });
+
+  it('겹침 검사가 다른 판정을 덮지 않는다', () => {
+    // 두 건 확정은 겹침과 무관하게 실패다.
+    const r = judgeA5([settled('lender-a', 100, 0, 10), settled('lender-b', 101, 50, 60)]);
+    expect(r.verdict).toBe('fail');
   });
 });

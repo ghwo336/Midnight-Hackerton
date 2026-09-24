@@ -19,7 +19,7 @@
 | 항목 | 결과 |
 |---|---|
 | `pnpm install` | 456 패키지 16.4초, 락파일 변경 없음 |
-| `pnpm test` | 27개 파일 · 157 통과 · 1 건너뜀 |
+| `pnpm test` | 27개 파일 · 161 통과 · 1 건너뜀 |
 | `pnpm dev` | API 3011 · 웹 3040 정상 (`local-circuit`) |
 | `pnpm dev:preprod` | 실제 Preprod에 붙는다 (`simulated: false`) |
 | `pnpm typecheck` · `lint` · `build` | 통과 |

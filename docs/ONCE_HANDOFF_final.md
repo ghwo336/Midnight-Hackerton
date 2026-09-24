@@ -266,7 +266,7 @@ import하면 온체인 `issuerPk`와 대조해서 일치 여부가 바로 뜬다
 | 항목 | 결과 |
 |---|---|
 | `pnpm install` | 16.4초, 락파일 변경 없음 |
-| `pnpm test` | 27개 파일 · 157 통과 · 1 건너뜀 |
+| `pnpm test` | 27개 파일 · 161 통과 · 1 건너뜀 |
 | `pnpm dev` | API 3011 · 웹 3040 정상 |
 | 배포된 Preprod 컨트랙트 | **살아 있다.** `ONCE_LIVE_CHAIN=1` live-chain 스위트 19/19 통과 (30초) |
 

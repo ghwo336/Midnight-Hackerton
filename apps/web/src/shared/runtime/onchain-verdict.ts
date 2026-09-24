@@ -25,6 +25,19 @@ export interface AttemptResult {
   readonly txHash: string | null;
   readonly block: number | null;
   readonly ms: number;
+  /**
+   * 이 시도가 시작·종료한 시각 (epoch ms).
+   *
+   * A5 의 통과 판정에 쓴다. 두 시도가 시간상 겹치지 않았다면 동시에 낸
+   * 것이 아니고, 그러면 합의 계층의 경합을 시험한 것이 아니다.
+   */
+  readonly startedAt: number;
+  readonly endedAt: number;
+}
+
+/** 두 시도가 시간상 겹쳤는가. 겹쳐야 "동시" 라고 말할 수 있다. */
+export function overlapped(a: AttemptResult, b: AttemptResult): boolean {
+  return a.startedAt < b.endedAt && b.startedAt < a.endedAt;
 }
 
 export interface AttackResult {
@@ -66,9 +79,36 @@ export function judgeA5(attempts: readonly AttemptResult[]): AttackResult {
       attempts,
     };
   }
+  /*
+   * 여기서 한 번 더 막는다.
+   *
+   * 지갑은 한 지갑에서 나가는 트랜잭션을 직렬화한다. UTXO 하나는 한 번만
+   * 쓸 수 있으니 같은 지갑의 두 건이 같은 입력을 고르기 때문이고, 이건
+   * 특정 지갑의 문제가 아니라 UTXO 모델 자체의 성질이다.
+   *
+   * 직렬화되면 앞 건이 확정된 **뒤에** 뒤 건이 나간다. 그러면 회로가
+   * 당연히 중복 확인값으로 막고, 위 조건이 전부 만족돼 '통과' 가 된다.
+   * 그런데 그건 A6 을 한 번 더 돌린 것이지 **합의 계층의 경합을 시험한
+   * 것이 아니다.** README §5.2 가 "실제 합의에서도 하나만 확정되는지는
+   * 여기서만 증명된다" 고 주장하는 바로 그 지점이 비어 버린다.
+   *
+   * 아무것도 시험하지 않고 초록불이 켜지는 것 — 이 저장소가 네 번 겪은
+   * 그 형태다. 겹치지 않았으면 통과로 세지 않는다.
+   */
+  const winner = settled[0]!;
+  if (!overlapped(winner, blocker)) {
+    return {
+      verdict: 'inconclusive',
+      note:
+        '한 건만 확정되고 나머지는 회로가 막았지만, 두 신청이 시간상 겹치지 않았다. ' +
+        '지갑이 직렬화해 순차로 나갔으므로 합의 계층의 경합은 시험되지 않았다 ' +
+        '(같은 지갑에서 두 건을 낼 때의 UTXO 제약). 지갑을 둘로 나눠야 진짜 동시가 된다',
+      attempts,
+    };
+  }
   return {
     verdict: 'pass',
-    note: '한 건만 확정됐고, 나머지는 회로의 중복 확인값 검사에서 막혔다',
+    note: '한 건만 확정됐고, 나머지는 회로의 중복 확인값 검사에서 막혔다 (두 신청이 시간상 겹쳤다)',
     attempts,
   };
 }

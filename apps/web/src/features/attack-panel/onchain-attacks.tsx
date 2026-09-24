@@ -70,9 +70,17 @@ export function OnChainAttacks({
       prepared?: () => Promise<{ txHash: string; block: number }>,
     ): Promise<AttemptResult> => {
       const started = Date.now();
-      const base = { lender, ms: 0, txHash: null, block: null } as const;
+      /*
+       * 시작·종료 시각을 남긴다. judgeA5 가 두 신청이 실제로 겹쳤는지
+       * 보고, 겹치지 않았으면 통과로 세지 않는다 — 지갑이 직렬화하면
+       * 순차로 나가고, 그건 합의 경합을 시험한 것이 아니다.
+       */
+      const base = { lender, ms: 0, txHash: null, block: null, startedAt: started } as const;
       if (!wallet || !contractAddress) {
-        return { ...base, settled: false, code: null, detail: '지갑이 연결되지 않았다', ms: 0 };
+        return {
+          ...base, settled: false, code: null, detail: '지갑이 연결되지 않았다',
+          ms: 0, endedAt: Date.now(),
+        };
       }
 
       const { classifyCircuitError, describe, financeOnChain } =
@@ -86,7 +94,7 @@ export function OnChainAttacks({
         return {
           ...base, settled: false, code: null,
           detail: error instanceof ApiError ? error.code : String(error),
-          ms: Date.now() - started,
+          ms: Date.now() - started, endedAt: Date.now(),
         };
       }
 
@@ -121,14 +129,16 @@ export function OnChainAttacks({
         await report('settled', result.txHash, result.block, null);
         return {
           lender, settled: true, code: null, detail: null,
-          txHash: result.txHash, block: result.block, ms: Date.now() - started,
+          txHash: result.txHash, block: result.block,
+          ms: Date.now() - started, startedAt: started, endedAt: Date.now(),
         };
       } catch (error: unknown) {
         const code = classifyCircuitError(error);
         await report('rejected', null, null, code);
         return {
           lender, settled: false, code, detail: code === null ? describe(error) : null,
-          txHash: null, block: null, ms: Date.now() - started,
+          txHash: null, block: null,
+          ms: Date.now() - started, startedAt: started, endedAt: Date.now(),
         };
       }
     },
