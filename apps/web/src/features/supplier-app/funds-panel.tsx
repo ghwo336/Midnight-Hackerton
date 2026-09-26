@@ -25,6 +25,7 @@ export function FundsPanel({
   funds,
   busy,
   phase,
+  needsWallet = false,
   onRepay,
 }: {
   funds: SupplierFunds | undefined;
@@ -36,6 +37,12 @@ export function FundsPanel({
    * 두면 30초 동안 멈춘 것처럼 보인다.
    */
   phase?: TxPhase | null;
+  /**
+   * 실제 체인인데 지갑이 없다. 서버는 서명키가 없으므로 상환을 대신 낼 수
+   * 없다. 누른 뒤에 SERVER_CANNOT_SIGN 으로 알리지 말고 누르기 전에 막는다
+   * (신청 버튼과 같은 규칙).
+   */
+  needsWallet?: boolean;
   onRepay: (loan: LoanRow) => void;
 }) {
   const positions = funds?.positions ?? [];
@@ -109,7 +116,7 @@ export function FundsPanel({
                     <button
                       type="button"
                       className="btn btn--inline"
-                      disabled={busy !== null}
+                      disabled={busy !== null || needsWallet}
                       onClick={() => onRepay(loan)}
                     >
                       {busy === loan.nullifier ? '상환 중' : '상환'}
@@ -123,7 +130,11 @@ export function FundsPanel({
             ))
           )}
           {open.length > 0 ? (
-            <p className="hint">원금만 상환한다. 이자는 계산하지 않는다.</p>
+            <p className={`hint ${needsWallet ? 'hint--error' : ''}`}>
+              {needsWallet
+                ? '상환하려면 지갑을 연결해야 합니다'
+                : '원금만 상환한다. 이자는 계산하지 않는다.'}
+            </p>
           ) : null}
         </div>
       </section>

@@ -83,6 +83,8 @@ export function SupplierApp({
 
   const repay = useCallback(
     async (loan: { nullifier: string; amount: string }) => {
+      // 실제 체인에서 지갑이 없으면 서버로 떨어뜨리지 않는다. 서버는 서명할 수 없다.
+      if (onChain !== false && !(onChain && wallet && contractAddress)) return;
       setRepaying(loan.nullifier);
       try {
         if (onChain && wallet && contractAddress) {
@@ -281,7 +283,13 @@ export function SupplierApp({
       <RoleHeader role="납품업체" product="자금 조달" account={account} />
 
       <div className="roleapp__body">
-        <FundsPanel funds={funds.data} busy={repaying} phase={repayPhase} onRepay={repay} />
+        <FundsPanel
+          funds={funds.data}
+          busy={repaying}
+          phase={repayPhase}
+          needsWallet={needsWallet}
+          onRepay={repay}
+        />
 
         <section className="section">
           <header className="section__head">
