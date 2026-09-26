@@ -164,38 +164,6 @@ export function OnChainAttacks({
   );
 
   /**
-   * A5: 두 금융사에 동시에 낸다.
-   *
-   * 두 제출을 정말 병렬로 띄운다. 순서대로 보내면 뒤엣것은 사전 검사에서
-   * 걸려 회로에 닿지 않고, 그러면 "실행 시점 재검사" 를 시험한 것이
-   * 아니다. 지갑 승인 창이 두 개 뜬다.
-   */
-  const runA5 = useCallback(async () => {
-    const target = free[0];
-    if (!target) return;
-    if (!confirmTarget('A5')) return;
-    setState({ running: 'A5', phase: null, results: {}, error: null });
-    try {
-      const attempts = await Promise.all([
-        attempt(target, 'lender-a'),
-        attempt(target, 'lender-b'),
-      ]);
-      setState((prev) => ({
-        ...prev, running: null, phase: null,
-        results: { ...prev.results, A5: judgeA5(attempts) },
-      }));
-    } catch (error: unknown) {
-      setState((prev) => ({
-        ...prev, running: null, phase: null,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    } finally {
-      onDone();
-    }
-    // confirmTarget 이 겨누는 곳을 판단하므로 주소가 바뀌면 새로 만든다.
-  }, [free, attempt, onDone, contractAddress]);
-
-  /**
    * 지연 제출 결과를 증거로 판정한다.
    *
    * 노드의 거부에는 회로 assert 문구가 없어서 분류기가 사유를 모른다. 체인이
@@ -211,7 +179,7 @@ export function OnChainAttacks({
         loansForNullifier: (loans ?? [])
           .filter((loan) => loan.nullifier.toLowerCase() === plan.nullifier.toLowerCase())
           .map((loan) => ({ lender: loan.lender })),
-        setupLender: 'lender-a',
+        setupLender: setup.lender,
       });
       return {
         ...delayed,
@@ -224,6 +192,73 @@ export function OnChainAttacks({
     },
     [],
   );
+
+  /**
+   * A5: 두 금융사가 같은 채권으로 동시에 신청한다. 하나만 확정돼야 한다.
+   *
+   * **두 신청의 증명을 먼저 다 만들고, 그다음 함께 낸다.** 둘 다 "nullifier
+   * 미사용" 이라고 적힌 채로 체인에 도착하고, 체인이 순서를 정해 하나만
+   * 통과시키는지를 본다.
+   *
+   * 예전에는 두 신청을 각자 처음부터(회로 실행 → 증명 → 제출) 동시에 돌렸다.
+   * 지갑과 대납 서버가 트랜잭션을 한 번에 하나씩만 처리해서 두 번째는 대납
+   * 거절로 체인에 닿지 못했다(판정 불가). 그렇다고 두 번째를 재시도하면 회로를
+   * 첫 번째가 확정된 **뒤의** 원장으로 다시 돌리게 되고, 내 브라우저의 회로가
+   * 먼저 막는다 — 체인은 시험하지 않은 채 '통과' 가 켜진다. A6 에서 고친 것과
+   * 같은 가짜 통과다.
+   *
+   * 지금은 증명을 들고 있으므로 대납 거절이 와도 잔액 조정만 다시 한다. 원장을
+   * 다시 읽지 않는다. 진 쪽은 체인이 실행 시점에 막아야 하고, 판정은 A6 와 같은
+   * 증거로 한다 — 체인이 FailFallible 로 기록했고 원장의 대출이 이긴 쪽 하나뿐.
+   */
+  const runA5 = useCallback(async () => {
+    const target = free[0];
+    if (!target || !wallet || !contractAddress) return;
+    if (!confirmTarget('A5')) return;
+    setA6Retry(null);
+    setState({ running: 'A5', phase: null, results: {}, error: null });
+    try {
+      const { prepareStaleFinanceCall } = await import('@/shared/wallet/circuit-calls');
+
+      setState((prev) => ({ ...prev, phase: '두 금융사 신청 준비 (nullifier 미사용 시점)' }));
+      const planA = await api.prepareFinancing(target.invoiceId, 'lender-a', target.maxLoanAmount, []);
+      const planB = await api.prepareFinancing(target.invoiceId, 'lender-b', target.maxLoanAmount, []);
+      const heldA = await prepareStaleFinanceCall(wallet, contractAddress, planA, (phase) =>
+        setPhase('lender-a(준비)', phase),
+      );
+      const heldB = await prepareStaleFinanceCall(wallet, contractAddress, planB, (phase) =>
+        setPhase('lender-b(준비)', phase),
+      );
+
+      setState((prev) => ({ ...prev, phase: '두 신청 동시 제출' }));
+      const raw = await Promise.all([
+        attempt(target, 'lender-a', { plan: planA, submit: heldA.submit }),
+        attempt(target, 'lender-b', { plan: planB, submit: heldB.submit }),
+      ]);
+
+      /*
+       * 진 쪽의 거부에는 회로 assert 문구가 없다. 한 쪽만 확정됐다면 그쪽을
+       * 셋업 삼아 A6 와 같은 증거로 진 쪽을 판정한다.
+       */
+      const winners = raw.filter((a) => a.settled);
+      const attempts = winners.length === 1
+        ? await Promise.all(raw.map((a) => (a.settled ? a : judgeDelayed(winners[0]!, a, planA))))
+        : raw;
+
+      setState((prev) => ({
+        ...prev, running: null, phase: null,
+        results: { ...prev.results, A5: judgeA5(attempts) },
+      }));
+    } catch (error: unknown) {
+      setState((prev) => ({
+        ...prev, running: null, phase: null,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      onDone();
+    }
+    // confirmTarget 이 겨누는 곳을 판단하므로 주소가 바뀌면 새로 만든다.
+  }, [free, wallet, contractAddress, attempt, setPhase, onDone, judgeDelayed]);
 
   /** B 를 내고 판정까지. 체인이 판단하지 못한 실패면 다시 제출할 수 있게 남긴다. */
   const submitDelayed = useCallback(
