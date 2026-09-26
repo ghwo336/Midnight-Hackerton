@@ -10,6 +10,7 @@ import {
   type AttackResult, type AttemptResult,
 } from '@/shared/runtime/onchain-verdict';
 import { TX_PHASE_LABEL, type TxPhase } from '@/shared/runtime/tx-phase';
+import { isSubmittedContract } from '@/shared/wallet/demo-fixtures';
 
 /**
  * 실제 체인에서 A5·A6 을 재현한다.
@@ -51,6 +52,26 @@ export function OnChainAttacks({
 
   const free = invoices.filter((invoice) => !invoice.used);
   const ready = wallet !== null && contractAddress !== null;
+
+  /*
+   * 지금 겨누는 곳이 제출한 컨트랙트인가.
+   *
+   * 이 버튼은 서버가 가리키는 컨트랙트로 간다. pnpm dev:preprod 면 원본,
+   * pnpm dev:rehearsal 이면 연습용이다. 화면만 봐서는 구분되지 않았고,
+   * 연습용을 올려 놓고도 원본 채권을 쓸 뻔했다.
+   *
+   * 원본에서의 실행을 막지는 않는다. 본 공연도 결국 이 버튼으로 한다.
+   * 대신 누르기 전에 한 번 더 묻는다 — 되돌릴 수 없는 일이다.
+   */
+  const onSubmitted = isSubmittedContract(contractAddress);
+  const confirmTarget = (id: RunId): boolean => {
+    if (!onSubmitted) return true;
+    return window.confirm(
+      `원본(제출) 컨트랙트입니다. ${id} 를 실행하면 채권이 영구히 소모되고 되돌릴 수 없습니다 ` +
+        `(남은 미사용 채권 ${free.length}건). 연습용에서 먼저 해 보려면 취소하고 ` +
+        'pnpm dev:rehearsal 로 서버를 다시 띄우세요. 계속할까요?',
+    );
+  };
 
   const setPhase = useCallback((lender: string, phase: TxPhase) => {
     setState((prev) => ({ ...prev, phase: `${lender} · ${TX_PHASE_LABEL[phase]}` }));
@@ -155,6 +176,7 @@ export function OnChainAttacks({
   const runA5 = useCallback(async () => {
     const target = free[0];
     if (!target) return;
+    if (!confirmTarget('A5')) return;
     setState({ running: 'A5', phase: null, results: {}, error: null });
     try {
       const attempts = await Promise.all([
@@ -173,7 +195,8 @@ export function OnChainAttacks({
     } finally {
       onDone();
     }
-  }, [free, attempt, onDone]);
+    // confirmTarget 이 겨누는 곳을 판단하므로 주소가 바뀌면 새로 만든다.
+  }, [free, attempt, onDone, contractAddress]);
 
   /**
    * A6: 비어 있을 때 준비하고, 채워진 뒤에 낸다.
@@ -185,6 +208,7 @@ export function OnChainAttacks({
   const runA6 = useCallback(async () => {
     const target = free[0];
     if (!target || !wallet || !contractAddress) return;
+    if (!confirmTarget('A6')) return;
     setState({ running: 'A6', phase: null, results: {}, error: null });
     try {
       const { prepareFinanceCall } = await import('@/shared/wallet/circuit-calls');
@@ -225,7 +249,9 @@ export function OnChainAttacks({
       <header className="section__head">
         <span>실제 체인 공격 재현</span>
         <span className="panel__role">
-          {contractAddress ? shortHash(`0x${contractAddress}`) : EMPTY}
+          {contractAddress
+            ? `${onSubmitted ? '원본(제출) 컨트랙트' : '연습용 컨트랙트'} · ${shortHash(`0x${contractAddress}`)}`
+            : EMPTY}
         </span>
       </header>
       <div className="section__body">
@@ -233,6 +259,12 @@ export function OnChainAttacks({
           트랜잭션마다 지갑 승인이 필요하다. 한 건에 30~45초가 걸리고, 쓴 채권은
           다시 담보로 쓸 수 없다.
         </p>
+        {onSubmitted ? (
+          <p className="hint hint--error">
+            지금 원본(제출) 컨트랙트를 겨누고 있다. README 의 배포 증거가 가리키는 곳이고,
+            여기서 쓴 채권은 되돌릴 수 없다. 연습하려면 <code>pnpm dev:rehearsal</code>.
+          </p>
+        ) : null}
 
         <div className="btn-row">
           <button

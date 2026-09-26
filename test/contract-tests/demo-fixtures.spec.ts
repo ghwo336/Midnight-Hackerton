@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { deriveOwnerPublicKey, computeInvoiceLeaf } from '@once/crypto';
 import type { Hex } from '@once/domain';
-import { DEMO } from '../../apps/web/src/shared/wallet/demo-fixtures.js';
+import { readFile } from 'node:fs/promises';
+import {
+  DEMO, SUBMITTED_CONTRACT_ADDRESS, isSubmittedContract,
+} from '../../apps/web/src/shared/wallet/demo-fixtures.js';
 import {
   DEMO_INVOICE_IDS, LENDER_FUNDING, LENDER_KEYS, loadEnv,
 } from '../../apps/api/src/config/demo.config.js';
@@ -51,5 +54,32 @@ describe('배포 고정값 결합', () => {
       });
       expect(leafServer).toBe(leafBrowser);
     }
+  });
+});
+
+/**
+ * 제출한 컨트랙트 주소.
+ *
+ * 공격 재현 화면이 원본을 겨누는지 가리는 데 쓴다. 이 값이 배포 기록과
+ * 갈라지면 원본을 겨누면서도 "연습용" 이라고 표시하게 되고, 확인 창 없이
+ * 원본 채권을 영구히 쓴다.
+ */
+describe('제출한 컨트랙트', () => {
+  it('배포 기록의 주소와 같다', async () => {
+    const deployment = JSON.parse(
+      await readFile(new URL('../../apps/deploy/deployment.json', import.meta.url), 'utf8'),
+    ) as { contractAddress: string };
+    expect(SUBMITTED_CONTRACT_ADDRESS).toBe(deployment.contractAddress);
+  });
+
+  it('0x 유무와 대소문자에 상관없이 알아본다', () => {
+    expect(isSubmittedContract(SUBMITTED_CONTRACT_ADDRESS)).toBe(true);
+    expect(isSubmittedContract(`0x${SUBMITTED_CONTRACT_ADDRESS.toUpperCase()}`)).toBe(true);
+  });
+
+  it('다른 컨트랙트와 빈 값은 원본이 아니다', () => {
+    expect(isSubmittedContract('ab'.repeat(32))).toBe(false);
+    expect(isSubmittedContract(null)).toBe(false);
+    expect(isSubmittedContract('')).toBe(false);
   });
 });

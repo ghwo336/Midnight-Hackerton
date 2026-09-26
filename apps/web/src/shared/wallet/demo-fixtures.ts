@@ -34,3 +34,23 @@ export const DEMO = {
     { id: `0x${'a3'.repeat(32)}`, faceAmount: 250_000_000n },
   ],
 } as const;
+
+/**
+ * 제출한 컨트랙트. README §5 의 배포 증거가 가리키는 곳이다.
+ *
+ * 여기서 A5·A6 를 돌리면 채권의 중복 확인값이 원장에 **영구히** 남아 그
+ * 채권은 다시 담보로 쓸 수 없다. 미사용 채권이 3건뿐이고 발급 기관 키가
+ * 없으면 보충할 수 없다. 그래서 공격 재현 화면이 지금 겨누는 곳이 이
+ * 주소인지 구분해 보여주고, 누르기 전에 한 번 더 묻는다.
+ *
+ * `apps/deploy/deployment.json` 의 contractAddress 와 같아야 한다.
+ * 테스트가 지킨다 (test/contract-tests/demo-fixtures.spec.ts).
+ */
+export const SUBMITTED_CONTRACT_ADDRESS =
+  '52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596';
+
+/** 0x 유무·대소문자와 무관하게 제출한 컨트랙트인가. */
+export function isSubmittedContract(address: string | null): boolean {
+  if (!address) return false;
+  return address.replace(/^0x/i, '').toLowerCase() === SUBMITTED_CONTRACT_ADDRESS;
+}
