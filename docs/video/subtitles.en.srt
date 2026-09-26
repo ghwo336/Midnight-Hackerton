@@ -89,13 +89,13 @@ on Midnight Preprod
 
 19
 00:02:08,000 --> 00:02:16,000
-We ran A6 on-chain on a rehearsal contract.
-Lender A's loan: block 2714409, SUCCESS
+We ran A6 on-chain on the submitted contract.
+Lender A's loan: block 2720132, SUCCESS
 
 20
 00:02:16,000 --> 00:02:26,000
 Then Lender B's pre-built request was submitted:
-block 2714417, PARTIAL_SUCCESS
+block 2720139, PARTIAL_SUCCESS
 
 21
 00:02:26,000 --> 00:02:35,000

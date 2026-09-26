@@ -384,9 +384,13 @@ A6 도 2회가 필요하고 한 건당 30~45초가 걸린다.
 지갑 문제로 죽은 것을 통과로 세지 않는다. 그 구분이 없으면 아무것도
 시험하지 않고 초록불을 켜게 된다 (`test/contract-tests/onchain-verdict.spec.ts`).
 
-#### 결과 (2026-09-26, 브라우저로 올린 연습용 컨트랙트 — 원본과 같은 코드)
+#### 결과
 
-- **A6 통과.** 금융사 B 의 신청을 미사용 시점에 증명까지 만들어 두고, 금융사 A 가
+- **A6 통과 — 원본(제출) 컨트랙트 (2026-09-27).** 같은 절차를 원본 `52a72d93…` 에서
+  돌렸다. A 대출 [`55f1ad04…`](https://preprod.midnightexplorer.com/transactions/55f1ad0499e707ccfdda347e8a95021a6e1ade1476226bf895203fb31dc90ea1)
+  (블록 2720132, `SUCCESS`) · B 거부 [`6e488f5a…`](https://preprod.midnightexplorer.com/transactions/6e488f5afac59d78e91700f6378a2fd490405bf326c9166b6977491167bccd4e)
+  (블록 2720139, `PARTIAL_SUCCESS`). 금융사 B 예치 10억 그대로.
+- **A6 통과 — 연습용 컨트랙트 (2026-09-26, 원본과 같은 코드).** 금융사 B 의 신청을 미사용 시점에 증명까지 만들어 두고, 금융사 A 가
   확정된 8블록 뒤에 냈다. 체인이 B 를 블록에 넣되 컨트랙트 호출 세그먼트만 실패로
   기록했고(`PARTIAL_SUCCESS`, contractActions 없음) B 의 예치 잔액은 그대로였다.
   A 대출 [`ae6f1b27…`](https://preprod.midnightexplorer.com/transactions/ae6f1b27b3c0224cfc74d477c790154d9d92fceb73f34e345d17821ffe43f2eb)

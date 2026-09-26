@@ -8,7 +8,7 @@
 그걸 영상 컷으로 자른 것이다. 자막은 DEMO.md §6 "말하면 안 되는 것" 을 지킨다:
 
 - A1~A6 공격 줄은 **로컬 회로 실행** 결과다. 그렇게 적는다
-- 실제 체인 A6 는 **연습용 컨트랙트** 결과다. 그렇게 적는다
+- 실제 체인 A6 는 **원본(제출) 컨트랙트** 결과다 (2026-09-27 통과). 연습용 결과는 쓰지 않는다
 - "금융사는 채권 내용을 모른다" 가 아니라 **"금융사끼리 서로의 장부를 보지 않는다"**
 - A5 의 실제 체인 경합은 검증하지 않았다 (지갑 2개 필요). 마무리 카드에 한계로 적는다
 
@@ -38,13 +38,14 @@
 ### 실제 체인 컷(5)에 쓰는 값
 
 [TEST_REPORT.md](../TEST_REPORT.md) §1 "A6 실제 체인 결과" 의 값이다.
-탐색기 페이지가 열리고 상태가 표시되는 것을 확인했다 (A `SUCCESS`, B `PARTIAL_SUCCESS`).
+탐색기 페이지가 열리고 상태가 표시되는 것을 확인했다 (A `Success`, B `PARTIAL_SUCCESS`).
+콘솔 하단 "실제 체인 공격 재현" 으로 원본에서 직접 돌린 녹화가 있으면 그걸 쓴다.
 
-- 연습용 컨트랙트 `2eb10497cec6255a7442dbc1831195d142d0e3e1e9fa13192efc30d203b26b4d`
-- A 대출 (블록 2714409):
-  https://preprod.midnightexplorer.com/transactions/ae6f1b27b3c0224cfc74d477c790154d9d92fceb73f34e345d17821ffe43f2eb
-- B 지연 제출 (블록 2714417):
-  https://preprod.midnightexplorer.com/transactions/c236587930573876bfdfcee1fb0a9844530bb1b592b14a49f1e5d12358b2bf63
+- 원본(제출) 컨트랙트 `52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596`
+- A 대출 (블록 2720132):
+  https://preprod.midnightexplorer.com/transactions/55f1ad0499e707ccfdda347e8a95021a6e1ade1476226bf895203fb31dc90ea1
+- B 지연 제출 (블록 2720139):
+  https://preprod.midnightexplorer.com/transactions/6e488f5afac59d78e91700f6378a2fd490405bf326c9166b6977491167bccd4e
 
 `PARTIAL_SUCCESS` 는 수수료 구간만 성공하고 **대출 실행 구간은 실패**했다는 뜻이다.
 자막에서 "부분 성공" 을 성공으로 읽히지 않게 풀어 쓴다 (자막 20–21).
