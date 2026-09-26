@@ -1,4 +1,4 @@
-import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
   IndexerClient, decodeLedger, digestToHex, traceLoans,
   bytesToHex as indexerBytesToHex,
@@ -25,11 +25,14 @@ import { NETWORK_CONFIG, type NetworkConfig } from './network.config.js';
 @Injectable()
 export class MidnightChainGateway implements ChainReader, ChainWriter, OnModuleInit {
   private readonly client: IndexerClient;
+  private readonly logger = new Logger(MidnightChainGateway.name);
   /** 최신 원장 뷰. 짧게 캐시한다. 매 요청마다 인덱서를 때리면 화면이 느려진다. */
   private cached: { ledger: Ledger; block: number; at: number } | null = null;
   /** nullifier → 그 대출을 만든 tx. 온체인 상태에 없어서 액션 이력으로 복원한다. */
   private origins = new Map<Hex, LoanOrigin>();
   private originsScannedTo = 0;
+  /** 진행 중인 이력 복원. 동시에 여러 번 걸지 않는다. */
+  private rebuilding: Promise<void> | null = null;
 
   constructor(@Inject(NETWORK_CONFIG) private readonly config: NetworkConfig | null) {
     /*
@@ -54,7 +57,7 @@ export class MidnightChainGateway implements ChainReader, ChainWriter, OnModuleI
     if (!this.config) return;
     // 기동 시 한 번 데워 둔다. 첫 화면 요청이 인덱서 왕복을 기다리지 않게.
     await this.refresh().catch(() => undefined);
-    await this.rebuildOrigins().catch(() => undefined);
+    this.kickRebuild();
   }
 
   // ── 상태 읽기 ──────────────────────────────────────────────
@@ -77,6 +80,25 @@ export class MidnightChainGateway implements ChainReader, ChainWriter, OnModuleI
    *
    * 새 대출이 생겼을 때만 부른다. 매번 하면 구독을 매번 여는 셈이라 느리다.
    */
+  /**
+   * 이력 복원을 뒤에서 건다. 기다리지 않는다.
+   *
+   * 배포 블록부터 걷는 데 20초 가까이 걸린다. 화면 요청이 그걸 기다리면
+   * 대출 목록이 멈춘다. 못 찾은 동안은 block·txHash 를 null 로 내보내고
+   * (지어내지 않는다), 다음 폴링에서 채운다. 실패는 경고로 남긴다 —
+   * 예전처럼 삼키면 null 이 왜 안 채워지는지 아무도 모른다.
+   */
+  private kickRebuild(): void {
+    if (this.rebuilding) return;
+    this.rebuilding = this.rebuildOrigins()
+      .catch((error: unknown) => {
+        this.logger.warn(`대출 tx 이력 복원 실패: ${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        this.rebuilding = null;
+      });
+  }
+
   private async rebuildOrigins(): Promise<void> {
     const actions: readonly ContractAction[] = await this.client.actionsSince(
       this.net.contractAddress,
@@ -155,7 +177,7 @@ export class MidnightChainGateway implements ChainReader, ChainWriter, OnModuleI
 
     // 아직 추적 못 한 대출이 있으면 이력을 다시 건다.
     const known = [...view.loans].every(([key]) => this.origins.has(indexerBytesToHex(key)));
-    if (!known) await this.rebuildOrigins().catch(() => undefined);
+    if (!known) this.kickRebuild();
 
     const out: PublicLoanView[] = [];
     for (const [key, record] of view.loans) {

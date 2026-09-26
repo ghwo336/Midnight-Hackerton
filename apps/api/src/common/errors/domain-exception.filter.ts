@@ -1,5 +1,5 @@
 import {
-  Catch, HttpStatus, type ArgumentsHost, type ExceptionFilter,
+  Catch, HttpException, HttpStatus, type ArgumentsHost, type ExceptionFilter,
 } from '@nestjs/common';
 import { CIRCUIT_ASSERT, DomainError, ERROR_HTTP_MAP } from '@once/domain';
 import type { Response } from 'express';
@@ -25,6 +25,27 @@ export class DomainExceptionFilter implements ExceptionFilter {
         message: exception.message,
         circuitAssert: CIRCUIT_ASSERT[exception.code],
       });
+      return;
+    }
+
+    /*
+     * 검증 실패(400)·없는 라우트(404) 같은 Nest 오류는 상태를 그대로 둔다.
+     * 전부 500 으로 뭉개면 "입력이 틀렸다" 와 "서버가 죽었다" 가 구분되지
+     * 않는다. 실제로 확정 보고의 txHash 형식 불일치가 500 으로만 보여 원인을
+     * 한참 못 찾았다. 본문은 우리가 만든 { code, ... } 만 내보낸다.
+     */
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const body = exception.getResponse();
+      const code =
+        typeof body === 'object' && body !== null && 'code' in body
+          ? String((body as { code: unknown }).code)
+          : status === HttpStatus.NOT_FOUND ? 'NOT_FOUND' : 'HTTP_ERROR';
+      const fields =
+        typeof body === 'object' && body !== null && 'fields' in body
+          ? (body as { fields: unknown }).fields
+          : undefined;
+      response.status(status).json(fields === undefined ? { code } : { code, fields });
       return;
     }
 

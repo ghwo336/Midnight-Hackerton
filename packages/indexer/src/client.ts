@@ -102,8 +102,14 @@ export class IndexerClient {
    * blockOffset 은 **정확한 높이**를 요구해서 폴링으로는 이력을 걸을 수 없다
    * (없는 높이를 주면 null 이 온다). 구독은 그 높이 이후 전부를 흘려보낸다.
    *
-   * 스트림은 과거를 다 보낸 뒤에도 열려 있으므로 끝을 알 수 없다. 현재
-   * 체인 끝을 미리 읽어 두고, 그 높이를 넘는 액션이 오거나 조용해지면 닫는다.
+   * 스트림은 과거를 다 보낸 뒤에도 열려 있으므로 끝을 알 수 없다. 그래서
+   * 컨트랙트의 **최신 액션 블록**을 HTTP 로 먼저 읽어 두고, 그 블록의 액션을
+   * 받으면 닫는다. 거기 닿기 전에 끊기면 **오류다.**
+   *
+   * 예전에는 "1.5초 조용하면 끝" 이었다. 인덱서는 첫 액션을 주기 전에
+   * 배포 블록부터 훑느라 몇 초씩 조용하다. 그 사이에 닫혀 0건을 성공으로
+   * 돌려줬고, 대출의 블록·tx 가 전부 null 로 남았다. 모자란 이력을 완전한
+   * 것처럼 돌려주지 않는다.
    */
   async actionsSince(
     address: Hex,
@@ -113,9 +119,11 @@ export class IndexerClient {
     const Socket = this.config.webSocket ?? (globalThis as { WebSocket?: unknown }).WebSocket;
     if (!Socket) throw new Error('WebSocket 구현이 없다. Node 에서는 config.webSocket 을 넘길 것');
 
-    const idleMs = options.idleMs ?? 1500;
-    const timeoutMs = options.timeoutMs ?? 20_000;
-    const tipHeight = (await this.tip()).height;
+    const idleMs = options.idleMs ?? 15_000;
+    const timeoutMs = options.timeoutMs ?? 90_000;
+    const latest = await this.latestAction(address);
+    if (!latest) return [];
+    const targetHeight = latest.block;
 
     return new Promise<readonly ContractAction[]>((resolve, reject) => {
       const collected: ContractAction[] = [];
@@ -142,10 +150,17 @@ export class IndexerClient {
         if (error) reject(error);
         else resolve(collected);
       };
-      const hard = setTimeout(() => finish(), timeoutMs);
+      const short = (why: string) =>
+        finish(
+          new Error(
+            `인덱서 이력이 블록 ${targetHeight} 에 닿기 전에 ${why} ` +
+              `(받은 액션 ${collected.length}건, 마지막 블록 ${collected.at(-1)?.block ?? '없음'})`,
+          ),
+        );
+      const hard = setTimeout(() => short(`${timeoutMs}ms 제한에 걸렸다`), timeoutMs);
       const bump = () => {
         clearTimeout(idle);
-        idle = setTimeout(() => finish(), idleMs);
+        idle = setTimeout(() => short(`${idleMs}ms 동안 조용했다`), idleMs);
       };
 
       // ws 는 on(), 브라우저는 addEventListener() 를 쓴다.
@@ -156,7 +171,7 @@ export class IndexerClient {
 
       listen('open', () => socket.send(JSON.stringify({ type: 'connection_init' })));
       listen('error', () => finish(new Error('인덱서 WebSocket 오류')));
-      listen('close', () => finish());
+      listen('close', () => short('소켓이 닫혔다'));
       listen('message', (event: unknown) => {
         const raw =
           typeof event === 'object' && event !== null && 'data' in event
@@ -183,7 +198,8 @@ export class IndexerClient {
               },
             }),
           );
-          bump();
+          // 첫 액션 전의 침묵은 인덱서가 훑는 시간이다. 여기선 idle 을 걸지
+          // 않고 전체 제한 시간만 믿는다.
           return;
         }
 
@@ -203,8 +219,8 @@ export class IndexerClient {
               timestamp: action.transaction.block.timestamp,
               state: hexToBytes(action.state),
             });
-            // 현재 체인 끝을 넘어섰으면 과거를 다 받은 것이다.
-            if (action.transaction.block.height >= tipHeight) {
+            // 최신 액션까지 받았으면 과거를 다 받은 것이다.
+            if (action.transaction.block.height >= targetHeight) {
               finish();
               return;
             }
@@ -214,7 +230,7 @@ export class IndexerClient {
         }
 
         if (message.type === 'error') finish(new Error('인덱서 구독 오류'));
-        else if (message.type === 'complete') finish();
+        else if (message.type === 'complete') short('구독이 끝났다');
       });
     });
   }

@@ -6,6 +6,22 @@ import { z } from 'zod';
  */
 export const hex32Schema = z.string().regex(/^0x[0-9a-f]{64}$/);
 
+/**
+ * 브라우저가 보고하는 트랜잭션 참조.
+ *
+ * 지갑 SDK 가 주는 것은 tx **해시가 아니라 식별자(txId)** 다. 인덱서 기준
+ * 해시는 32바이트, 식별자는 태그 1바이트가 붙은 33바이트이고 0x 없이 온다.
+ * 해시만 받으면 실제 체인의 확정 보고가 전부 검증에서 떨어진다 — 웹이 그
+ * 오류를 삼켜서 금융사 화면의 신청 기록만 조용히 비었다.
+ *
+ * 둘 다 받고 0x 를 붙여 정규화한다. 이 값은 기록용이다. 확정 여부는 원장을
+ * 읽어 대조한다 (ConfirmFinancingUseCase 등).
+ */
+export const txRefSchema = z
+  .string()
+  .regex(/^(0x)?([0-9a-f]{64}|[0-9a-f]{66})$/i)
+  .transform((value) => `0x${value.replace(/^0x/i, '').toLowerCase()}`);
+
 export const RequestFinancingSchema = z.object({
   invoiceId: hex32Schema,
   lenderId: z.enum(['lender-a', 'lender-b']),
@@ -35,7 +51,7 @@ export const ConfirmFinancingSchema = z.object({
   elapsedMs: z.number().int().nonnegative().max(3_600_000),
   disclose: z.array(z.enum(['creditGrade', 'dueWindow', 'industry'])).default([]),
   outcome: z.enum(['settled', 'rejected']),
-  txHash: hex32Schema.nullable().default(null),
+  txHash: txRefSchema.nullable().default(null),
   block: z.number().int().nonnegative().nullable().default(null),
   reason: z.string().max(60).nullable().default(null),
 });
@@ -45,7 +61,7 @@ export type ConfirmFinancingDto = z.infer<typeof ConfirmFinancingSchema>;
 /** 상환 보고. 원장에서 repaid 로 확인한다. */
 export const ConfirmRepaySchema = z.object({
   nullifier: hex32Schema,
-  txHash: hex32Schema.nullable().default(null),
+  txHash: txRefSchema.nullable().default(null),
   block: z.number().int().nonnegative().nullable().default(null),
 });
 export type ConfirmRepayDto = z.infer<typeof ConfirmRepaySchema>;
@@ -99,7 +115,7 @@ export type ApproveInvoiceDto = z.infer<typeof ApproveInvoiceSchema>;
  */
 export const ConfirmIssuanceSchema = z.object({
   issuanceId: z.string().min(8).max(64),
-  txHash: hex32Schema.nullable().default(null),
+  txHash: txRefSchema.nullable().default(null),
   block: z.number().int().nonnegative().nullable().default(null),
 });
 export type ConfirmIssuanceDto = z.infer<typeof ConfirmIssuanceSchema>;
