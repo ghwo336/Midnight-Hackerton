@@ -43,6 +43,11 @@ export interface AttemptResult {
    * (FailEntirely · FailFallible). 체인이 실제로 실행했다는 증거다.
    */
   readonly chainStatus?: string | null;
+  /**
+   * 이 신청의 중복 확인값. 진 쪽을 원장 증거로 판정할 때 쓴다. 서버 사전 검사
+   * 에서 막혀 재료를 받지 못했으면 없다.
+   */
+  readonly nullifier?: string | null;
 }
 
 /** 두 시도가 시간상 겹쳤는가. 겹쳐야 "동시" 라고 말할 수 있다. */

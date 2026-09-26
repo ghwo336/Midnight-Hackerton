@@ -113,7 +113,7 @@ export async function runFinancingAttempt<P extends AttemptPlan>(
     return {
       lender, settled: true, code: null, detail: null,
       txHash: out.txHash, block: out.block, ms: elapsed(), startedAt, endedAt: deps.now(),
-      confirmError, chainStatus: null,
+      confirmError, chainStatus: null, nullifier: plan.nullifier,
     };
   } catch (error: unknown) {
     const code = deps.classify(error);
@@ -125,7 +125,7 @@ export async function runFinancingAttempt<P extends AttemptPlan>(
       lender, settled: false, code,
       detail: code === null ? deps.describe(error) : null,
       txHash: null, block: null, ms: elapsed(), startedAt, endedAt: deps.now(),
-      confirmError, chainStatus,
+      confirmError, chainStatus, nullifier: plan.nullifier,
     };
   }
 }

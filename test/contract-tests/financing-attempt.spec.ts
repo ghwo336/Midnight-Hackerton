@@ -70,6 +70,19 @@ describe('일반 신청', () => {
     const r = await runFinancingAttempt('lender-a', deps());
     expect(r).toMatchObject({ settled: true, txHash: '0xabc', block: 42, confirmError: null });
   });
+
+  /*
+   * A5 는 두 신청을 각자 처음부터 돌리므로 화면이 재료(plan)를 따로 들고 있지
+   * 않다. 진 쪽을 원장 증거로 판정하려면 nullifier 가 결과에 실려 와야 한다.
+   */
+  it('성공이든 실패든 그 신청의 nullifier 를 결과에 싣는다', async () => {
+    const ok = await runFinancingAttempt('lender-a', deps());
+    const ng = await runFinancingAttempt('lender-b', deps({
+      submit: async () => { throw new Error('tx failed'); },
+    }));
+    expect(ok.nullifier).toBe(PLAN.nullifier);
+    expect(ng.nullifier).toBe(PLAN.nullifier);
+  });
 });
 
 describe('서버 보고 실패', () => {

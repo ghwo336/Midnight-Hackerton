@@ -171,13 +171,13 @@ export function OnChainAttacks({
    * 증거가 없으면 사유를 비워 둔다 — 판정 불가.
    */
   const judgeDelayed = useCallback(
-    async (setup: AttemptResult, delayed: AttemptResult, plan: Plan): Promise<AttemptResult> => {
+    async (setup: AttemptResult, delayed: AttemptResult, nullifier: string): Promise<AttemptResult> => {
       if (!setup.settled || delayed.settled || delayed.code !== null) return delayed;
       const loans = await api.loans().catch(() => null);
       const evidence = judgeStaleRejection({
         chainStatus: delayed.chainStatus ?? null,
         loansForNullifier: (loans ?? [])
-          .filter((loan) => loan.nullifier.toLowerCase() === plan.nullifier.toLowerCase())
+          .filter((loan) => loan.nullifier.toLowerCase() === nullifier.toLowerCase())
           .map((loan) => ({ lender: loan.lender })),
         setupLender: setup.lender,
       });
@@ -196,53 +196,53 @@ export function OnChainAttacks({
   /**
    * A5: 두 금융사가 같은 채권으로 동시에 신청한다. 하나만 확정돼야 한다.
    *
-   * **두 신청의 증명을 먼저 다 만들고, 그다음 함께 낸다.** 둘 다 "nullifier
-   * 미사용" 이라고 적힌 채로 체인에 도착하고, 체인이 순서를 정해 하나만
-   * 통과시키는지를 본다.
+   * 두 신청을 정말 병렬로 띄운다. 둘 다 처음부터 — 서버 사전 검사, 회로 실행,
+   * 증명, 제출 — 동시에 돈다. 두 회로가 거의 같은 순간에 원장을 읽으므로 둘 다
+   * "nullifier 미사용" 이라고 적힌 채 체인으로 가고, 체인이 순서를 정해 하나만
+   * 통과시켜야 한다.
    *
-   * 예전에는 두 신청을 각자 처음부터(회로 실행 → 증명 → 제출) 동시에 돌렸다.
-   * 지갑과 대납 서버가 트랜잭션을 한 번에 하나씩만 처리해서 두 번째는 대납
-   * 거절로 체인에 닿지 못했다(판정 불가). 그렇다고 두 번째를 재시도하면 회로를
-   * 첫 번째가 확정된 **뒤의** 원장으로 다시 돌리게 되고, 내 브라우저의 회로가
-   * 먼저 막는다 — 체인은 시험하지 않은 채 '통과' 가 켜진다. A6 에서 고친 것과
-   * 같은 가짜 통과다.
+   * 한동안 두 증명을 먼저 만들고 함께 내는 방식이었다. 대납 서버가 트랜잭션을
+   * 한 번에 하나씩만 받아서 두 번째를 안전하게 재시도하려던 것이다. 지갑에 자기
+   * DUST 가 생기면 두 번째는 대납 거절 창에서 "Pay with My Dust" 로 바로 나간다.
+   * 그래서 원래 방식으로 되돌렸다. **재시도는 없다** — 두 번째를 처음부터 다시
+   * 돌리면 이긴 쪽이 확정된 뒤의 원장으로 회로를 돌리게 되고, 내 브라우저가
+   * 먼저 막아 체인은 시험하지 않은 채 '통과' 가 켜진다.
    *
-   * 지금은 증명을 들고 있으므로 대납 거절이 와도 잔액 조정만 다시 한다. 원장을
-   * 다시 읽지 않는다. 진 쪽은 체인이 실행 시점에 막아야 하고, 판정은 A6 와 같은
-   * 증거로 한다 — 체인이 FailFallible 로 기록했고 원장의 대출이 이긴 쪽 하나뿐.
+   * 진 쪽의 거부에는 회로 assert 문구가 없다. 판정은 A6 와 같은 증거로 한다 —
+   * 체인이 FailFallible 로 기록했고 원장의 대출이 이긴 쪽 하나뿐.
    */
   const runA5 = useCallback(async () => {
     const target = free[0];
-    if (!target || !wallet || !contractAddress) return;
+    if (!target) return;
     if (!confirmTarget('A5')) return;
     setA6Retry(null);
     setState({ running: 'A5', phase: null, results: {}, error: null });
     try {
-      const { prepareStaleFinanceCall } = await import('@/shared/wallet/circuit-calls');
-
-      setState((prev) => ({ ...prev, phase: '두 금융사 신청 준비 (nullifier 미사용 시점)' }));
-      const planA = await api.prepareFinancing(target.invoiceId, 'lender-a', target.maxLoanAmount, []);
-      const planB = await api.prepareFinancing(target.invoiceId, 'lender-b', target.maxLoanAmount, []);
-      const heldA = await prepareStaleFinanceCall(wallet, contractAddress, planA, (phase) =>
-        setPhase('lender-a(준비)', phase),
-      );
-      const heldB = await prepareStaleFinanceCall(wallet, contractAddress, planB, (phase) =>
-        setPhase('lender-b(준비)', phase),
-      );
-
-      setState((prev) => ({ ...prev, phase: '두 신청 동시 제출' }));
       const raw = await Promise.all([
-        attempt(target, 'lender-a', { plan: planA, submit: heldA.submit }),
-        attempt(target, 'lender-b', { plan: planB, submit: heldB.submit }),
+        attempt(target, 'lender-a'),
+        attempt(target, 'lender-b'),
       ]);
 
-      /*
-       * 진 쪽의 거부에는 회로 assert 문구가 없다. 한 쪽만 확정됐다면 그쪽을
-       * 셋업 삼아 A6 와 같은 증거로 진 쪽을 판정한다.
-       */
       const winners = raw.filter((a) => a.settled);
+      const judgeLoser = async (winner: AttemptResult, loser: AttemptResult) => {
+        /*
+         * 진 쪽을 내 브라우저의 회로가 막았다면(체인 상태 없음 + 회로 사유)
+         * 그 회로는 이긴 쪽이 확정된 뒤의 원장을 읽은 것이다. 체인의 경합을
+         * 시험한 게 아니므로 통과 근거로 쓰지 않는다.
+         */
+        if (!loser.chainStatus && loser.code === 'NULLIFIER_ALREADY_USED') {
+          return {
+            ...loser, code: null,
+            detail:
+              '체인에 닿기 전에 브라우저의 회로가 막았다 — 이긴 쪽이 확정된 뒤에 회로를 ' +
+              '돌렸다. 체인의 경합을 시험한 게 아니다',
+          };
+        }
+        const nf = loser.nullifier ?? winner.nullifier;
+        return nf ? judgeDelayed(winner, loser, nf) : loser;
+      };
       const attempts = winners.length === 1
-        ? await Promise.all(raw.map((a) => (a.settled ? a : judgeDelayed(winners[0]!, a, planA))))
+        ? await Promise.all(raw.map((a) => (a.settled ? a : judgeLoser(winners[0]!, a))))
         : raw;
 
       setState((prev) => ({
@@ -258,14 +258,14 @@ export function OnChainAttacks({
       onDone();
     }
     // confirmTarget 이 겨누는 곳을 판단하므로 주소가 바뀌면 새로 만든다.
-  }, [free, wallet, contractAddress, attempt, setPhase, onDone, judgeDelayed]);
+  }, [free, attempt, onDone, contractAddress, judgeDelayed]);
 
   /** B 를 내고 판정까지. 체인이 판단하지 못한 실패면 다시 제출할 수 있게 남긴다. */
   const submitDelayed = useCallback(
     async (retry: A6Retry) => {
       setState((prev) => ({ ...prev, phase: '금융사 B · 미리 만든 증명 제출' }));
       const raw = await attempt(retry.target, 'lender-b', { plan: retry.plan, submit: retry.submit });
-      const delayed = await judgeDelayed(retry.setup, raw, retry.plan);
+      const delayed = await judgeDelayed(retry.setup, raw, retry.plan.nullifier);
 
       /*
        * 체인이 판단하지 못한 채 끝났으면(대납 거절·타임아웃 등) 증명을
