@@ -53,6 +53,8 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
   const [issuerPk, setIssuerPk] = useState<string | null>(null);
   const [recorder, setRecorder] = useState<Recorder | null>(null);
   const [resumable, setResumable] = useState<string | null>(null);
+  const [deployCompleted, setDeployCompleted] = useState(false);
+  const [configCopied, setConfigCopied] = useState(false);
 
   /*
    * 이어받을 배포가 있는지 본다. 있으면 [배포 시작] 이 새 컨트랙트를 올리지
@@ -60,7 +62,10 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
    * 아는 것과 다르다.
    */
   useEffect(() => {
-    void readDeployProgress().then((p) => setResumable(p?.contractAddress ?? null));
+    void readDeployProgress().then((p) => {
+      setResumable(p?.contractAddress ?? null);
+      setDeployCompleted(p?.completed === true);
+    });
   }, [state.status]);
 
   const run = useCallback(async (resume = true) => {
@@ -80,7 +85,9 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
       setIssuerPk(result.issuerPublicKey);
       setRecorder(result.recorder);
       setSteps(result.steps);
-      setResumable((await readDeployProgress())?.contractAddress ?? null);
+      const after = await readDeployProgress();
+      setResumable(after?.contractAddress ?? null);
+      setDeployCompleted(after?.completed === true);
     } finally {
       setRunning(false);
     }
@@ -89,8 +96,22 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
   const startOver = useCallback(async () => {
     await clearDeployProgress();
     setResumable(null);
+    setDeployCompleted(false);
     await run(false);
   }, [run]);
+
+  /*
+   * 연습용 서버 설정. .env.rehearsal 에 이 한 줄만 두면 된다.
+   *
+   * pnpm dev:rehearsal 은 .env.preprod 를 읽은 뒤 이 파일로 덮어쓴다.
+   * 비밀값은 .env.preprod 에서 오므로 여기에는 주소만 있다. DEPLOY_BLOCK 은
+   * 액션을 찾는 시작점이라 원본 값(더 이른 블록)을 그대로 써도 된다.
+   */
+  const rehearsalConfig = resumable ? `CONTRACT_ADDRESS=${resumable}\n` : null;
+  const copyRehearsalConfig = () => {
+    if (!rehearsalConfig) return;
+    void navigator.clipboard.writeText(rehearsalConfig).then(() => setConfigCopied(true));
+  };
 
   /*
    * DUST 가 없으면 배포를 시작하지 않는다.
@@ -272,27 +293,56 @@ export function WalletPanel({ wallet }: { wallet: WalletControls }) {
               성공분을 버리고 새 컨트랙트를 올리는 것은 거의 항상 잘못된
               선택이라 기본값이 이어받기다.
             */}
-            {resumable ? (
+            {resumable && !deployCompleted ? (
               <p className="hint">
-                이어받을 배포가 있다 · {shortHash(`0x${resumable}`)} — [배포 시작]은 이
+                이어받을 배포가 있다 · {shortHash(`0x${resumable}`)} — [배포 이어하기]는 이
                 컨트랙트를 이어받고 끝난 단계는 건너뛴다. 처음부터 하려면 [새로 배포].
+                연습용 서버는 8단계가 전부 끝나야 띄울 수 있다 — 서버가 켜질 때 채권 3건이
+                체인에 있는지 확인한다.
               </p>
+            ) : null}
+
+            {/*
+              8단계가 끝나면 연습용 서버 설정을 보여준다. 끝나기 전에는
+              내놓지 않는다 — 그 주소로 서버를 띄우면 채권 리프 확인에서
+              기동이 거부되므로, 복사해 봐야 쓸 데가 없다.
+            */}
+            {resumable && deployCompleted ? (
+              <div className="readout">
+                <div className="readout__row">
+                  <span className="readout__key">연습용 컨트랙트</span>
+                  <span className="num">배포 완료 (8/8)</span>
+                </div>
+                <p className="hint">
+                  루트에 <code>.env.rehearsal</code> 로 저장한 뒤 서버를 끄고{' '}
+                  <code>pnpm dev:rehearsal</code> 로 띄우면 A5·A6 가 이 컨트랙트를 겨눈다.
+                  원본으로 돌아갈 때는 <code>pnpm dev:preprod</code>.
+                </p>
+                <pre className="num">{rehearsalConfig}</pre>
+                <div className="btn-row">
+                  <button type="button" className="btn" onClick={copyRehearsalConfig}>
+                    {configCopied ? '복사됨' : '설정 복사'}
+                  </button>
+                </div>
+              </div>
             ) : null}
 
             <div className="btn-row">
               <button
                 type="button"
                 className="btn"
-                disabled={running || noDust}
+                disabled={running || noDust || deployCompleted}
                 onClick={() => void run()}
               >
                 {running
                   ? '진행 중 (지갑 승인 필요)'
-                  : resumable
-                    ? '배포 이어하기'
-                    : done > 0
-                      ? '다시 실행'
-                      : '배포 시작'}
+                  : deployCompleted
+                    ? '배포 완료'
+                    : resumable
+                      ? '배포 이어하기'
+                      : done > 0
+                        ? '다시 실행'
+                        : '배포 시작'}
               </button>
               {resumable ? (
                 <button
