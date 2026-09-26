@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "dev": "pnpm --parallel --filter @once/api --filter @once/web dev",
     "dev:preprod": "pnpm --parallel --filter @once/api --filter @once/web dev:preprod",
+    "dev:rehearsal": "pnpm --parallel --filter @once/api --filter @once/web dev:rehearsal",
     "dev:api": "pnpm --filter @once/api dev",
     "dev:web": "pnpm --filter @once/web dev"
   },

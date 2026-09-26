@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "dev:preprod": "tsx watch --env-file-if-exists=../../.env.preprod src/main.ts",
+    "dev:rehearsal": "tsx watch --env-file-if-exists=../../.env.preprod --env-file-if-exists=../../.env.rehearsal src/main.ts",
     "start": "tsx src/main.ts"
   },
   "dependencies": {
