@@ -1,6 +1,6 @@
 # 현재 상태
 
-마지막 갱신: **2026-09-24** · 인수 환경(WSL2 · Node 24.15.0 · pnpm 10.30.3)
+마지막 갱신: **2026-09-26** · 인수 환경(WSL2 · Node 24.15.0 · pnpm 10.30.3)
 
 제품 설명은 [README.md](../README.md), 인수인계 사항은
 [ONCE_HANDOFF_final.md](ONCE_HANDOFF_final.md), 측정치는
@@ -19,7 +19,7 @@
 | 항목 | 결과 |
 |---|---|
 | `pnpm install` | 456 패키지 16.4초, 락파일 변경 없음 |
-| `pnpm test` | 27개 파일 · 161 통과 · 1 건너뜀 |
+| `pnpm test` | 27개 파일 · 169 통과 · 1 건너뜀 |
 | `pnpm dev` | API 3011 · 웹 3040 정상 (`local-circuit`) |
 | `pnpm dev:preprod` | 실제 Preprod에 붙는다 (`simulated: false`) |
 | `pnpm typecheck` · `lint` · `build` | 통과 |
@@ -76,13 +76,18 @@
 |---|---|
 | 0 · 지갑 능력 점검 | `signData`가 `{signature, verifyingKey}`를 주는가. `getShieldedAddresses`·`balanceUnsealedTransaction`·`submitTransaction`이 있는가 |
 | 1 · faucet | 잔액 ≠ 0 |
-| 2 · DUST 등록 | `등록 후 DUST`의 balance ≠ 0 ([DEPLOY.md](DEPLOY.md) §2에 실패 진단표) |
-| 3 · 자기 컨트랙트 배포 | 8/8 성공. 끝나는 즉시 [키 내보내기] |
-| 4 · 리허설 | A5·A6 둘 다 **통과**. 판정 불가를 안고 원본으로 넘어가지 마라 |
-| 5 · 본 공연 (원본) | A5 먼저, A6 나중. README §5를 손으로 갱신 |
+| 2 · 수수료 | 1am은 proof server가 대납한다(`DUST SPONSORED`). 대납이 막히면 내 DUST가 필요하다 ([DEPLOY.md](DEPLOY.md) §2) |
+| 3 · 연습용 컨트랙트 배포 | `pnpm dev:preprod` → [배포 시작] → **8/8**. 끊기면 [배포 이어하기]. 끝나면 [키 내보내기]·[설정 복사] → `.env.rehearsal` |
+| 4 · 리허설 | `pnpm dev:rehearsal` → 헤더가 "연습용"인지 확인 → A6·A5. 판정 불가를 안고 원본으로 넘어가지 마라 |
+| 5 · 본 공연 (원본) | `pnpm dev:preprod` → 헤더가 "원본(제출)"인지 확인 → 확인 창 수락. README §5를 손으로 갱신 |
 
-0·1·2단계는 채권을 쓰지 않는다. 특히 2단계의 DUST 등록 버튼이 A5·A6이 쓰는
-쓰기 경로 전체를 태우므로, 사실상 그것이 지갑 능력 점검이다.
+0·1·2단계는 채권을 쓰지 않는다. 3·4단계는 연습용 채권만 쓴다.
+**공격 재현 버튼은 서버가 가리키는 컨트랙트로 간다** — 연습용을 올렸다고 따라가지
+않는다. 명령으로 가른다. 절차 전체는 [DEPLOY.md](DEPLOY.md) §1.6.
+
+A5는 지갑 하나로 두 금융사를 흉내 내므로 두 건이 순서대로 나가기 쉽다. 그러면
+합의 계층의 경합을 시험한 것이 아니라서 판정이 **판정 불가**로 떨어진다(두 신청이
+시간상 겹쳤는지 본다). 진짜 동시는 지갑 두 개(브라우저 프로필 두 개)가 필요하다.
 
 ---
 
