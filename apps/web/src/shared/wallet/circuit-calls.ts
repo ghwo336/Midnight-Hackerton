@@ -312,6 +312,23 @@ const STALE_INCLUSION_TIMEOUT_MS = 2 * 60_000;
 /** 대납 서버에 앞 건이 걸려 있으면 기다렸다 다시 잔액 조정을 한다. */
 const STALE_BALANCE_RETRY_MS = [5_000, 10_000, 15_000, 20_000, 30_000];
 
+/** 미리 만든 증명으로 나중에 내는 신청. */
+export interface StaleFinanceCall {
+  readonly recorder: Recorder;
+  /**
+   * 잔액 조정과 제출까지만 한다. 블록 확정은 기다리지 않고, 확정을 기다리는
+   * 함수를 돌려준다.
+   *
+   * A5 가 쓴다. 지갑 하나에 서명 요청 두 개를 동시에 넣으면 1am 이 줄을 세운
+   * 채 승인이 먹지 않았다("+1 more request waiting"). 그래서 지갑에는 한 번에
+   * 하나씩 보내되, 두 번째는 첫 번째가 **확정되기 전에** 이어서 낸다 — 제출까지
+   * 몇 초, 확정까지 30초 남짓이라 두 트랜잭션이 함께 멤풀에 있게 된다.
+   */
+  readonly send: () => Promise<{ readonly confirm: () => Promise<ChainCallResult> }>;
+  /** send 후 곧바로 confirm. A6 가 쓴다. */
+  readonly submit: () => Promise<ChainCallResult>;
+}
+
 /**
  * A6 용. **미사용 시점에 회로를 실행하고 증명까지 만들어** 들고 있다가,
  * 돌려주는 함수를 부르면 그 트랜잭션을 그대로 제출한다.
@@ -333,7 +350,7 @@ export async function prepareStaleFinanceCall(
   plan: FinancingPlan,
   onPhase: PhaseListener = () => undefined,
   options: { readonly inclusionTimeoutMs?: number } = {},
-): Promise<{ submit: () => Promise<ChainCallResult>; recorder: Recorder }> {
+): Promise<StaleFinanceCall> {
   const recorder = new Recorder();
   recorder.setStep('finance');
   onPhase('preparing');
@@ -360,31 +377,30 @@ export async function prepareStaleFinanceCall(
   const proven = await providers.proofProvider.proveTx(unsubmitted.private.unprovenTx);
   const timeoutMs = options.inclusionTimeoutMs ?? STALE_INCLUSION_TIMEOUT_MS;
 
-  return {
-    recorder,
-    submit: async () => {
-      /*
-       * 잔액 조정만 재시도한다. 셋업 대출이 방금 확정된 직후라 대납 서버가
-       * 아직 그 건을 pending 으로 잡고 있을 수 있다. 증명은 이미 들고 있으므로
-       * 다시 만들지 않는다 — 다시 만들면 새 원장을 읽게 되고 시험이 무너진다.
-       */
-      let balanced: Awaited<ReturnType<typeof providers.walletProvider.balanceTx>> | null = null;
-      for (let attempt = 0; balanced === null; attempt += 1) {
-        try {
-          balanced = await providers.walletProvider.balanceTx(proven);
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : String(error);
-          const delay = STALE_BALANCE_RETRY_MS[attempt];
-          if (!(isTransactionPending(message) || isFeeDeclined(message)) || delay === undefined) {
-            throw error;
-          }
-          onPhase('balancing');
-          await new Promise((resolve) => setTimeout(resolve, delay));
+  const send = async () => {
+    /*
+     * 잔액 조정만 재시도한다. 앞 건이 방금 제출·확정된 직후라 대납 서버가
+     * 아직 그 건을 pending 으로 잡고 있을 수 있다. 증명은 이미 들고 있으므로
+     * 다시 만들지 않는다 — 다시 만들면 새 원장을 읽게 되고 시험이 무너진다.
+     */
+    let balanced: Awaited<ReturnType<typeof providers.walletProvider.balanceTx>> | null = null;
+    for (let attempt = 0; balanced === null; attempt += 1) {
+      try {
+        balanced = await providers.walletProvider.balanceTx(proven);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const delay = STALE_BALANCE_RETRY_MS[attempt];
+        if (!(isTransactionPending(message) || isFeeDeclined(message)) || delay === undefined) {
+          throw error;
         }
+        onPhase('balancing');
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
+    }
 
-      const txId = await providers.midnightProvider.submitTx(balanced);
+    const txId = await providers.midnightProvider.submitTx(balanced);
 
+    const confirm = async (): Promise<ChainCallResult> => {
       let timer: ReturnType<typeof setTimeout> | undefined;
       const finalized = await Promise.race([
         providers.publicDataProvider.watchForTxData(txId),
@@ -398,7 +414,14 @@ export async function prepareStaleFinanceCall(
       }
       onPhase('done');
       return { txHash: finalized.txHash, block: finalized.blockHeight, recorder };
-    },
+    };
+    return { confirm };
+  };
+
+  return {
+    recorder,
+    send,
+    submit: async () => (await send()).confirm(),
   };
 }
 

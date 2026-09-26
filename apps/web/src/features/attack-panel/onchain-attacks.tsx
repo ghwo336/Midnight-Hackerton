@@ -196,53 +196,73 @@ export function OnChainAttacks({
   /**
    * A5: 두 금융사가 같은 채권으로 동시에 신청한다. 하나만 확정돼야 한다.
    *
-   * 두 신청을 정말 병렬로 띄운다. 둘 다 처음부터 — 서버 사전 검사, 회로 실행,
-   * 증명, 제출 — 동시에 돈다. 두 회로가 거의 같은 순간에 원장을 읽으므로 둘 다
-   * "nullifier 미사용" 이라고 적힌 채 체인으로 가고, 체인이 순서를 정해 하나만
-   * 통과시켜야 한다.
+   *   1. 두 신청을 먼저 준비한다 — 회로 실행과 증명까지. 둘 다 "nullifier
+   *      미사용" 이라고 적힌다. 지갑 요청은 없다.
+   *   2. A 를 낸다(지갑 승인 → 제출). **확정은 기다리지 않는다.**
+   *   3. 곧바로 B 를 낸다. A 는 아직 블록에 들어가기 전이다.
+   *   4. 둘이 함께 멤풀에 있는 상태에서 체인이 순서를 정한다.
    *
-   * 한동안 두 증명을 먼저 만들고 함께 내는 방식이었다. 대납 서버가 트랜잭션을
-   * 한 번에 하나씩만 받아서 두 번째를 안전하게 재시도하려던 것이다. 지갑에 자기
-   * DUST 가 생기면 두 번째는 대납 거절 창에서 "Pay with My Dust" 로 바로 나간다.
-   * 그래서 원래 방식으로 되돌렸다. **재시도는 없다** — 두 번째를 처음부터 다시
-   * 돌리면 이긴 쪽이 확정된 뒤의 원장으로 회로를 돌리게 되고, 내 브라우저가
-   * 먼저 막아 체인은 시험하지 않은 채 '통과' 가 켜진다.
+   * 지갑에는 요청을 한 번에 하나씩만 보낸다. 두 신청을 처음부터 동시에 돌리면
+   * 지갑 하나에 서명 요청 두 개가 한꺼번에 들어가는데, 1am 이 줄을 세운 채
+   * 승인이 먹지 않았다("+1 more request waiting") — 네 번 눌러 네 번 다 두 신청
+   * 모두 체인에 닿기 전에 죽었다. 그렇다고 A 의 확정을 기다렸다 B 를 내면 A6 와
+   * 같아진다. 제출까지 몇 초, 확정까지 30초 남짓이라 그 사이에 B 를 낸다.
    *
-   * 진 쪽의 거부에는 회로 assert 문구가 없다. 판정은 A6 와 같은 증거로 한다 —
-   * 체인이 FailFallible 로 기록했고 원장의 대출이 이긴 쪽 하나뿐.
+   * B 가 대납 거절을 받으면 증명을 든 채 잔액 조정만 다시 한다. 원장을 다시
+   * 읽지 않는다. 지갑에 자기 DUST 가 있으면 거절 창의 "Pay with My Dust" 로 바로
+   * 나간다. 진 쪽은 A6 와 같은 증거로 판정한다 — 체인이 FailFallible 로 기록했고
+   * 원장의 대출이 이긴 쪽 하나뿐.
    */
   const runA5 = useCallback(async () => {
     const target = free[0];
-    if (!target) return;
+    if (!target || !wallet || !contractAddress) return;
     if (!confirmTarget('A5')) return;
     setA6Retry(null);
     setState({ running: 'A5', phase: null, results: {}, error: null });
     try {
+      const { prepareStaleFinanceCall } = await import('@/shared/wallet/circuit-calls');
+
+      setState((prev) => ({ ...prev, phase: '두 금융사 신청 준비 (nullifier 미사용 시점)' }));
+      const planA = await api.prepareFinancing(target.invoiceId, 'lender-a', target.maxLoanAmount, []);
+      const planB = await api.prepareFinancing(target.invoiceId, 'lender-b', target.maxLoanAmount, []);
+      const heldA = await prepareStaleFinanceCall(wallet, contractAddress, planA, (phase) =>
+        setPhase('lender-a', phase),
+      );
+      const heldB = await prepareStaleFinanceCall(wallet, contractAddress, planB, (phase) =>
+        setPhase('lender-b', phase),
+      );
+
+      /*
+       * B 는 A 가 **제출된** 뒤에 출발한다(확정이 아니라). A 가 제출 전에
+       * 실패해도 B 는 낸다 — 그러면 A6 셋업 실패와 달리 B 는 정상 대출이 되지만,
+       * A5 는 "하나만 확정" 이 요점이라 판정은 그대로 성립한다.
+       */
+      let markASent: () => void = () => undefined;
+      const aSent = new Promise<void>((resolve) => { markASent = resolve; });
+      const submitA = async () => {
+        try {
+          const sent = await heldA.send();
+          markASent();
+          return await sent.confirm();
+        } finally {
+          markASent();
+        }
+      };
+      const submitB = async () => {
+        await aSent;
+        const sent = await heldB.send();
+        return sent.confirm();
+      };
+
+      setState((prev) => ({ ...prev, phase: '금융사 A 제출 → 이어서 금융사 B 제출' }));
       const raw = await Promise.all([
-        attempt(target, 'lender-a'),
-        attempt(target, 'lender-b'),
+        attempt(target, 'lender-a', { plan: planA, submit: submitA }),
+        attempt(target, 'lender-b', { plan: planB, submit: submitB }),
       ]);
 
       const winners = raw.filter((a) => a.settled);
-      const judgeLoser = async (winner: AttemptResult, loser: AttemptResult) => {
-        /*
-         * 진 쪽을 내 브라우저의 회로가 막았다면(체인 상태 없음 + 회로 사유)
-         * 그 회로는 이긴 쪽이 확정된 뒤의 원장을 읽은 것이다. 체인의 경합을
-         * 시험한 게 아니므로 통과 근거로 쓰지 않는다.
-         */
-        if (!loser.chainStatus && loser.code === 'NULLIFIER_ALREADY_USED') {
-          return {
-            ...loser, code: null,
-            detail:
-              '체인에 닿기 전에 브라우저의 회로가 막았다 — 이긴 쪽이 확정된 뒤에 회로를 ' +
-              '돌렸다. 체인의 경합을 시험한 게 아니다',
-          };
-        }
-        const nf = loser.nullifier ?? winner.nullifier;
-        return nf ? judgeDelayed(winner, loser, nf) : loser;
-      };
       const attempts = winners.length === 1
-        ? await Promise.all(raw.map((a) => (a.settled ? a : judgeLoser(winners[0]!, a))))
+        ? await Promise.all(raw.map((a) => (a.settled ? a : judgeDelayed(winners[0]!, a, planA.nullifier))))
         : raw;
 
       setState((prev) => ({
@@ -258,7 +278,7 @@ export function OnChainAttacks({
       onDone();
     }
     // confirmTarget 이 겨누는 곳을 판단하므로 주소가 바뀌면 새로 만든다.
-  }, [free, attempt, onDone, contractAddress, judgeDelayed]);
+  }, [free, wallet, contractAddress, attempt, setPhase, onDone, judgeDelayed]);
 
   /** B 를 내고 판정까지. 체인이 판단하지 못한 실패면 다시 제출할 수 있게 남긴다. */
   const submitDelayed = useCallback(
