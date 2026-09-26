@@ -8,20 +8,25 @@
 
 ## 인트로 (각 5초)
 
+**화면 녹화 없이 글자만 있는 카드다.** 우리 제품 화면이 아니라, 지금 현실에서
+벌어지는 문제를 설명한다. 이 수법은 우리 앱에서는 재현되지 않는다 — B 가 막히기
+때문이다. 그래서 "지금은" 이라는 점을 카드에 드러낸다.
+
 **카드 1**
+> **[문제]** 지금은 이런 일이 가능하다.
 > 납품업체가 1억 원짜리 매출채권으로 금융사 A에서 8천만 원을 빌린다.
 >
-> A supplier borrows ₩80M from Lender A against a ₩100M invoice.
+> **[The problem]** Today, this is possible: a supplier borrows ₩80M from Lender A against a ₩100M invoice.
 
 **카드 2**
-> 같은 채권을 금융사 B에도 낸다. B는 A의 대출을 알 수 없다.
+> 같은 채권을 금융사 B에도 낸다. B는 A의 장부를 볼 수 없어 이 사실을 모른다.
 >
-> It takes the same invoice to Lender B — who can't see Lender A's books.
+> It takes the same invoice to Lender B — who can't see Lender A's books and never knows.
 
 **카드 3**
-> 채권 하나로 1억 6천만 원이 나간다.
+> 채권 하나로 1억 6천만 원이 나간다. **ONCE Finance는 이것을 막는다.**
 >
-> One invoice. ₩160M paid out.
+> One invoice, ₩160M paid out. **ONCE Finance stops this.**
 
 ---
 

@@ -1,16 +1,17 @@
 1
 00:00:00,000 --> 00:00:05,000
-A supplier borrows ₩80M from Lender A
-against a ₩100M invoice
+[The problem] Today, this is possible:
+a supplier borrows ₩80M from Lender A on a ₩100M invoice
 
 2
 00:00:05,000 --> 00:00:10,000
-It takes the same invoice to Lender B —
-who can't see Lender A's books
+then takes the same invoice to Lender B,
+who can't see Lender A's books and never knows
 
 3
 00:00:10,000 --> 00:00:15,000
-One invoice. ₩160M paid out.
+One invoice, ₩160M paid out.
+ONCE Finance stops this
 
 4
 00:00:15,000 --> 00:00:21,000
