@@ -152,3 +152,47 @@ export function judgeImport(input: {
     message: `이 키는 컨트랙트 ${short} 의 발급 기관이 아니다`,
   };
 }
+
+/**
+ * 이 기기의 발급 기관 키가 **어느 컨트랙트의 키인가.**
+ *
+ * 내보낸 파일에는 컨트랙트 주소가 적히고 파일 이름에도 그 앞자리가 들어간다.
+ * 예전에는 무조건 서버가 가리키는 컨트랙트(원본) 주소를 적었다. 그런데 이
+ * 브라우저로 연습용 컨트랙트를 올리면 기기의 키는 **연습용의 키**가 된다.
+ * 그 상태로 내보내면 연습용 비밀키가 든 파일이 `once-issuer-key-52a72d93.json`
+ * 으로 나갔다 — 원본 발급 기관이 넘겨줘야 할 진짜 파일과 이름은 같고 내용은
+ * 다른 파일이다. 둘을 혼동하면 원본 권한을 가졌다고 착각하거나 진짜 파일을
+ * 덮어쓴다.
+ *
+ * 그래서 파일에 적힌 주소를 믿지 않듯이, 여기서도 **공개키로 판정한다.**
+ * 원장의 issuerPk 와 같으면 서버의 컨트랙트, 이 브라우저가 올린 배포 기록의
+ * 공개키와 같으면 그 컨트랙트다. 둘 다 아니면 모른다고 하고 내보내지 않는다.
+ * 틀린 이름표를 붙여 내보내느니 안 내보내는 편이 낫다.
+ */
+export type KeyOwner =
+  | { readonly kind: 'server'; readonly contractAddress: string }
+  | { readonly kind: 'deployed'; readonly contractAddress: string }
+  | { readonly kind: 'unknown' };
+
+export function whichContractOwnsKey(input: {
+  /** 이 기기에 있는 키의 공개키. 없으면 null. */
+  readonly localPk: string | null;
+  /** 서버가 가리키는 컨트랙트의 원장 issuerPk. 모르면 null. */
+  readonly serverPk: string | null;
+  readonly serverAddress: string | null;
+  /** 이 브라우저가 올린 컨트랙트의 기록. 없으면 null. */
+  readonly deployed: { readonly issuerPublicKey: string; readonly contractAddress: string } | null;
+}): KeyOwner {
+  const norm = (v: string) => v.replace(/^0x/i, '').toLowerCase();
+  const same = (a: string | null, b: string | null) =>
+    a !== null && b !== null && a !== '' && b !== '' && norm(a) === norm(b);
+
+  if (input.localPk === null) return { kind: 'unknown' };
+  if (same(input.localPk, input.serverPk) && input.serverAddress) {
+    return { kind: 'server', contractAddress: input.serverAddress };
+  }
+  if (input.deployed && same(input.localPk, input.deployed.issuerPublicKey)) {
+    return { kind: 'deployed', contractAddress: input.deployed.contractAddress };
+  }
+  return { kind: 'unknown' };
+}

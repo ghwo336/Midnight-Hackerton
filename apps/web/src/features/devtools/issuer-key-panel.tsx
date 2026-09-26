@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import { EMPTY, shortHash } from '@/shared/ui/format';
 import {
-  KEY_FILE_WARNING, issuerKeyFileName, parseIssuerKeyFile,
+  KEY_FILE_WARNING, issuerKeyFileName, parseIssuerKeyFile, whichContractOwnsKey,
   type ImportDecision,
 } from '@/shared/runtime/issuer-key-file';
 
@@ -46,9 +46,35 @@ export function IssuerKeyPanel() {
     setVerdict({ kind: 'busy' });
     try {
       const { exportIssuerKey } = await import('@/shared/wallet/issuer-key');
+      const { readIssuerPublicKey, readDeployProgress } = await import(
+        '@/shared/wallet/private-state'
+      );
+
+      /*
+       * 서버가 가리키는 컨트랙트 주소를 그대로 적지 않는다. 이 브라우저로
+       * 연습용을 올렸다면 기기의 키는 연습용의 키이고, 원본 주소를 붙이면
+       * 원본 키 파일과 이름만 같은 가짜가 나간다. 공개키로 주인을 가린다.
+       */
+      const owner = whichContractOwnsKey({
+        localPk: await readIssuerPublicKey(),
+        serverPk: onChainPk,
+        serverAddress: contractAddress,
+        deployed: await readDeployProgress(),
+      });
+      if (owner.kind === 'unknown') {
+        setVerdict({
+          kind: 'error',
+          message:
+            '이 기기의 발급 기관 키가 어느 컨트랙트의 것인지 확인하지 못했다. ' +
+            '서버 원장의 발급 기관과도, 이 브라우저가 올린 배포 기록과도 맞지 않는다. ' +
+            '틀린 이름표를 붙여 내보내지 않으려고 멈췄다',
+        });
+        return;
+      }
+
       const file = await exportIssuerKey({
         network: chain.data?.network ?? '알 수 없음',
-        contractAddress: contractAddress ?? '',
+        contractAddress: owner.contractAddress,
       });
       if (!file) {
         setVerdict({ kind: 'error', message: '이 기기에 발급 기관 비밀키가 없다' });
@@ -77,7 +103,7 @@ export function IssuerKeyPanel() {
         message: error instanceof Error ? error.message : '내보내지 못했다',
       });
     }
-  }, [chain.data?.network, contractAddress]);
+  }, [chain.data?.network, contractAddress, onChainPk]);
 
   const doImport = useCallback(
     async (file: File) => {

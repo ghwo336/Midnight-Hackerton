@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ISSUER_KEY_FILE_KIND, buildIssuerKeyFile, issuerKeyFileName,
-  judgeImport, parseIssuerKeyFile,
+  judgeImport, parseIssuerKeyFile, whichContractOwnsKey,
 } from '../../apps/web/src/shared/runtime/issuer-key-file.js';
 
 /**
@@ -126,5 +126,60 @@ describe('가져오기 판정', () => {
     });
     expect(d.kind).toBe('mismatch');
     expect(d.message).toContain('대조하지 못했다');
+  });
+});
+
+/**
+ * 내보낸 파일에 적힐 컨트랙트.
+ *
+ * 예전에는 서버가 가리키는 주소(원본)를 무조건 적었다. 이 브라우저로
+ * 연습용을 올린 뒤 내보내면, 연습용 비밀키가 든 파일이 원본 키 파일과
+ * 같은 이름으로 나갔다. 공개키로 주인을 가린다.
+ */
+describe('내보낼 키의 주인', () => {
+  const ORIGINAL = '52a72d93142c78a68871b4978d5258eb4be18d15fef44e20b4fc98dbb9ce5596';
+  const REHEARSAL = 'deadbeef'.repeat(8);
+  const ORIGINAL_PK = `0x${'cc'.repeat(32)}`;
+  const REHEARSAL_PK = `0x${'bb'.repeat(32)}`;
+  const deployed = { issuerPublicKey: REHEARSAL_PK, contractAddress: REHEARSAL };
+
+  it('원장의 발급 기관과 같으면 서버의 컨트랙트다', () => {
+    const owner = whichContractOwnsKey({
+      localPk: ORIGINAL_PK, serverPk: ORIGINAL_PK, serverAddress: ORIGINAL, deployed,
+    });
+    expect(owner).toEqual({ kind: 'server', contractAddress: ORIGINAL });
+  });
+
+  it('이 브라우저가 올린 컨트랙트의 키면 그 주소를 적는다 — 원본 주소를 붙이지 않는다', () => {
+    const owner = whichContractOwnsKey({
+      localPk: REHEARSAL_PK, serverPk: ORIGINAL_PK, serverAddress: ORIGINAL, deployed,
+    });
+    expect(owner).toEqual({ kind: 'deployed', contractAddress: REHEARSAL });
+    // 파일 이름이 원본 키 파일과 겹치지 않는다
+    expect(issuerKeyFileName(REHEARSAL)).not.toBe(issuerKeyFileName(ORIGINAL));
+  });
+
+  it('어느 쪽과도 맞지 않으면 모른다고 한다', () => {
+    const owner = whichContractOwnsKey({
+      localPk: `0x${'aa'.repeat(32)}`, serverPk: ORIGINAL_PK, serverAddress: ORIGINAL, deployed,
+    });
+    expect(owner.kind).toBe('unknown');
+  });
+
+  it('키가 없거나 원장을 못 읽었으면 서버 것이라고 단정하지 않는다', () => {
+    expect(whichContractOwnsKey({
+      localPk: null, serverPk: ORIGINAL_PK, serverAddress: ORIGINAL, deployed,
+    }).kind).toBe('unknown');
+    expect(whichContractOwnsKey({
+      localPk: ORIGINAL_PK, serverPk: null, serverAddress: ORIGINAL, deployed: null,
+    }).kind).toBe('unknown');
+  });
+
+  it('0x 접두사와 대소문자는 판정에 영향을 주지 않는다', () => {
+    const owner = whichContractOwnsKey({
+      localPk: REHEARSAL_PK.slice(2).toUpperCase(), serverPk: ORIGINAL_PK,
+      serverAddress: ORIGINAL, deployed,
+    });
+    expect(owner.kind).toBe('deployed');
   });
 });
