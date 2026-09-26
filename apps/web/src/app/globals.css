@@ -836,6 +836,8 @@ button { font: inherit; color: inherit; }
 }
 .queue__cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .queue__cell .num { font-size: 13px; }
+/* 원장에만 있는 대출: 신청 기록이 없다는 사실을 한 줄로 적는다 */
+.queue__note { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-3); }
 
 /* ── 금융사 조건 비교 ────────────────────────────────────── */
 

@@ -131,6 +131,19 @@ export function LenderApp({
   const open = loans.filter((loan) => !loan.repaid);
   const repaid = loans.filter((loan) => loan.repaid);
 
+  /*
+   * 원장에는 있는데 신청 기록이 없는 대출.
+   *
+   * 신청 기록은 체인에 없는 부가 정보라 서버 메모리에만 있고, 서버가 다시
+   * 켜지면 사라진다. 그렇다고 큐를 비워 두면 예치 잔액은 줄었는데 신청은
+   * 없는 화면이 되어 고장처럼 읽힌다. 대출 자체는 원장이 말해 주므로 그것만
+   * 보여준다. 심사 항목·제공 정보는 서버가 모르므로 채우지 않는다.
+   */
+  const recorded = new Set(
+    applications.flatMap((application) => (application.nullifier ? [application.nullifier] : [])),
+  );
+  const ledgerOnly = loans.filter((loan) => !recorded.has(loan.nullifier));
+
   const simulated = status.data?.simulated ?? true;
   const ltv = state.data ? `${Number(state.data.ltvBps) / 100}%` : EMPTY;
 
@@ -184,10 +197,14 @@ export function LenderApp({
         <section className="section">
           <header className="section__head">
             <span>대출 신청 큐</span>
-            <span className="panel__role">{applications.length}건</span>
+            <span className="panel__role">
+              {ledgerOnly.length === 0
+                ? `${applications.length}건`
+                : `신청 ${applications.length}건 · 원장 ${ledgerOnly.length}건`}
+            </span>
           </header>
           <div className="section__body">
-            {applications.length === 0 ? (
+            {applications.length === 0 && ledgerOnly.length === 0 ? (
               <p className="ledger__empty">들어온 신청이 없다.</p>
             ) : (
               applications.map((application) => (
@@ -268,6 +285,40 @@ export function LenderApp({
                 </article>
               ))
             )}
+
+            {ledgerOnly.map((loan) => (
+              <article key={loan.nullifier} className="queue queue--settled">
+                <header className="queue__head">
+                  <span className="queue__when">원장에서 확인된 대출</span>
+                  <span className="queue__amount num">{formatAmount(loan.amount)}</span>
+                  <span className="status status--settled">
+                    {loan.repaid ? '회수 완료' : '지급 완료'}
+                  </span>
+                </header>
+                <p className="queue__note">
+                  신청 기록 없음 — 이 서버가 켜지기 전에 처리된 대출이다. 심사 항목과
+                  제공 정보는 원장에 남지 않는다.
+                </p>
+                <div className="queue__meta">
+                  <span className="queue__cell">
+                    <span className="readout__key">중복 확인값</span>
+                    <span className="num">{shortHash(loan.nullifier)}</span>
+                  </span>
+                  <span className="queue__cell">
+                    <span className="readout__key">{simulated ? '확정 (모의)' : '확정'}</span>
+                    <span className="num">
+                      {loan.block === null ? EMPTY : `블록 ${loan.block}`}
+                    </span>
+                  </span>
+                  <span className="queue__cell">
+                    <span className="readout__key">{simulated ? 'tx (모의)' : 'tx'}</span>
+                    <span className={`num ${simulated ? 'sim' : ''}`}>
+                      {loan.txHash ? shortHash(loan.txHash) : EMPTY}
+                    </span>
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
       </div>
