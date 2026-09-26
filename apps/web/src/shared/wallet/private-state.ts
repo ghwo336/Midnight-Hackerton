@@ -198,6 +198,17 @@ export interface DeployProgress {
   readonly issuerPublicKey: string;
   readonly done: readonly string[];
   readonly at: string;
+  /**
+   * 8단계가 전부 끝났는가.
+   *
+   * 끝나도 기록을 지우지 않는다. 한때 지웠는데, 그러면 방금 올린 컨트랙트의
+   * 전체 주소를 어디서도 다시 얻을 수 없었다 — 화면은 앞뒤를 잘라 보여주고
+   * 실측 보고서에는 주소가 없다. 연습용 서버를 그 주소로 띄우려면 필요하고,
+   * 발급 기관 키를 내보낼 때 어느 컨트랙트의 키인지 적는 데도 필요하다.
+   *
+   * 예전 기록에는 이 필드가 없다. 없으면 끝나지 않은 것으로 읽는다.
+   */
+  readonly completed?: boolean;
 }
 
 export async function writeDeployProgress(progress: DeployProgress): Promise<void> {

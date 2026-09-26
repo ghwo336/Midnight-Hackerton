@@ -8,7 +8,7 @@ import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
 import { buildProviders, ONCE_PRIVATE_STATE_ID, type OnceProviders } from './providers';
 import { ensureIssuerSecret, writeIssuerPublicKey,
-  readDeployProgress, writeDeployProgress, clearDeployProgress,
+  readDeployProgress, writeDeployProgress,
 } from './private-state';
 import { Recorder } from './measure';
 import { DEMO } from './demo-fixtures';
@@ -428,6 +428,7 @@ export async function runBootstrap(
       issuerPublicKey,
       done: [...done],
       at: new Date().toISOString(),
+      completed: done.size === list.length,
     });
   };
 
@@ -503,8 +504,12 @@ export async function runBootstrap(
       await step(list[index]!, async () => finish(await callTx()['registerInvoice']!(leaf)));
       index += 1;
     }
-    // 전부 끝났다. 다음 실행이 옛 기록을 이어받지 않게 지운다.
-    await clearDeployProgress();
+    /*
+     * 전부 끝났다. 기록은 지우지 않는다 — 완료 표시는 마지막 단계의
+     * remember() 가 이미 남겼다. 주소가 연습용 서버 설정과 키 내보내기에
+     * 필요하다. 다시 [배포 시작] 을 누르면 여덟 단계가 전부 건너뛰어질
+     * 뿐이라 무해하고, 새로 올리는 길은 [새로 배포] 하나다.
+     */
   } catch {
     // 단계에 이미 기록했다. 여기서는 부분 결과를 그대로 돌려준다.
   }
