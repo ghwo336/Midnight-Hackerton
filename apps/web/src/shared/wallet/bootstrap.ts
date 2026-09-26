@@ -2,7 +2,7 @@
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js/contracts';
-import { isTransactionPending } from './connect-failure';
+import { isFeeDeclined, isTransactionPending } from './connect-failure';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract, pureCircuits } from '@once/contract';
 import { witnesses as sharedWitnesses, type OncePrivateState } from '@once/witness';
@@ -339,7 +339,18 @@ export async function runBootstrap(
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         const delay = PENDING_RETRY_DELAYS_MS[attempt];
-        if (!isTransactionPending(message) || delay === undefined) throw error;
+        /*
+         * 같은 원인이 두 모양으로 온다. 대납 서버에 앞 건이 걸려 있으면
+         * 지갑이 "already pending" 을 바로 던지기도 하고, 대납 실패 창을
+         * 띄워 사용자가 Reject 를 누르면 "User declined to pay dust fee"
+         * 가 온다 — 내 DUST 가 없으면 그 창에서 누를 수 있는 게 Reject
+         * 뿐이다. 뒤쪽을 재시도하지 않아서 그 경로로 가면 바로 죽었다.
+         *
+         * 정말 그만두고 싶어서 누른 경우에도 재시도가 돈다. 간격이 길고
+         * 네 번이 상한이라 창이 무한히 뜨지는 않는다.
+         */
+        const retryable = isTransactionPending(message) || isFeeDeclined(message);
+        if (!retryable || delay === undefined) throw error;
         onWait(attempt + 1, delay);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
