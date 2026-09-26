@@ -10,6 +10,9 @@ import {
   type AttackResult, type AttemptResult,
 } from '@/shared/runtime/onchain-verdict';
 import { TX_PHASE_LABEL, type TxPhase } from '@/shared/runtime/tx-phase';
+import {
+  judgeStaleRejection, runFinancingAttempt, type PreparedSubmission,
+} from '@/shared/runtime/financing-attempt';
 import { isSubmittedContract } from '@/shared/wallet/demo-fixtures';
 
 /**
@@ -27,6 +30,9 @@ import { isSubmittedContract } from '@/shared/wallet/demo-fixtures';
  * 그 성질이라 되돌리는 경로를 두지 않는다.
  */
 type RunId = 'A5' | 'A6';
+
+/** 서버가 주는 신청 재료. */
+type Plan = Awaited<ReturnType<typeof api.prepareFinancing>>;
 
 interface RunState {
   readonly running: RunId | null;
@@ -81,87 +87,54 @@ export function OnChainAttacks({
    * 신청 한 건을 끝까지 밀어붙이고 결말을 돌려준다. 던지지 않는다.
    *
    * 여기서 예외를 던지면 A5 의 두 갈래 중 하나가 사라져 판정할 수 없다.
-   * 실패도 결과의 일부다.
+   * 실패도 결과의 일부다. 흐름 자체는 runFinancingAttempt 에 있고 테스트가
+   * 지킨다 — 이 컴포넌트 안에 있을 때 A6 가 제출조차 안 되는 버그가 숨어 있었다.
    */
   const attempt = useCallback(
     async (
       invoice: SupplierInvoice,
       lender: LenderId,
-      /** 미리 만들어 둔 제출 함수. A6 이 준비와 제출을 벌릴 때 쓴다. */
-      prepared?: () => Promise<{ txHash: string; block: number }>,
+      /** 미리 준비한 신청. 있으면 서버 사전 검사를 다시 부르지 않는다 (A6). */
+      prepared?: PreparedSubmission<Plan>,
     ): Promise<AttemptResult> => {
-      const started = Date.now();
-      /*
-       * 시작·종료 시각을 남긴다. judgeA5 가 두 신청이 실제로 겹쳤는지
-       * 보고, 겹치지 않았으면 통과로 세지 않는다 — 지갑이 직렬화하면
-       * 순차로 나가고, 그건 합의 경합을 시험한 것이 아니다.
-       */
-      const base = { lender, ms: 0, txHash: null, block: null, startedAt: started } as const;
       if (!wallet || !contractAddress) {
+        const now = Date.now();
         return {
-          ...base, settled: false, code: null, detail: '지갑이 연결되지 않았다',
-          ms: 0, endedAt: Date.now(),
+          lender, settled: false, code: null, detail: '지갑이 연결되지 않았다',
+          txHash: null, block: null, ms: 0, startedAt: now, endedAt: now,
         };
       }
-
-      const { classifyCircuitError, describe, financeOnChain } =
-        await import('@/shared/wallet/circuit-calls');
-
-      let plan: Awaited<ReturnType<typeof api.prepareFinancing>>;
-      try {
-        plan = await api.prepareFinancing(invoice.invoiceId, lender, invoice.maxLoanAmount, []);
-      } catch (error: unknown) {
-        // 사전 검사에서 걸렸다. 회로까지 가지 않았으므로 code 를 비운다.
-        return {
-          ...base, settled: false, code: null,
-          detail: error instanceof ApiError ? error.code : String(error),
-          ms: Date.now() - started, endedAt: Date.now(),
-        };
-      }
-
-      const report = async (
-        outcome: 'settled' | 'rejected',
-        txHash: string | null,
-        block: number | null,
-        reason: string | null,
-      ) => {
-        await api
-          .confirmFinancing({
-            applicationId: plan.applicationId,
-            invoiceId: invoice.invoiceId,
-            lenderId: lender,
-            amount: plan.amount,
-            nullifier: plan.nullifier,
-            receivedAt: plan.receivedAt,
-            elapsedMs: Date.now() - started,
-            disclose: [],
-            outcome,
-            txHash,
-            block,
-            reason,
-          })
-          .catch(() => undefined);
-      };
-
-      try {
-        const result = prepared
-          ? await prepared()
-          : await financeOnChain(wallet, contractAddress, plan, (phase) => setPhase(lender, phase));
-        await report('settled', result.txHash, result.block, null);
-        return {
-          lender, settled: true, code: null, detail: null,
-          txHash: result.txHash, block: result.block,
-          ms: Date.now() - started, startedAt: started, endedAt: Date.now(),
-        };
-      } catch (error: unknown) {
-        const code = classifyCircuitError(error);
-        await report('rejected', null, null, code);
-        return {
-          lender, settled: false, code, detail: code === null ? describe(error) : null,
-          txHash: null, block: null,
-          ms: Date.now() - started, startedAt: started, endedAt: Date.now(),
-        };
-      }
+      const calls = await import('@/shared/wallet/circuit-calls');
+      return runFinancingAttempt<Plan>(
+        lender,
+        {
+          now: () => Date.now(),
+          prepare: () => api.prepareFinancing(invoice.invoiceId, lender, invoice.maxLoanAmount, []),
+          submit: (plan) =>
+            calls.financeOnChain(wallet, contractAddress, plan, (phase) => setPhase(lender, phase)),
+          confirm: async (plan, r) => {
+            await api.confirmFinancing({
+              applicationId: plan.applicationId,
+              invoiceId: invoice.invoiceId,
+              lenderId: lender,
+              amount: plan.amount,
+              nullifier: plan.nullifier,
+              receivedAt: plan.receivedAt,
+              elapsedMs: r.elapsedMs,
+              disclose: [],
+              outcome: r.outcome,
+              txHash: r.txHash,
+              block: r.block,
+              reason: r.reason,
+            });
+          },
+          classify: calls.classifyCircuitError,
+          chainStatusOf: calls.chainStatusOf,
+          describe: calls.describe,
+          describePrepareError: (error) => (error instanceof ApiError ? error.code : String(error)),
+        },
+        prepared,
+      );
     },
     [wallet, contractAddress, setPhase],
   );
@@ -199,11 +172,17 @@ export function OnChainAttacks({
   }, [free, attempt, onDone, contractAddress]);
 
   /**
-   * A6: 비어 있을 때 준비하고, 채워진 뒤에 낸다.
+   * A6: 비어 있을 때 **증명까지 만들어 두고**, 채워진 뒤에 낸다.
    *
-   * 금융사 B 의 신청을 **먼저** 준비한다. 그 시점에 원장의 중복 확인값은
-   * 비어 있다. 그다음 금융사 A 가 정상으로 대출을 확정시키고, 준비해 둔
-   * 신청을 그제서야 제출한다.
+   * 금융사 B 의 신청을 먼저 준비한다 — 원장을 읽어 회로를 실행하고 증명까지
+   * 만든다. 그 시점에 중복 확인값은 비어 있다. 그다음 금융사 A 가 정상 대출을
+   * 확정시키고, 들고 있던 B 의 트랜잭션을 그대로 낸다. 체인이 실행 시점의
+   * 원장으로 다시 보고 막아야 한다.
+   *
+   * 예전에는 두 군데가 틀려 있었다. 준비 단계가 증명을 만들지 않아 제출 순간에
+   * 새 원장으로 회로를 돌렸고(내 브라우저가 먼저 막는다), 그 앞에서 서버 사전
+   * 검사를 다시 불러 제출 자체가 되지 않았다. 둘 다 체인의 재검사를 시험하지
+   * 못한다.
    */
   const runA6 = useCallback(async () => {
     const target = free[0];
@@ -211,24 +190,45 @@ export function OnChainAttacks({
     if (!confirmTarget('A6')) return;
     setState({ running: 'A6', phase: null, results: {}, error: null });
     try {
-      const { prepareFinanceCall } = await import('@/shared/wallet/circuit-calls');
+      const { prepareStaleFinanceCall } = await import('@/shared/wallet/circuit-calls');
 
-      setState((prev) => ({ ...prev, phase: '금융사 B · 미사용 시점에 신청 준비' }));
+      setState((prev) => ({ ...prev, phase: '금융사 B · 미사용 시점에 회로 실행과 증명' }));
       const plan = await api.prepareFinancing(
         target.invoiceId, 'lender-b', target.maxLoanAmount, [],
       );
-      const held = await prepareFinanceCall(wallet, contractAddress, plan, (phase) =>
+      const held = await prepareStaleFinanceCall(wallet, contractAddress, plan, (phase) =>
         setPhase('lender-b(준비)', phase),
       );
 
       setState((prev) => ({ ...prev, phase: '금융사 A · 정상 대출 실행' }));
       const setup = await attempt(target, 'lender-a');
 
-      setState((prev) => ({ ...prev, phase: '금융사 B · 지연 제출' }));
-      const delayed = await attempt(target, 'lender-b', async () => {
-        const out = await held.submit();
-        return { txHash: out.txHash, block: out.block };
-      });
+      setState((prev) => ({ ...prev, phase: '금융사 B · 미리 만든 증명 제출' }));
+      let delayed = await attempt(target, 'lender-b', { plan, submit: held.submit });
+
+      /*
+       * 노드의 거부에는 회로 assert 문구가 없어서 분류기가 사유를 모른다.
+       * 체인이 실행해 실패로 기록했는지와 원장을 보고 판정한다
+       * (judgeStaleRejection). 증거가 없으면 사유를 비워 둔다 — 판정 불가.
+       */
+      if (setup.settled && !delayed.settled && delayed.code === null) {
+        const loans = await api.loans().catch(() => null);
+        const evidence = judgeStaleRejection({
+          chainStatus: delayed.chainStatus ?? null,
+          loansForNullifier: (loans ?? [])
+            .filter((loan) => loan.nullifier.toLowerCase() === plan.nullifier.toLowerCase())
+            .map((loan) => ({ lender: loan.lender })),
+          setupLender: 'lender-a',
+        });
+        delayed = {
+          ...delayed,
+          code: loans === null ? null : evidence.code,
+          detail: [
+            delayed.detail,
+            loans === null ? '원장을 읽지 못해 체인 거부를 확인하지 못했다' : evidence.note,
+          ].filter(Boolean).join(' — '),
+        };
+      }
 
       setState((prev) => ({
         ...prev, running: null, phase: null,
@@ -332,7 +332,11 @@ export function OnChainAttacks({
                         </a>
                       </>
                     ) : (
-                      <>거부 · {a.code ?? a.detail ?? '사유 없음'}</>
+                      <>
+                        거부 · {a.code ?? '회로 사유 없음'}
+                        {a.chainStatus ? <> · 체인 상태 {a.chainStatus}</> : null}
+                        {a.detail ? <> — {a.detail}</> : null}
+                      </>
                     )}{' '}
                     · <span className="num">{(a.ms / 1000).toFixed(1)}s</span>
                   </div>

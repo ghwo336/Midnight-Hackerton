@@ -33,6 +33,16 @@ export interface AttemptResult {
    */
   readonly startedAt: number;
   readonly endedAt: number;
+  /**
+   * 서버에 결과를 알리다 실패했으면 그 사유. 판정에는 쓰지 않는다 — 체인
+   * 결과는 바뀌지 않는다. 다만 삼키면 금융사 화면이 왜 비었는지 알 수 없다.
+   */
+  readonly confirmError?: string | null;
+  /**
+   * 체인에 포함됐지만 실패로 기록된 트랜잭션이면 그 상태값
+   * (FailEntirely · FailFallible). 체인이 실제로 실행했다는 증거다.
+   */
+  readonly chainStatus?: string | null;
 }
 
 /** 두 시도가 시간상 겹쳤는가. 겹쳐야 "동시" 라고 말할 수 있다. */

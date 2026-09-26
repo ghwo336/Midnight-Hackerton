@@ -1,7 +1,9 @@
 'use client';
 
 import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
-import { findDeployedContract } from '@midnight-ntwrk/midnight-js/contracts';
+import { createUnprovenCallTx, findDeployedContract } from '@midnight-ntwrk/midnight-js/contracts';
+import { SucceedEntirely } from '@midnight-ntwrk/midnight-js-types';
+import { isFeeDeclined, isTransactionPending } from './connect-failure';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import { Contract } from '@once/contract';
 import {
@@ -173,7 +175,8 @@ async function baseState(): Promise<OncePrivateState> {
 interface Attached {
   readonly callTx: Record<
     string,
-    (...args: unknown[]) => Promise<{ public: { txId: string; blockHeight: number } }>
+    // SDK 의 FinalizedTxData 중 쓰는 것만. txId 는 식별자, txHash 가 인덱서·탐색기의 해시다.
+    (...args: unknown[]) => Promise<{ public: { txId: string; txHash: string; blockHeight: number } }>
   >;
 }
 
@@ -201,11 +204,17 @@ async function attach(
 }
 
 /**
- * 신청을 **준비만** 한다. 제출은 돌려주는 함수를 부를 때 일어난다.
+ * 신청을 준비하고, 돌려주는 함수를 부르면 **그때 회로를 실행해** 제출한다.
  *
- * 둘로 나눈 이유는 A6 때문이다. 중복 확인값이 아직 비어 있을 때 준비해
- * 두었다가, 다른 신청이 확정된 뒤에 제출해야 "실행 시점에 다시 본다" 는
- * 성질을 시험할 수 있다. 한 함수로 묶으면 그 사이를 벌릴 수 없다.
+ * 한때 이 함수가 A6 용이라고 적혀 있었다. "중복 확인값이 비어 있을 때 준비해
+ * 두었다가 나중에 제출한다" 는 뜻이었는데, 실제로 준비하는 것은 컨트랙트 연결과
+ * 비공개 상태뿐이었다. 회로 실행과 증명은 submit() 안의 callTx 가 **제출하는
+ * 순간의 원장으로** 한다. 그래서 A6 에 쓰면 다른 금융사가 확정된 뒤라 내 브라우저의
+ * 회로가 assert 에서 먼저 막고, 체인에는 닿지도 않는다 — 체인의 실행 시점
+ * 재검사는 시험되지 않고 판정만 '통과' 로 켜진다.
+ *
+ * 정상 신청 경로(financeOnChain)는 준비와 제출 사이가 붙어 있어 문제없다.
+ * A6 는 prepareStaleFinanceCall 을 쓴다.
  */
 export async function prepareFinanceCall(
   api: ConnectedAPI,
@@ -248,7 +257,144 @@ export async function prepareFinanceCall(
         { bytes: hexToBytes(plan.recipient) },
       );
       onPhase('done');
-      return { txHash: result.public.txId, block: result.public.blockHeight, recorder };
+      /*
+       * txId 가 아니라 txHash 를 쓴다. txId 는 트랜잭션 식별자(33바이트)이고
+       * 인덱서·탐색기가 쓰는 해시가 아니다. 한동안 txId 를 해시 자리에 넣어서
+       * 서버가 형식 검사에서 성공 보고를 전부 거절했다.
+       */
+      return { txHash: result.public.txHash, block: result.public.blockHeight, recorder };
+    },
+  };
+}
+
+/**
+ * 체인이 트랜잭션을 실행했고 실패로 기록했다.
+ *
+ * 체인이 실제로 판단했다는 증거다. 지갑·대납 서버에서 죽은 것과 구분하려고
+ * 따로 둔다 — 그 둘을 섞으면 A6 가 아무것도 시험하지 않고 통과한다.
+ */
+export class ChainRejectedError extends Error {
+  override readonly name = 'ChainRejectedError';
+  constructor(readonly status: string, readonly txHash: string) {
+    super(`체인이 트랜잭션을 실패로 기록했다 (상태 ${status}, tx ${txHash})`);
+  }
+}
+
+/**
+ * 제출했는데 정해진 시간 안에 블록에 들어오지 않았다.
+ *
+ * SDK 의 확정 대기(watchForTxData)는 끝없이 기다린다. 노드가 트랜잭션을 아예
+ * 받지 않는 경우(guaranteed 단계 실패) 화면이 영원히 멈춘다. 체인이 판단했다는
+ * 증거가 아니므로 이것으로 통과를 켜지 않는다.
+ */
+export class NotIncludedError extends Error {
+  override readonly name = 'NotIncludedError';
+  constructor(readonly txId: string, readonly waitedMs: number) {
+    super(`제출한 트랜잭션이 ${Math.round(waitedMs / 1000)}초 안에 블록에 들어오지 않았다 (tx ${txId})`);
+  }
+}
+
+/** 체인에 포함됐지만 실패한 트랜잭션이면 그 상태값. 아니면 null. */
+export function chainStatusOf(error: unknown): string | null {
+  if (error instanceof ChainRejectedError) return error.status;
+  // callTx 경로: SDK 의 CallTxFailedError 가 finalizedTxData 를 든다.
+  const fin = (error as { finalizedTxData?: { status?: unknown } } | null)?.finalizedTxData;
+  if (fin && typeof fin.status === 'string' && fin.status !== SucceedEntirely) return fin.status;
+  return null;
+}
+
+/** A6 의 확정 대기 상한. 한 건이 보통 30~80초라 넉넉히 둔다. */
+const STALE_INCLUSION_TIMEOUT_MS = 5 * 60_000;
+
+/** 대납 서버에 앞 건이 걸려 있으면 기다렸다 다시 잔액 조정을 한다. */
+const STALE_BALANCE_RETRY_MS = [15_000, 30_000, 45_000, 60_000];
+
+/**
+ * A6 용. **미사용 시점에 회로를 실행하고 증명까지 만들어** 들고 있다가,
+ * 돌려주는 함수를 부르면 그 트랜잭션을 그대로 제출한다.
+ *
+ * A6 가 시험하는 것은 "미사용 시점에 만든 증명을 사용 후에 내면 체인이 실행
+ * 시점에 막는가" 다. 그러려면 원장을 읽고 공개 트랜스크립트를 고정하는 일
+ * (createUnprovenCallTx)과 증명(proveTx)이 **준비 시점**에 끝나 있어야 한다.
+ * 제출할 때는 잔액 조정·제출·확정 대기만 하고, 원장을 다시 읽지 않는다.
+ * SDK 의 submitTx 도 같은 순서(prove → balance → submit)인데 증명을 안에서
+ * 하므로 쓰지 않고 풀어서 부른다.
+ *
+ * 결과는 체인이 정한다. 성공으로 기록되면 이중 담보가 뚫린 것이고(A6 실패),
+ * 실패로 기록되면 ChainRejectedError, 블록에 안 들어오면 NotIncludedError.
+ * 비공개 상태는 갱신하지 않는다 — 이 신청은 성공해선 안 되는 신청이다.
+ */
+export async function prepareStaleFinanceCall(
+  api: ConnectedAPI,
+  contractAddress: string,
+  plan: FinancingPlan,
+  onPhase: PhaseListener = () => undefined,
+  options: { readonly inclusionTimeoutMs?: number } = {},
+): Promise<{ submit: () => Promise<ChainCallResult>; recorder: Recorder }> {
+  const recorder = new Recorder();
+  recorder.setStep('finance');
+  onPhase('preparing');
+
+  const providers = phased(await buildProviders(api, recorder), recorder, onPhase);
+  const privateState = withActiveInvoice(await baseState(), {
+    invoiceId: plan.witness.invoiceId as `0x${string}`,
+    faceAmount: BigInt(plan.witness.faceAmount),
+    salt: plan.witness.salt as `0x${string}`,
+    ownerSecret: plan.witness.ownerSecret as `0x${string}`,
+  });
+  providers.privateStateProvider.setContractAddress(contractAddress as never);
+  await providers.privateStateProvider.set(ONCE_PRIVATE_STATE_ID as never, privateState as never);
+
+  // 여기서 원장을 읽는다. 지금 이 nullifier 는 미사용이어야 한다.
+  const unsubmitted = (await createUnprovenCallTx(providers as never, {
+    compiledContract: compiledContract(recorder),
+    circuitId: 'finance',
+    contractAddress,
+    args: [hexToBytes(plan.lenderKey), BigInt(plan.amount), { bytes: hexToBytes(plan.recipient) }],
+    privateStateId: ONCE_PRIVATE_STATE_ID,
+  } as never)) as unknown as { private: { unprovenTx: Parameters<typeof providers.proofProvider.proveTx>[0] } };
+
+  const proven = await providers.proofProvider.proveTx(unsubmitted.private.unprovenTx);
+  const timeoutMs = options.inclusionTimeoutMs ?? STALE_INCLUSION_TIMEOUT_MS;
+
+  return {
+    recorder,
+    submit: async () => {
+      /*
+       * 잔액 조정만 재시도한다. 셋업 대출이 방금 확정된 직후라 대납 서버가
+       * 아직 그 건을 pending 으로 잡고 있을 수 있다. 증명은 이미 들고 있으므로
+       * 다시 만들지 않는다 — 다시 만들면 새 원장을 읽게 되고 시험이 무너진다.
+       */
+      let balanced: Awaited<ReturnType<typeof providers.walletProvider.balanceTx>> | null = null;
+      for (let attempt = 0; balanced === null; attempt += 1) {
+        try {
+          balanced = await providers.walletProvider.balanceTx(proven);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          const delay = STALE_BALANCE_RETRY_MS[attempt];
+          if (!(isTransactionPending(message) || isFeeDeclined(message)) || delay === undefined) {
+            throw error;
+          }
+          onPhase('balancing');
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+
+      const txId = await providers.midnightProvider.submitTx(balanced);
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const finalized = await Promise.race([
+        providers.publicDataProvider.watchForTxData(txId),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new NotIncludedError(String(txId), timeoutMs)), timeoutMs);
+        }),
+      ]).finally(() => clearTimeout(timer));
+
+      if (finalized.status !== SucceedEntirely) {
+        throw new ChainRejectedError(finalized.status, finalized.txHash);
+      }
+      onPhase('done');
+      return { txHash: finalized.txHash, block: finalized.blockHeight, recorder };
     },
   };
 }
@@ -292,7 +438,7 @@ export async function repayOnChain(
 
   const result = await call(hexToBytes(loan.nullifier), BigInt(loan.amount));
   onPhase('done');
-  return { txHash: result.public.txId, block: result.public.blockHeight, recorder };
+  return { txHash: result.public.txHash, block: result.public.blockHeight, recorder };
 }
 
 /**
@@ -331,5 +477,5 @@ export async function registerInvoiceOnChain(
 
   const result = await call(hexToBytes(leaf));
   onPhase('done');
-  return { txHash: result.public.txId, block: result.public.blockHeight, recorder };
+  return { txHash: result.public.txHash, block: result.public.blockHeight, recorder };
 }
