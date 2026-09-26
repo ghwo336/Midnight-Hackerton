@@ -450,22 +450,33 @@ export async function runBootstrap(
   };
 
   try {
-    await step(list[0]!, async () => {
-      /*
-       * 이어받을 컨트랙트가 있으면 새로 배포하지 않는다. 배포를 다시 하면
-       * 주소가 바뀌어 앞의 등록·예치가 전부 남의 컨트랙트 것이 된다.
-       */
-      if (prior) {
+    /*
+     * 이어받을 컨트랙트가 있으면 새로 배포하지 않고 거기에 붙는다. 배포를
+     * 다시 하면 주소가 바뀌어 앞의 등록·예치가 전부 남의 컨트랙트 것이 된다.
+     *
+     * 이 연결은 단계 건너뛰기 **밖**에서 한다. 한때 1단계(배포) 본문 안에
+     * 두었는데, 이어받을 때 1단계는 늘 끝난 단계라 본문이 건너뛰어졌다 —
+     * 연결이 한 번도 일어나지 않아 2단계부터 "컨트랙트가 아직 배포되지
+     * 않았다" 로 죽었다. 게다가 옵션 이름을 compiledContract 가 아니라
+     * contract 로 적어 두었고, as never 캐스트가 그걸 가렸다.
+     *
+     * run() 으로 감싸서 연결이 실패하면 1단계 줄에 사유가 남게 한다.
+     */
+    if (prior) {
+      await run(list[0]!, async () => {
         const found = await findDeployedContract(providers as never, {
           contractAddress: prior.contractAddress,
-          contract: compiled as never,
+          compiledContract: compiled as never,
           privateStateId: ONCE_PRIVATE_STATE_ID,
           initialPrivateState: privateState,
         } as never);
         deployed = found as never;
         contractAddress = prior.contractAddress;
         return {};
-      }
+      });
+    }
+
+    await step(list[0]!, async () => {
       const result = await deployContract(providers as never, {
         compiledContract: compiled as never,
         privateStateId: ONCE_PRIVATE_STATE_ID,
