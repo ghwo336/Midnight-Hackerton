@@ -11,7 +11,7 @@ import {
 } from '@/shared/runtime/onchain-verdict';
 import { TX_PHASE_LABEL, type TxPhase } from '@/shared/runtime/tx-phase';
 import {
-  judgeStaleRejection, runFinancingAttempt, type PreparedSubmission,
+  judgeStaleRejection, runFinancingAttempt, setupSettledOnLedger, type PreparedSubmission,
 } from '@/shared/runtime/financing-attempt';
 import { isSubmittedContract } from '@/shared/wallet/demo-fixtures';
 
@@ -34,6 +34,29 @@ type RunId = 'A5' | 'A6';
 /** 서버가 주는 신청 재료. */
 type Plan = Awaited<ReturnType<typeof api.prepareFinancing>>;
 
+/**
+ * A6 에서 금융사 B 의 지연 제출을 다시 할 수 있게 들고 있는 것.
+ *
+ * 셋업(금융사 A)은 확정돼 채권을 이미 썼는데 B 의 제출이 대납 서버 문제로
+ * 끝내 실패하면, 처음부터 다시 하는 것은 채권을 하나 더 쓰는 일이다. 미리
+ * 만든 증명은 그대로 쓸 수 있다 — 잔액 조정만 다시 하면 된다.
+ */
+interface A6Retry {
+  /**
+   * 시험 대상 채권. 다시 낼 때 free[0] 로 다시 고르면 안 된다 — 셋업이 확정된
+   * 뒤라 이 채권은 이미 '사용됨' 이고 free[0] 은 다른 채권이다.
+   */
+  readonly target: SupplierInvoice;
+  readonly setup: AttemptResult;
+  readonly plan: Plan;
+  readonly submit: () => Promise<{ txHash: string; block: number }>;
+}
+
+/** 셋업 확정 뒤 B 를 내기 전 기다리는 시간. 대납 서버가 앞 건을 정리할 틈이다. */
+const A6_SETTLE_SECONDS = 15;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 interface RunState {
   readonly running: RunId | null;
   readonly phase: string | null;
@@ -55,6 +78,7 @@ export function OnChainAttacks({
   onDone: () => void;
 }) {
   const [state, setState] = useState<RunState>(INITIAL);
+  const [a6Retry, setA6Retry] = useState<A6Retry | null>(null);
 
   const free = invoices.filter((invoice) => !invoice.used);
   const ready = wallet !== null && contractAddress !== null;
@@ -172,6 +196,59 @@ export function OnChainAttacks({
   }, [free, attempt, onDone, contractAddress]);
 
   /**
+   * 지연 제출 결과를 증거로 판정한다.
+   *
+   * 노드의 거부에는 회로 assert 문구가 없어서 분류기가 사유를 모른다. 체인이
+   * FailEntirely 로 기록했는지와 원장을 보고 판정한다(judgeStaleRejection).
+   * 증거가 없으면 사유를 비워 둔다 — 판정 불가.
+   */
+  const judgeDelayed = useCallback(
+    async (setup: AttemptResult, delayed: AttemptResult, plan: Plan): Promise<AttemptResult> => {
+      if (!setup.settled || delayed.settled || delayed.code !== null) return delayed;
+      const loans = await api.loans().catch(() => null);
+      const evidence = judgeStaleRejection({
+        chainStatus: delayed.chainStatus ?? null,
+        loansForNullifier: (loans ?? [])
+          .filter((loan) => loan.nullifier.toLowerCase() === plan.nullifier.toLowerCase())
+          .map((loan) => ({ lender: loan.lender })),
+        setupLender: 'lender-a',
+      });
+      return {
+        ...delayed,
+        code: loans === null ? null : evidence.code,
+        detail: [
+          delayed.detail,
+          loans === null ? '원장을 읽지 못해 체인 거부를 확인하지 못했다' : evidence.note,
+        ].filter(Boolean).join(' — '),
+      };
+    },
+    [],
+  );
+
+  /** B 를 내고 판정까지. 체인이 판단하지 못한 실패면 다시 제출할 수 있게 남긴다. */
+  const submitDelayed = useCallback(
+    async (retry: A6Retry) => {
+      setState((prev) => ({ ...prev, phase: '금융사 B · 미리 만든 증명 제출' }));
+      const raw = await attempt(retry.target, 'lender-b', { plan: retry.plan, submit: retry.submit });
+      const delayed = await judgeDelayed(retry.setup, raw, retry.plan);
+
+      /*
+       * 체인이 판단하지 못한 채 끝났으면(대납 거절·타임아웃 등) 증명을
+       * 들고 있는다. 체인이 판단했다면(확정이든 거부든) 결과가 난 것이라
+       * 다시 낼 이유가 없다.
+       */
+      const chainDecided = delayed.settled || delayed.code !== null || Boolean(delayed.chainStatus);
+      setA6Retry(chainDecided ? null : retry);
+
+      setState((prev) => ({
+        ...prev, running: null, phase: null,
+        results: { ...prev.results, A6: judgeA6(retry.setup, delayed) },
+      }));
+    },
+    [attempt, judgeDelayed],
+  );
+
+  /**
    * A6: 비어 있을 때 **증명까지 만들어 두고**, 채워진 뒤에 낸다.
    *
    * 금융사 B 의 신청을 먼저 준비한다 — 원장을 읽어 회로를 실행하고 증명까지
@@ -179,15 +256,16 @@ export function OnChainAttacks({
    * 확정시키고, 들고 있던 B 의 트랜잭션을 그대로 낸다. 체인이 실행 시점의
    * 원장으로 다시 보고 막아야 한다.
    *
-   * 예전에는 두 군데가 틀려 있었다. 준비 단계가 증명을 만들지 않아 제출 순간에
-   * 새 원장으로 회로를 돌렸고(내 브라우저가 먼저 막는다), 그 앞에서 서버 사전
-   * 검사를 다시 불러 제출 자체가 되지 않았다. 둘 다 체인의 재검사를 시험하지
-   * 못한다.
+   * **A 가 확정되지 않으면 B 를 내지 않는다.** nullifier 가 비어 있으니 체인이
+   * B 를 정상 대출로 받아 준다 — 시험은 못 하고 채권만 쓴다. 연습용에서 실제로
+   * 그렇게 하나를 잃었다. 확정 여부는 지갑 오류가 아니라 원장으로 본다. 지갑이
+   * "Wallet UI disconnected" 를 냈는데 대출은 블록에 들어가 있던 적이 있다.
    */
   const runA6 = useCallback(async () => {
     const target = free[0];
     if (!target || !wallet || !contractAddress) return;
     if (!confirmTarget('A6')) return;
+    setA6Retry(null);
     setState({ running: 'A6', phase: null, results: {}, error: null });
     try {
       const { prepareStaleFinanceCall } = await import('@/shared/wallet/circuit-calls');
@@ -201,39 +279,45 @@ export function OnChainAttacks({
       );
 
       setState((prev) => ({ ...prev, phase: '금융사 A · 정상 대출 실행' }));
-      const setup = await attempt(target, 'lender-a');
+      let setup = await attempt(target, 'lender-a');
 
-      setState((prev) => ({ ...prev, phase: '금융사 B · 미리 만든 증명 제출' }));
-      let delayed = await attempt(target, 'lender-b', { plan, submit: held.submit });
-
-      /*
-       * 노드의 거부에는 회로 assert 문구가 없어서 분류기가 사유를 모른다.
-       * 체인이 실행해 실패로 기록했는지와 원장을 보고 판정한다
-       * (judgeStaleRejection). 증거가 없으면 사유를 비워 둔다 — 판정 불가.
-       */
-      if (setup.settled && !delayed.settled && delayed.code === null) {
-        const loans = await api.loans().catch(() => null);
-        const evidence = judgeStaleRejection({
-          chainStatus: delayed.chainStatus ?? null,
-          loansForNullifier: (loans ?? [])
-            .filter((loan) => loan.nullifier.toLowerCase() === plan.nullifier.toLowerCase())
-            .map((loan) => ({ lender: loan.lender })),
-          setupLender: 'lender-a',
-        });
-        delayed = {
-          ...delayed,
-          code: loans === null ? null : evidence.code,
-          detail: [
-            delayed.detail,
-            loans === null ? '원장을 읽지 못해 체인 거부를 확인하지 못했다' : evidence.note,
-          ].filter(Boolean).join(' — '),
-        };
+      if (!setup.settled) {
+        setState((prev) => ({
+          ...prev, phase: '금융사 A · 지갑이 실패를 보고했다 — 원장에 확정됐는지 확인 중',
+        }));
+        let onLedger = false;
+        for (let i = 0; i < 6 && !onLedger; i += 1) {
+          const loans = await api.loans().catch(() => null);
+          onLedger = loans !== null && setupSettledOnLedger({
+            loans, nullifier: plan.nullifier, setupLender: 'lender-a',
+          });
+          if (!onLedger) await sleep(5_000);
+        }
+        if (onLedger) {
+          setup = {
+            ...setup, settled: true, code: null,
+            detail: `지갑은 실패를 보고했지만 원장에 확정돼 있다 (${setup.detail ?? '사유 없음'})`,
+          };
+        } else {
+          const skipped: AttemptResult = {
+            lender: 'lender-b', settled: false, code: null,
+            detail: '셋업이 확정되지 않아 제출하지 않았다 — 냈다면 정상 대출로 받아져 채권만 썼다',
+            txHash: null, block: null, ms: 0, startedAt: Date.now(), endedAt: Date.now(),
+          };
+          setState((prev) => ({
+            ...prev, running: null, phase: null,
+            results: { ...prev.results, A6: judgeA6(setup, skipped) },
+          }));
+          return;
+        }
       }
 
-      setState((prev) => ({
-        ...prev, running: null, phase: null,
-        results: { ...prev.results, A6: judgeA6(setup, delayed) },
-      }));
+      for (let left = A6_SETTLE_SECONDS; left > 0; left -= 1) {
+        setState((prev) => ({ ...prev, phase: `금융사 B · 앞 건 정리 대기 ${left}초` }));
+        await sleep(1_000);
+      }
+
+      await submitDelayed({ target, setup, plan, submit: held.submit });
     } catch (error: unknown) {
       setState((prev) => ({
         ...prev, running: null, phase: null,
@@ -242,7 +326,23 @@ export function OnChainAttacks({
     } finally {
       onDone();
     }
-  }, [free, wallet, contractAddress, attempt, setPhase, onDone]);
+  }, [free, wallet, contractAddress, attempt, setPhase, onDone, submitDelayed]);
+
+  /** 들고 있던 B 의 증명으로 다시 낸다. 셋업을 다시 하지 않는다 — 채권을 더 쓰지 않는다. */
+  const retryA6Delayed = useCallback(async () => {
+    if (!a6Retry) return;
+    setState((prev) => ({ ...prev, running: 'A6', phase: null, error: null }));
+    try {
+      await submitDelayed(a6Retry);
+    } catch (error: unknown) {
+      setState((prev) => ({
+        ...prev, running: null, phase: null,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      onDone();
+    }
+  }, [a6Retry, submitDelayed, onDone]);
 
   return (
     <section className="section">
@@ -283,7 +383,29 @@ export function OnChainAttacks({
           >
             A6 지연 제출
           </button>
+          {/*
+            셋업은 확정됐는데 B 의 제출이 체인 판단 없이 끝났을 때만 나온다.
+            [A6 지연 제출] 을 다시 누르면 셋업부터 새로 해서 채권을 하나 더
+            쓴다. 이건 들고 있던 증명으로 B 만 다시 낸다.
+          */}
+          {a6Retry ? (
+            <button
+              type="button"
+              className="btn"
+              disabled={!ready || state.running !== null}
+              onClick={() => void retryA6Delayed()}
+            >
+              금융사 B 다시 제출
+            </button>
+          ) : null}
         </div>
+        {a6Retry && state.running === null ? (
+          <p className="hint">
+            금융사 A 는 확정됐고 금융사 B 의 제출이 체인에 닿기 전에 끝났다(대납 거절 등).
+            [금융사 B 다시 제출] 은 미리 만든 증명을 그대로 다시 낸다 — 채권을 더 쓰지 않는다.
+            [A6 지연 제출] 을 다시 누르면 처음부터 해서 채권을 하나 더 쓴다.
+          </p>
+        ) : null}
 
         <div className="readout">
           <div className="readout__row">

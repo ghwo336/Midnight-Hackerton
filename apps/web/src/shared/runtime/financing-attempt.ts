@@ -202,3 +202,27 @@ export function judgeStaleRejection(input: {
       `원장의 대출은 ${input.setupLender} 1건뿐이다`,
   };
 }
+
+/**
+ * 셋업 대출이 **원장에** 확정돼 있는가.
+ *
+ * 지갑이 오류를 냈다고 트랜잭션이 안 나간 것은 아니다. 실제로 "Wallet UI
+ * disconnected" 로 실패가 보고됐는데 그 대출은 블록에 들어가 있었다. 창이
+ * 끊긴 것이지 제출이 끊긴 것이 아니었다. 그래서 클라이언트의 오류가 아니라
+ * 원장을 본다.
+ *
+ * A6 에서 이게 중요한 이유: 셋업이 확정되지 않았는데 미리 만든 지연 신청을
+ * 내면, nullifier 가 비어 있으므로 체인이 **정상 대출로 받아 준다.** 시험은
+ * 못 하고 채권만 하나 쓴다. 실제로 연습용 컨트랙트에서 그렇게 채권 하나를
+ * 잃었다. 원본에서였다면 남은 두 건 중 하나였다.
+ */
+export function setupSettledOnLedger(input: {
+  readonly loans: readonly { readonly nullifier: string; readonly lender: string }[];
+  readonly nullifier: string;
+  readonly setupLender: string;
+}): boolean {
+  const nf = input.nullifier.toLowerCase();
+  return input.loans.some(
+    (loan) => loan.nullifier.toLowerCase() === nf && loan.lender === input.setupLender,
+  );
+}

@@ -173,3 +173,38 @@ describe('A6 지연 제출의 체인 거부 판정', () => {
     expect(judgeA6(setupAttempt, delayed(without.code)).verdict).toBe('inconclusive');
   });
 });
+
+/**
+ * 셋업이 원장에 확정됐는가.
+ *
+ * 지갑이 "Wallet UI disconnected" 로 실패를 보고했는데 대출은 블록에 들어가
+ * 있었던 적이 있다. 반대로 셋업이 정말 안 됐는데 지연 신청을 내면 체인이
+ * 정상 대출로 받아 채권만 잃는다(연습용에서 실제로 잃었다).
+ */
+describe('셋업 확정 여부는 원장으로 본다', () => {
+  const NF = `0x${'8d'.repeat(32)}`;
+
+  it('원장에 셋업 금융사의 대출이 있으면 확정이다 — 지갑 오류와 무관하게', async () => {
+    const { setupSettledOnLedger } = await import(
+      '../../apps/web/src/shared/runtime/financing-attempt.js'
+    );
+    expect(setupSettledOnLedger({
+      loans: [{ nullifier: NF.toUpperCase().replace('0X', '0x'), lender: 'lender-a' }],
+      nullifier: NF, setupLender: 'lender-a',
+    })).toBe(true);
+  });
+
+  it('없거나 다른 금융사의 것이면 확정이 아니다', async () => {
+    const { setupSettledOnLedger } = await import(
+      '../../apps/web/src/shared/runtime/financing-attempt.js'
+    );
+    expect(setupSettledOnLedger({ loans: [], nullifier: NF, setupLender: 'lender-a' })).toBe(false);
+    expect(setupSettledOnLedger({
+      loans: [{ nullifier: NF, lender: 'lender-b' }], nullifier: NF, setupLender: 'lender-a',
+    })).toBe(false);
+    expect(setupSettledOnLedger({
+      loans: [{ nullifier: `0x${'ab'.repeat(32)}`, lender: 'lender-a' }],
+      nullifier: NF, setupLender: 'lender-a',
+    })).toBe(false);
+  });
+});
