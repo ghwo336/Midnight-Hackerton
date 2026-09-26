@@ -144,13 +144,19 @@ export async function runFinancingAttempt<P extends AttemptPlan>(
  *   1. 체인이 실행했고 실패로 기록했다 (트랜잭션 상태가 성공이 아니다)
  *   2. 원장에 그 nullifier 의 대출이 정확히 한 건이고, 셋업 금융사의 것이다
  *
- * 상태값은 **FailEntirely 만** 받는다. finance 회로에는 kernel.checkpoint() 가
- * 없어서 원장 연산이 전부 guaranteed 구간에 있다. 그 구간이 실패하면 트랜잭션
- * 전체가 롤백되고 상태는 FailEntirely 다. FailFallible 은 checkpoint 뒤가 실패했다는
- * 뜻이라 이 회로에서는 나올 수 없다 — 나왔다면 우리가 모르는 일이 일어난 것이니
- * 통과로 세지 않는다. (근거: midnight-ledger semantics.rs 의 apply_section 이
- * 컨트랙트 호출을 segment 0 에서만 실행하고, run_transcript 가 현재 원장으로
- * 트랜스크립트를 다시 돌려 다르면 EffectsMismatch 를 낸다.)
+ * 상태값은 **FailFallible 만** 받는다. 처음엔 반대로 짰다 — finance 에
+ * checkpoint 가 없으니 원장 연산이 guaranteed 구간에 있고 실패하면 FailEntirely
+ * 라는 소스 조사를 믿었다. 실제 체인은 달랐다. 2026-09-26 연습용 컨트랙트에서
+ * 미리 만든 증명을 셋업 확정 8블록 뒤에 냈더니 인덱서 기록이 이랬다.
+ *
+ *   tx c2365879…58b2bf63  status PARTIAL_SUCCESS
+ *   segments 0 ✓ · 1 ✓ · 16641 ✗   contractActions []
+ *
+ * 수수료가 든 세그먼트는 성공했고, 컨트랙트 호출이 든 세그먼트만 실패해 아무
+ * 효과도 남기지 않았다. 컨트랙트 호출은 intent 마다 따로 붙는 세그먼트에
+ * 들어가고, 그게 실패하면 FailFallible(부분 성공)이다. 반대로 FailEntirely 는
+ * 수수료 쪽(guaranteed)이 실패했다는 뜻이라 회로 검사까지 가지도 않은 것이다.
+ * 금융사 B 의 예치 잔액도 그대로였다.
  *
  * 둘 다 맞으면 NULLIFIER_ALREADY_USED 로 친다. 미사용 시점과 제출 시점 사이에
  * 바뀐 원장 읽기는 `usedNullifiers.member(nf)` 하나뿐이다 — 등록 금융사,
@@ -174,32 +180,35 @@ export function judgeStaleRejection(input: {
         '들어오지 않았다 — 노드가 멤풀에서 거부했을 가능성이 있지만 확인되지 않았다',
     };
   }
-  if (input.chainStatus !== 'FailEntirely') {
+  if (input.chainStatus !== 'FailFallible') {
     return {
       code: null,
       note:
-        `체인이 실패로 기록했지만 상태가 ${input.chainStatus} 다. 이 회로는 checkpoint 가 ` +
-        '없어 FailEntirely 여야 한다 — 예상과 달라 판정하지 않는다',
+        `체인이 실패로 기록했지만 상태가 ${input.chainStatus} 다. 컨트랙트 호출 세그먼트만 ` +
+        '실패하면 FailFallible 이어야 한다 — FailEntirely 는 수수료 쪽이 실패해 회로 검사까지 ' +
+        '가지 않은 것이라 판정하지 않는다',
     };
   }
   const n = input.loansForNullifier.length;
   if (n !== 1) {
     return {
       code: null,
+      // loans 는 nullifier 가 키라 정상이면 1건이다. 0건이면 셋업이 원장에 없다.
       note: `체인은 실패로 기록했지만 원장에 이 nullifier 의 대출이 ${n}건이다. 1건이어야 판정할 수 있다`,
     };
   }
   if (input.loansForNullifier[0]!.lender !== input.setupLender) {
     return {
       code: null,
-      note: `체인은 실패로 기록했지만 원장의 대출이 셋업 금융사(${input.setupLender})의 것이 아니다`,
+      // loans 는 nullifier 가 키라 지연 신청이 확정됐다면 기록을 덮어쓴다 — 이게 이중 담보의 흔적이다.
+      note: `원장의 대출이 셋업 금융사(${input.setupLender})의 것이 아니다 — 지연 신청이 기록을 덮어썼을 수 있다`,
     };
   }
   return {
     code: 'NULLIFIER_ALREADY_USED',
     note:
-      `체인이 실행 시점에 거부했다 (트랜잭션 상태 ${input.chainStatus}). ` +
-      `원장의 대출은 ${input.setupLender} 1건뿐이다`,
+      `체인이 실행 시점에 거부했다 (트랜잭션 상태 ${input.chainStatus} — 컨트랙트 호출 ` +
+      `세그먼트만 실패). 원장의 대출은 ${input.setupLender} 1건뿐이다`,
   };
 }
 

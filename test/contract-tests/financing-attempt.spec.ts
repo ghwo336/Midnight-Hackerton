@@ -90,9 +90,9 @@ describe('체인 실행 증거', () => {
   it('체인이 실패로 기록한 상태값을 남긴다', async () => {
     const r = await runFinancingAttempt('lender-b', deps({
       submit: async () => { throw new Error('tx failed'); },
-      chainStatusOf: () => 'FailEntirely',
+      chainStatusOf: () => 'FailFallible',
     }));
-    expect(r.chainStatus).toBe('FailEntirely');
+    expect(r.chainStatus).toBe('FailFallible');
     expect(r.code).toBeNull();
   });
 });
@@ -100,23 +100,24 @@ describe('체인 실행 증거', () => {
 describe('A6 지연 제출의 체인 거부 판정', () => {
   const setup = 'lender-a';
 
-  it('체인이 실행해 FailEntirely 로 기록했고 원장 대출이 셋업 금융사 1건이면 중복 확인값 거부다', () => {
+  /*
+   * 실측(2026-09-26, 연습용): 미리 만든 증명을 셋업 뒤에 냈더니
+   * PARTIAL_SUCCESS — 수수료 세그먼트 0·1 은 성공, 컨트랙트 호출 세그먼트
+   * 16641 만 실패, contractActions 없음, 금융사 B 잔액 그대로.
+   */
+  it('체인이 FailFallible 로 기록했고 원장 대출이 셋업 금융사 1건이면 중복 확인값 거부다', () => {
     const j = judgeStaleRejection({
-      chainStatus: 'FailEntirely', loansForNullifier: [{ lender: setup }], setupLender: setup,
+      chainStatus: 'FailFallible', loansForNullifier: [{ lender: setup }], setupLender: setup,
     });
     expect(j.code).toBe('NULLIFIER_ALREADY_USED');
   });
 
-  /*
-   * finance 회로에는 checkpoint 가 없어 원장 연산이 전부 guaranteed 구간이다.
-   * FailFallible 은 이 회로에서 나올 수 없는 값이라, 나왔다면 모르는 일이다.
-   */
-  it('FailFallible 은 이 회로에서 예상 밖이라 판정하지 않는다', () => {
+  it('FailEntirely 는 수수료 쪽 실패라 회로 검사를 시험한 게 아니다', () => {
     const j = judgeStaleRejection({
-      chainStatus: 'FailFallible', loansForNullifier: [{ lender: setup }], setupLender: setup,
+      chainStatus: 'FailEntirely', loansForNullifier: [{ lender: setup }], setupLender: setup,
     });
     expect(j.code).toBeNull();
-    expect(j.note).toContain('FailEntirely');
+    expect(j.note).toContain('FailFallible');
   });
 
   it('증거가 없을 때 멤풀 거부 가능성을 적는다', () => {
@@ -140,7 +141,7 @@ describe('A6 지연 제출의 체인 거부 판정', () => {
 
   it('원장에 대출이 두 건이면 판정하지 않는다 (이중 담보가 뚫렸을 수 있다)', () => {
     const j = judgeStaleRejection({
-      chainStatus: 'FailEntirely',
+      chainStatus: 'FailFallible',
       loansForNullifier: [{ lender: setup }, { lender: 'lender-b' }],
       setupLender: setup,
     });
@@ -149,7 +150,7 @@ describe('A6 지연 제출의 체인 거부 판정', () => {
 
   it('원장의 대출이 셋업 금융사 것이 아니면 판정하지 않는다', () => {
     const j = judgeStaleRejection({
-      chainStatus: 'FailEntirely', loansForNullifier: [{ lender: 'lender-b' }], setupLender: setup,
+      chainStatus: 'FailFallible', loansForNullifier: [{ lender: 'lender-b' }], setupLender: setup,
     });
     expect(j.code).toBeNull();
   });
@@ -164,7 +165,7 @@ describe('A6 지연 제출의 체인 거부 판정', () => {
       txHash: null, block: null, ms: 1, startedAt: 2, endedAt: 3,
     });
     const withEvidence = judgeStaleRejection({
-      chainStatus: 'FailEntirely', loansForNullifier: [{ lender: setup }], setupLender: setup,
+      chainStatus: 'FailFallible', loansForNullifier: [{ lender: setup }], setupLender: setup,
     });
     const without = judgeStaleRejection({
       chainStatus: null, loansForNullifier: [{ lender: setup }], setupLender: setup,
