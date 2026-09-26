@@ -384,6 +384,20 @@ A6 도 2회가 필요하고 한 건당 30~45초가 걸린다.
 지갑 문제로 죽은 것을 통과로 세지 않는다. 그 구분이 없으면 아무것도
 시험하지 않고 초록불을 켜게 된다 (`test/contract-tests/onchain-verdict.spec.ts`).
 
+#### 결과 (2026-09-26, 브라우저로 올린 연습용 컨트랙트 — 원본과 같은 코드)
+
+- **A6 통과.** 금융사 B 의 신청을 미사용 시점에 증명까지 만들어 두고, 금융사 A 가
+  확정된 8블록 뒤에 냈다. 체인이 B 를 블록에 넣되 컨트랙트 호출 세그먼트만 실패로
+  기록했고(`PARTIAL_SUCCESS`, contractActions 없음) B 의 예치 잔액은 그대로였다.
+  A 대출 [`ae6f1b27…`](https://preprod.midnightexplorer.com/transactions/ae6f1b27b3c0224cfc74d477c790154d9d92fceb73f34e345d17821ffe43f2eb)
+  · B 거부 [`c2365879…`](https://preprod.midnightexplorer.com/transactions/c236587930573876bfdfcee1fb0a9844530bb1b592b14a49f1e5d12358b2bf63)
+- **A5 판정하지 못함.** 지갑(1am) 하나로는 두 트랜잭션을 동시에 띄울 수 없었다 —
+  앞 건이 끝나기 전 다음 건을 `Duplicate request` 로 거절한다. 진 쪽이 막히는
+  메커니즘은 A6 가 증명했고, 로컬에서 A5 는 통과한다. 두 트랜잭션이 함께 멤풀에
+  있을 때의 합의 계층 순서 결정은 지갑 두 개가 있어야 확인된다.
+
+자세한 기록은 [TEST_REPORT.md](docs/TEST_REPORT.md) §1.
+
 ---
 
 ## 6. 직접 빌드하거나 배포하려면
