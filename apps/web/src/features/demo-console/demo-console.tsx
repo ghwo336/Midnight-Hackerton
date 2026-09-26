@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import { useLive } from '@/shared/role/use-live';
@@ -28,8 +29,8 @@ import { useAttackRunner } from '@/features/attack-panel/use-attack-runner';
  * "공격 시나리오" 라고 이름을 붙여 제품 화면과 구분한다. 실제 체인에서는
  * 서버가 서명할 수 없어 이 러너가 돌지 않으므로 보이지 않는다.
  *
- * 콘솔은 CSS 1440×900 한 화면에 전부 들어간다 (DESIGN §4). 세 역할 화면은
- * 남는 높이를 나눠 갖고 각자 안에서 스크롤한다.
+ * 첫 화면은 세 역할 화면이 뷰포트 높이를 채우고, 아래로 스크롤하면 넓은
+ * 공개 원장과 공격 줄이 나온다 (DESIGN §4). 역할 화면은 각자 안에서 스크롤한다.
  */
 
 /**
@@ -60,11 +61,46 @@ const FRAMES: readonly { href: string; label: string; note: string }[] = [
   },
 ];
 
+/**
+ * 원장 칸은 "대출 기록" 표부터 보여준다. 체인 요약은 콘솔 상단바에 이미 있다.
+ *
+ * 주소 앵커(#loan-records)로는 안 됐다. 라우터가 하이드레이션 뒤 스크롤을
+ * 맨 위로 돌려놓는다. React 의 onLoad 도 믿을 수 없다 — 서버가 그린 iframe 은
+ * React 가 붙기 전에 로드를 끝내서 핸들러가 불리지 않는다. 그래서 마운트 때
+ * 직접 확인하고, 이후 로드(새로고침)에도 다시 맞춘다. 같은 출처라 문서에 손댈
+ * 수 있다. 역할 화면 코드는 건드리지 않는다.
+ */
+function useLoanRecordsScroll() {
+  const ref = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    const frame = ref.current;
+    if (!frame) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const align = () => {
+      const doc = frame.contentDocument;
+      const target = doc?.getElementById('loan-records');
+      const scroller = doc?.scrollingElement;
+      if (target && scroller) scroller.scrollTop = target.offsetTop - 8;
+    };
+    const alignSoon = () => {
+      for (const ms of [0, 300, 1000, 2500]) timers.push(setTimeout(align, ms));
+    };
+    alignSoon();
+    frame.addEventListener('load', alignSoon);
+    return () => {
+      frame.removeEventListener('load', alignSoon);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  return ref;
+}
+
 export function DemoConsole() {
   const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
   // 콘솔은 단계 이벤트를 그리지 않는다. 연결을 붙들 이유가 없다.
   useLive('never');
   const attackRunner = useAttackRunner();
+  const ledgerFrame = useLoanRecordsScroll();
 
   const status = chain.data;
 
@@ -133,8 +169,9 @@ export function DemoConsole() {
           </header>
           <iframe
             className="frame__view frame__view--ledger"
-            src="/ledger#loan-records"
+            src="/ledger"
             title="공개 원장"
+            ref={ledgerFrame}
           />
         </section>
 

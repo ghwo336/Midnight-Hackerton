@@ -700,21 +700,15 @@ button { font: inherit; color: inherit; }
 .frame__view--ledger { height: 420px; }
 
 /*
- * 발표 콘솔: CSS 1440×900 한 화면 (DESIGN §4).
+ * 발표 콘솔 (DESIGN §4).
  *
- * 녹화 중에 페이지가 스크롤되면 핵심 프레임(세 역할 + 원장)이 한 장면에
- * 같이 잡히지 않는다. 세로를 고정 영역(상단바·원장·공격 줄)과 나머지로
- * 나누고, 역할 화면은 남는 높이를 받아 자기 안에서 스크롤한다.
+ * 첫 화면은 세 역할 화면이 뷰포트 높이를 꽉 채운다. 아래로 스크롤하면
+ * 공개 원장이 넓게, 그 아래 공격 줄이 나온다. 원장은 발표의 핵심 증거라
+ * (§4.1) 좁은 띠로 욱여넣지 않는다. 역할 화면은 각자 안에서 스크롤한다.
  * 패널 사이는 간격 없이 1px 선으로 붙인다. 단말이 붙어 있는 것이다.
  */
-.shell--console {
-  height: 100vh;
-  overflow: hidden;
-  flex: none;
-}
 .shell--console .frames {
-  flex: 1 1 auto;
-  min-height: 0;
+  height: calc(100vh - 42px);
   gap: 0;
   padding: 0;
   border-bottom: 1px solid var(--line-hard);
@@ -735,14 +729,14 @@ button { font: inherit; color: inherit; }
 }
 .shell--console .frame__view { flex: 1 1 auto; height: auto; min-height: 0; }
 .shell--console .frame--wide {
-  flex: 0 0 196px;
+  height: 480px;
   margin: 0;
   border: 0;
   border-bottom: 1px solid var(--line-hard);
 }
 
-/* 콘솔 하단 공격 줄: 여섯 칸 한 줄, 세로 최소 */
-.section--attacks { flex: none; border-bottom: 0; }
+/* 콘솔 하단 공격 줄: 여섯 칸 한 줄. 칸마다 1줄 = 제목, 2줄 = 판정 · 거부 코드 · 나간 자금 */
+.section--attacks { border-bottom: 0; }
 .section--attacks .section__head { padding: 5px 14px; font-size: 13px; border-bottom-width: 1px; }
 .section--attacks .section__head .btn { padding-top: 2px; padding-bottom: 2px; font-size: 12.5px; }
 .section--attacks .section__body { padding: 0; }
@@ -763,7 +757,15 @@ button { font: inherit; color: inherit; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.attacks--compact .attack__verdict { margin-top: 1px; }
+.attacks--compact .attack__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  min-width: 0;
+}
+.attacks--compact .attack__title { flex-basis: 100%; }
+.attacks--compact .attack__verdict,
 .attacks--compact .attack__meta { margin-top: 0; }
 
 /* ── 심사 체크리스트 ─────────────────────────────────────── */
