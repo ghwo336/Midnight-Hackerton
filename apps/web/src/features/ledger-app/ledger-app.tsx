@@ -58,7 +58,8 @@ export function LedgerApp() {
           </div>
         </section>
 
-        <section className="section">
+        {/* 발표 콘솔은 /ledger#loan-records 로 이 표부터 띄운다. 체인 요약은 콘솔 상단바에 있다. */}
+        <section className="section" id="loan-records">
           <header className="section__head">
             <span>대출 기록</span>
             <span className="panel__role">{loans.data?.length ?? 0}건</span>

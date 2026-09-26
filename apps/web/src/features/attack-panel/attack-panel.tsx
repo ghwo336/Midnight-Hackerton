@@ -50,14 +50,17 @@ export function AttackPanel({
   busy,
   onRun,
   onReset,
+  compact = false,
 }: {
   statuses: Record<AttackId, AttackStatus>;
   busy: boolean;
   onRun: (id: AttackId) => void;
   onReset: () => void;
+  /** 발표 콘솔 하단 줄. 여섯 칸을 한 줄에, 세로를 최소로 쓴다. */
+  compact?: boolean;
 }) {
   return (
-    <section className="section">
+    <section className={compact ? 'section section--attacks' : 'section'}>
       <header className="section__head">
         <span>공격 시나리오</span>
         <button type="button" className="btn" onClick={onReset} disabled={busy}>
@@ -65,7 +68,7 @@ export function AttackPanel({
         </button>
       </header>
       <div className="section__body">
-        <div className="attacks">
+        <div className={compact ? 'attacks attacks--compact' : 'attacks'}>
           {ATTACK_IDS.map((id) => {
             const status = statuses[id];
             const v = verdict(status);

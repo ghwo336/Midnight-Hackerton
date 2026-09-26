@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import {
@@ -54,6 +54,29 @@ const REASON_TEXT: Record<string, string> = {
   INVOICE_NOT_FOUND: '신청 대상 채권 없음',
 };
 
+/**
+ * 도장이 **바뀌는 순간에만** 패널을 한 번 번쩍인다 (DESIGN §1.1 도장 순간).
+ *
+ * 첫 렌더는 건너뛴다. 새로고침했을 때 이미 찍혀 있던 도장이 번쩍이면
+ * 지금 막 일어난 일처럼 보인다.
+ */
+function useStampFlash(stamp: StampState): string {
+  const previous = useRef<StampState | null>(null);
+  const [flash, setFlash] = useState<'settled' | 'rejected' | null>(null);
+
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = stamp;
+    if (before === null || before === stamp) return;
+    if (stamp !== 'settled' && stamp !== 'rejected') return;
+    setFlash(stamp);
+    const timer = setTimeout(() => setFlash(null), 400);
+    return () => clearTimeout(timer);
+  }, [stamp]);
+
+  return flash === null ? '' : ` panel--${flash}`;
+}
+
 export function LenderApp({
   lenderId,
   account,
@@ -98,6 +121,7 @@ export function LenderApp({
       : latest.outcome === 'settled'
         ? 'settled'
         : 'rejected';
+  const flash = useStampFlash(stamp);
 
   /*
    * 회수 완료를 따로 센다. 예치 잔액은 상환으로 복구되므로 잔액만 보면
@@ -119,7 +143,7 @@ export function LenderApp({
       />
 
       <div className="roleapp__body">
-        <section className="section">
+        <section className={`section${flash}`}>
           <header className="section__head">
             <span>여신 현황</span>
             <span className="panel__role">담보인정비율 {ltv}</span>

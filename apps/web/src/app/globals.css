@@ -699,6 +699,73 @@ button { font: inherit; color: inherit; }
 }
 .frame__view--ledger { height: 420px; }
 
+/*
+ * 발표 콘솔: CSS 1440×900 한 화면 (DESIGN §4).
+ *
+ * 녹화 중에 페이지가 스크롤되면 핵심 프레임(세 역할 + 원장)이 한 장면에
+ * 같이 잡히지 않는다. 세로를 고정 영역(상단바·원장·공격 줄)과 나머지로
+ * 나누고, 역할 화면은 남는 높이를 받아 자기 안에서 스크롤한다.
+ * 패널 사이는 간격 없이 1px 선으로 붙인다. 단말이 붙어 있는 것이다.
+ */
+.shell--console {
+  height: 100vh;
+  overflow: hidden;
+  flex: none;
+}
+.shell--console .frames {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line-hard);
+}
+.shell--console .frame {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+}
+.shell--console .frame:last-child { border-right: 0; }
+.shell--console .frame__cap { padding: 4px 10px; }
+.shell--console .frame__note {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.shell--console .frame__view { flex: 1 1 auto; height: auto; min-height: 0; }
+.shell--console .frame--wide {
+  flex: 0 0 196px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-hard);
+}
+
+/* 콘솔 하단 공격 줄: 여섯 칸 한 줄, 세로 최소 */
+.section--attacks { flex: none; border-bottom: 0; }
+.section--attacks .section__head { padding: 5px 14px; font-size: 13px; border-bottom-width: 1px; }
+.section--attacks .section__head .btn { padding-top: 2px; padding-bottom: 2px; font-size: 12.5px; }
+.section--attacks .section__body { padding: 0; }
+.attacks--compact { grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 0; border-left: 0; }
+.attacks--compact .attack {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 6px 10px;
+  border-bottom: 0;
+}
+.attacks--compact .attack:last-child { border-right: 0; }
+.attacks--compact .attack__btn { width: 44px; margin: 0; padding-left: 0; padding-right: 0; }
+.attacks--compact .attack__title,
+.attacks--compact .attack__meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attacks--compact .attack__verdict { margin-top: 1px; }
+.attacks--compact .attack__meta { margin-top: 0; }
+
 /* ── 심사 체크리스트 ─────────────────────────────────────── */
 /*
  * 세 상태만 있다: 통과 · 실패 · 미평가.

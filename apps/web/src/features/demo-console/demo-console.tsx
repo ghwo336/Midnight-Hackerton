@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import { useLive } from '@/shared/role/use-live';
 import { EMPTY, shortHash } from '@/shared/ui/format';
+import { visibleRunner } from '@/shared/runtime/devtool-visibility';
+import { AttackPanel } from '@/features/attack-panel/attack-panel';
+import { useAttackRunner } from '@/features/attack-panel/use-attack-runner';
 
 /**
  * 발표 콘솔.
@@ -16,9 +19,17 @@ import { EMPTY, shortHash } from '@/shared/ui/format';
  * 공개 이벤트 스트림을 듣고 반응한다. 콘솔이 패널을 조종하지 않는다.
  * 그래서 화면 세 개가 정말로 따로 도는 앱이라는 게 드러난다.
  *
- * **검증 도구는 여기 없다.** 배포 패널과 공격 러너는 제품 기능이 아니라
- * 우리가 주장을 확인하는 수단이다. 같이 두면 어디까지가 제품이고
- * 어디부터가 도구인지 구분되지 않는다. /devtools 로 뺐다.
+ * **검증 도구는 대부분 여기 없다.** 배포 패널과 실제 체인 재현기는 제품
+ * 기능이 아니라 우리가 주장을 확인하는 수단이라 /devtools 에 있다.
+ *
+ * 예외는 로컬 모드의 공격 줄 하나다. 발표는 "신청 → 지급 → 중복 차단 →
+ * 공격 여섯 개" 를 한 화면에서 끊지 않고 보여줘야 하고, 화면을 전환하면
+ * 핵심 프레임(세 역할 + 원장)이 사라진다. 그래서 하단에 한 줄로 두고
+ * "공격 시나리오" 라고 이름을 붙여 제품 화면과 구분한다. 실제 체인에서는
+ * 서버가 서명할 수 없어 이 러너가 돌지 않으므로 보이지 않는다.
+ *
+ * 콘솔은 CSS 1440×900 한 화면에 전부 들어간다 (DESIGN §4). 세 역할 화면은
+ * 남는 높이를 나눠 갖고 각자 안에서 스크롤한다.
  */
 
 /**
@@ -53,12 +64,13 @@ export function DemoConsole() {
   const chain = useQuery({ queryKey: ['chain'], queryFn: api.chain });
   // 콘솔은 단계 이벤트를 그리지 않는다. 연결을 붙들 이유가 없다.
   useLive('never');
+  const attackRunner = useAttackRunner();
 
   const status = chain.data;
 
   return (
     <div className="app">
-      <div className="shell">
+      <div className="shell shell--console">
         <header className="topbar">
           <span className="topbar__title">
             <span className="topbar__name">ONCE Finance</span>
@@ -121,10 +133,20 @@ export function DemoConsole() {
           </header>
           <iframe
             className="frame__view frame__view--ledger"
-            src="/ledger"
+            src="/ledger#loan-records"
             title="공개 원장"
           />
         </section>
+
+        {visibleRunner(status?.simulated) === 'simulator' ? (
+          <AttackPanel
+            compact
+            statuses={attackRunner.attacks}
+            busy={attackRunner.busy}
+            onRun={(id) => void attackRunner.run(id)}
+            onReset={() => void attackRunner.reset()}
+          />
+        ) : null}
       </div>
     </div>
   );
