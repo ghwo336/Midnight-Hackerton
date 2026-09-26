@@ -303,11 +303,14 @@ export function chainStatusOf(error: unknown): string | null {
   return null;
 }
 
-/** A6 의 확정 대기 상한. 한 건이 보통 30~80초라 넉넉히 둔다. */
-const STALE_INCLUSION_TIMEOUT_MS = 5 * 60_000;
+/**
+ * A6 의 확정 대기 상한. 블록은 몇 초마다 나오고 실측 한 건이 30~80초였다.
+ * 2분 안에 안 들어오면 들어올 트랜잭션이 아니다 — 더 기다리게 하지 않는다.
+ */
+const STALE_INCLUSION_TIMEOUT_MS = 2 * 60_000;
 
 /** 대납 서버에 앞 건이 걸려 있으면 기다렸다 다시 잔액 조정을 한다. */
-const STALE_BALANCE_RETRY_MS = [15_000, 30_000, 45_000, 60_000];
+const STALE_BALANCE_RETRY_MS = [5_000, 10_000, 15_000, 20_000, 30_000];
 
 /**
  * A6 용. **미사용 시점에 회로를 실행하고 증명까지 만들어** 들고 있다가,

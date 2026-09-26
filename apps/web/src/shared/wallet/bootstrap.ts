@@ -308,9 +308,12 @@ export async function runBootstrap(
    * 지금은 실측에 기댄다. 이 기기에서 성공한 6단계가 30.98 · 31.23 ·
    * 29.29 · 30.75 · 82.43 · 49.78초였고, 앞선 Lace 배포도 29.5~44.5초였다.
    * 확정에 그만큼 걸린다는 뜻이므로 다음 요청을 그 전에 보내면 대납이
-   * 거절된다. 25초를 깔고, 그래도 거절당하면 아래 재시도가 받는다.
+   * 거절된다. 그렇다고 길게 깔면 8단계 내내 그만큼 쌓인다(25초였을 때 3분
+   * 가까이 더 걸렸다). 회로 호출은 블록 확정까지 기다린 뒤 돌아오므로 앞 건은
+   * 이미 체인에 있다 — 대납 서버가 그걸 알아채는 짧은 틈만 준다. 5초를 깔고,
+   * 그래도 거절당하면 아래 재시도가 짧은 간격부터 받는다.
    */
-  const SETTLE_FLOOR_MS = 25_000;
+  const SETTLE_FLOOR_MS = 5_000;
 
   const waitForSettlement = async (note: (text: string) => void): Promise<void> => {
     const started = Date.now();
@@ -327,7 +330,8 @@ export async function runBootstrap(
    * Lace 배포도 29.5~44.5초였다. 그중 증명은 1초 남짓이니 나머지가 전부
    * 확정 대기다. 몇 초 만에 다시 내봐야 같은 이유로 또 거절당한다.
    */
-  const PENDING_RETRY_DELAYS_MS = [15_000, 30_000, 45_000, 60_000];
+  // 짧은 간격부터 늘려 간다. 대부분 첫 재시도에서 풀리고, 상한은 합쳐 80초다.
+  const PENDING_RETRY_DELAYS_MS = [5_000, 10_000, 15_000, 20_000, 30_000];
 
   const runWithPendingRetry = async (
     body: () => Promise<{ txId?: string; block?: number }>,
