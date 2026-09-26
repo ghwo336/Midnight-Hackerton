@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, api } from '@/shared/api/client';
 import { useLive } from '@/shared/role/use-live';
 import { EMPTY, shortHash } from '@/shared/ui/format';
 import { visibleRunner } from '@/shared/runtime/devtool-visibility';
 import { AttackPanel } from '@/features/attack-panel/attack-panel';
 import { useAttackRunner } from '@/features/attack-panel/use-attack-runner';
+import { OnChainAttacks } from '@/features/attack-panel/onchain-attacks';
+import { useWallet } from '@/features/wallet-panel/use-wallet';
 
 /**
  * 발표 콘솔.
@@ -23,11 +25,14 @@ import { useAttackRunner } from '@/features/attack-panel/use-attack-runner';
  * **검증 도구는 대부분 여기 없다.** 배포 패널과 실제 체인 재현기는 제품
  * 기능이 아니라 우리가 주장을 확인하는 수단이라 /devtools 에 있다.
  *
- * 예외는 로컬 모드의 공격 줄 하나다. 발표는 "신청 → 지급 → 중복 차단 →
- * 공격 여섯 개" 를 한 화면에서 끊지 않고 보여줘야 하고, 화면을 전환하면
- * 핵심 프레임(세 역할 + 원장)이 사라진다. 그래서 하단에 한 줄로 두고
- * "공격 시나리오" 라고 이름을 붙여 제품 화면과 구분한다. 실제 체인에서는
- * 서버가 서명할 수 없어 이 러너가 돌지 않으므로 보이지 않는다.
+ * 예외는 하단의 공격 줄이다. 발표는 "신청 → 지급 → 중복 차단 → 공격" 을
+ * 한 화면에서 끊지 않고 보여줘야 하고, 화면을 전환하면 핵심 프레임(세 역할
+ * + 원장)이 사라진다. 그래서 하단에 두고 "공격 시나리오" 라고 이름을 붙여
+ * 제품 화면과 구분한다.
+ *
+ *   로컬       서버가 서명하는 시뮬레이터 러너 (A1~A6)
+ *   실제 체인  지갑이 서명하는 재현기 (A5·A6) + 지갑 연결 한 줄.
+ *              /devtools 와 같은 부품이고, 원본을 겨누면 확인 창이 뜬다
  *
  * 첫 화면은 세 역할 화면이 뷰포트 높이를 채우고, 아래로 스크롤하면 넓은
  * 공개 원장과 공격 줄이 나온다 (DESIGN §4). 역할 화면은 각자 안에서 스크롤한다.
@@ -100,6 +105,9 @@ export function DemoConsole() {
   // 콘솔은 단계 이벤트를 그리지 않는다. 연결을 붙들 이유가 없다.
   useLive('never');
   const attackRunner = useAttackRunner();
+  const queryClient = useQueryClient();
+  const wallet = useWallet('preprod');
+  const invoices = useQuery({ queryKey: ['invoices'], queryFn: api.invoices });
   const ledgerFrame = useLoanRecordsScroll();
 
   const status = chain.data;
@@ -183,6 +191,39 @@ export function DemoConsole() {
             onRun={(id) => void attackRunner.run(id)}
             onReset={() => void attackRunner.reset()}
           />
+        ) : null}
+
+        {visibleRunner(status?.simulated) === 'onchain' ? (
+          <>
+            <section className="section section--walletbar">
+              <header className="section__head">
+                <span>지갑</span>
+                <span className="walletbar__state">
+                  {wallet.state.status === 'connected'
+                    ? `연결됨 · ${wallet.state.address ? shortHash(wallet.state.address) : EMPTY}`
+                    : wallet.state.status === 'failed'
+                      ? (wallet.state.message ?? '연결 실패')
+                      : '연결 안 됨'}
+                  {wallet.state.status === 'connected' ? null : (
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={wallet.state.status === 'connecting'}
+                      onClick={() => void wallet.connect()}
+                    >
+                      {wallet.state.status === 'connecting' ? '지갑 승인 대기 중' : '지갑 연결'}
+                    </button>
+                  )}
+                </span>
+              </header>
+            </section>
+            <OnChainAttacks
+              wallet={wallet.state.api}
+              contractAddress={status?.contractAddress ?? null}
+              invoices={invoices.data ?? []}
+              onDone={() => void queryClient.invalidateQueries()}
+            />
+          </>
         ) : null}
       </div>
     </div>

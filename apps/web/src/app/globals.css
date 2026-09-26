@@ -735,6 +735,11 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--line-hard);
 }
 
+/* 콘솔 하단 지갑 한 줄 (실제 체인). 연결 상태와 버튼만 */
+.section--walletbar .section__head { align-items: center; padding: 6px 14px; font-size: 13px; }
+.walletbar__state { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 400; color: var(--ink-2); }
+.walletbar__state .btn { padding: 3px 12px; font-size: 12.5px; }
+
 /* 콘솔 하단 공격 줄: 여섯 칸 한 줄. 칸마다 1줄 = 제목, 2줄 = 판정 · 거부 코드 · 나간 자금 */
 .section--attacks { border-bottom: 0; }
 .section--attacks .section__head { padding: 5px 14px; font-size: 13px; border-bottom-width: 1px; }
