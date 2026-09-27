@@ -747,6 +747,12 @@ button { font: inherit; color: inherit; }
 .section--attacks .section__body { padding: 0; }
 .attacks--compact { grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 0; border-left: 0; }
 .attacks--compact .attack {
+  /*
+   * 결과가 뜨면 칸이 2줄 → 최대 4줄(제목 / 판정·코드 / 코드 줄바꿈 / 나간 자금)로
+   * 늘어난다. 그만큼 페이지가 길어져 데모 중에 다시 스크롤해야 했다. 처음부터
+   * 4줄 높이를 잡아 둔다.
+   */
+  min-height: 92px;
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 10px;
