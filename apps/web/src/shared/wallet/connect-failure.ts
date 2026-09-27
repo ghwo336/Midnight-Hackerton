@@ -72,7 +72,7 @@ export function isSyncing(message: string): boolean {
  *
  * A5(동시 신청)에 그대로 걸린다. 두 건을 정말 동시에 내야 하는데 지갑이
  * 직렬화하면 진 쪽이 회로에 닿지 못하고 죽는다. 그건 '통과' 도 '실패' 도
- * 아닌 **판정 불가** 다 (docs/ONCE_HANDOFF_final.md §7.1).
+ * 아닌 **판정 불가** 다 (README §5.2).
  */
 export function isTransactionPending(message: string): boolean {
   return /transaction is already pending|already pending.*confirm|pending.*before requesting another/i.test(

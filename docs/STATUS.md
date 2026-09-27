@@ -2,8 +2,7 @@
 
 마지막 갱신: **2026-09-26** · 인수 환경(WSL2 · Node 24.15.0 · pnpm 10.30.3)
 
-제품 설명은 [README.md](../README.md), 인수인계 사항은
-[ONCE_HANDOFF_final.md](ONCE_HANDOFF_final.md), 측정치는
+제품 설명은 [README.md](../README.md), 측정치는
 [TEST_REPORT.md](TEST_REPORT.md)에 있다.
 
 ---

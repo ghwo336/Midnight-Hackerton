@@ -25,7 +25,7 @@ const SOURCE = new URL('../../apps/web/src/shared/wallet/dust-registration.ts', 
  * 왼쪽이 커넥터 메서드, 오른쪽이 그게 실패했을 때 **마지막으로 찍히는 줄**
  * 이다. null 은 아직 아무 줄도 안 찍혔다는 뜻이다.
  *
- * docs/DEPLOY.md §2 와 docs/ONCE_HANDOFF_final.md §4.5 의 표가 이것과 같아야
+ * docs/DEPLOY.md §2 의 표가 이것과 같아야
  * 한다. 아래 구조 테스트가 이 표를 소스에서 다시 유도해 대조한다.
  */
 const DIAGNOSIS: readonly (readonly [method: string, lastLabel: string | null])[] = [
